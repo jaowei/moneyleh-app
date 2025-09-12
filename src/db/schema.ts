@@ -1,14 +1,14 @@
 import { sql } from "drizzle-orm";
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createUpdateSchema } from "drizzle-zod";
 import z from "zod";
 
 const timestamps = {
-  updated_at: integer({ mode: "timestamp" }),
-  created_at: integer({ mode: "timestamp" })
+  updated_at: text(),
+  created_at: text()
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
-  deleted_at: integer({ mode: "timestamp" }),
+  deleted_at: text(),
 };
 
 export const company = sqliteTable("company", {
@@ -17,8 +17,11 @@ export const company = sqliteTable("company", {
   ...timestamps,
 });
 export const companyInsertSchema = createInsertSchema(company, {
-  name: z.string().min(1)
-})
+  name: z.string().min(1),
+});
+export const companyUpdateSchema = createUpdateSchema(company, {
+  name: z.string().min(1),
+});
 
 export const accounts = sqliteTable("accounts", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -47,17 +50,24 @@ export const securities = sqliteTable("securities", {
   securityType: text("security_type", {
     enum: ["stock", "bond", "etf", "managedFund"],
   }),
-  brokerId: integer("broker_id").references(() => company.id)
+  brokerId: integer("broker_id").references(() => company.id),
 });
 
 export const insurancePolicies = sqliteTable("insurance_policies", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
   policyType: text("policy_type", {
-    enum: ["wholeLife", "termLife", "criticalIllness", "disability", "medical", "personalAccident"],
+    enum: [
+      "wholeLife",
+      "termLife",
+      "criticalIllness",
+      "disability",
+      "medical",
+      "personalAccident",
+    ],
   }),
-  companyId: integer("company_id").references(() => company.id)
-})
+  companyId: integer("company_id").references(() => company.id),
+});
 
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
