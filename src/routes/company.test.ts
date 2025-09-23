@@ -72,4 +72,57 @@ describe("/api/company", () => {
       expect(resBody.data.length).toBe(0);
     });
   });
+
+  describe("update", () => {
+    test("Fails to upate: invalid payload", async () => {
+      const res = await app.request("/api/company/1", {
+        method: "PUT",
+        body: JSON.stringify({
+          name: "",
+        }),
+        ...jsonHeader,
+      });
+      expect(res.status).toBe(400)
+      const errorText = await res.text();
+      expect(errorText).toInclude("Too small:");
+      expect(errorText).toInclude("at name");
+    })
+    test("Fails to upate: empty path param", async () => {
+      const res = await app.request("/api/company", {
+        method: "PUT",
+        body: JSON.stringify({
+          name: "helloNewName",
+        }),
+        ...jsonHeader,
+      });
+      expect(res.status).toBe(404)
+      const errorText = await res.text();
+      expect(errorText).toInclude("Not found");
+    })
+    test("Fails to upate: invalid company id", async () => {
+      const res = await app.request("/api/company/invalidId", {
+        method: "PUT",
+        body: JSON.stringify({
+          name: "helloNewName",
+        }),
+        ...jsonHeader,
+      });
+      expect(res.status).toBe(404)
+      const errorText = await res.text();
+      expect(errorText).toInclude("Could not find company id");
+    })
+    test("Updates: invalid company id", async () => {
+      const res = await app.request("/api/company/19", {
+        method: "PUT",
+        body: JSON.stringify({
+          name: "helloNewName",
+        }),
+        ...jsonHeader,
+      });
+      expect(res.status).toBe(201)
+      const payload = await res.json();
+      expect(payload).toHaveProperty("updatedId");
+      expect(payload).toHaveProperty("updatedAt");
+    })
+  })
 });
