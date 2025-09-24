@@ -112,7 +112,7 @@ describe("/api/company", () => {
       expect(errorText).toInclude("Could not find company id");
     })
     test("Updates: invalid company id", async () => {
-      const res = await app.request("/api/company/19", {
+      const res = await app.request("/api/company/18", {
         method: "PUT",
         body: JSON.stringify({
           name: "helloNewName",

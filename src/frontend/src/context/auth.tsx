@@ -1,14 +1,15 @@
-import React, { createContext, useContext } from "react";
+import React, {createContext, useContext, useState} from "react";
 import { authClient } from "../lib/auth-client";
 
 interface User {
   email?: string;
+  name?: string
 }
  
 export interface AuthState {
   isAuthenticated: boolean;
-  user: User | null;
-  login: (email: string) => Promise<void>;
+  user: User | undefined;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -16,6 +17,8 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data, isPending } = authClient.useSession();
+  //TODO: handle authenticated by session
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Show loading state while checking auth
   if (isPending) {
@@ -26,35 +29,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const login = async (email: string) => {
-    try {
-      const { error: authError } = await authClient.signIn.magicLink({
-        email,
-        name: email,
-        callbackURL: "/dashboard",
-      });
-
-      if (authError) {
-        throw new Error(authError.message);
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      } else {
-        console.error(error);
-      }
-    }
+  const login = async (email: string, password: string) => {
+      const {error: authError} = await authClient.signIn.email({
+         email,
+         password,
+          rememberMe: true
+      })
+        if (authError) {
+            throw authError
+        }
+        setIsAuthenticated(true)
   };
 
-  // TODO: handle logout
-  const logout = () => {
+  const logout = async () => {
+     await authClient.signOut()
+      setIsAuthenticated(false)
   };
 
+  console.log(isAuthenticated)
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated: data?.session?.expiresAt ? data.session.expiresAt > new Date(): false,
-        user: { email: data?.user?.email },
+        isAuthenticated,
+        user: { email: data?.user?.email, name: data?.user?.name },
         login,
         logout,
       }}

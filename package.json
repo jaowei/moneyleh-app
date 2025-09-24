@@ -7,7 +7,7 @@
     "migrate:better-auth": "bunx --bun @better-auth/cli migrate",
     "generate:migrations": "bun drizzle-kit generate",
     "migrate:db": "bun run ./src/db/migrate.ts",
-    "seed:db": "bun run ./src/lib/db/seed.ts"
+    "seed:db": "bun run ./src/db/seed.ts"
   },
   "dependencies": {
     "better-auth": "^1.3.4",
