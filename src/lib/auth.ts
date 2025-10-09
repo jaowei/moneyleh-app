@@ -1,10 +1,15 @@
 import {betterAuth} from "better-auth";
-import {Database} from "bun:sqlite";
-import {anonymous, magicLink} from "better-auth/plugins";
+import {magicLink} from "better-auth/plugins";
 import {resend} from "./email";
+import {drizzleAdapter} from "better-auth/adapters/drizzle";
+import {db} from "../db/db.ts";
+import * as authSchema from '../db/auth-schema.ts'
 
 export const auth = betterAuth({
-    database: new Database("./moneyleh-auth.db"),
+    database: drizzleAdapter(db, {
+        provider: 'sqlite',
+        schema: authSchema
+    }),
     emailAndPassword: {
         enabled: true,
     },
@@ -25,5 +30,8 @@ export const auth = betterAuth({
             enabled: true,
             maxAge: 60 * 60 * 24
         }
+    },
+    account: {
+        modelName: 'auth_account'
     }
 });
