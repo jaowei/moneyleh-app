@@ -14,6 +14,7 @@ CREATE TABLE `cards` (
 	`name` text NOT NULL,
 	`company_id` integer,
 	`card_type` text,
+	`card_network` text,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
@@ -95,16 +96,17 @@ CREATE TABLE `user_accounts` (
 );
 --> statement-breakpoint
 CREATE TABLE `user_cards` (
+	`card_number` text PRIMARY KEY NOT NULL,
 	`card_id` integer,
 	`user_id` text,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
-	PRIMARY KEY(`card_id`, `user_id`),
 	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `user_cards_card_number_unique` ON `user_cards` (`card_number`);--> statement-breakpoint
 CREATE TABLE `user_companies` (
 	`company_id` integer,
 	`user_id` text,

@@ -41,6 +41,9 @@ export const cards = sqliteTable("cards", {
     cardType: text("card_type", {
         enum: ["miles", "rewards", "cashback"],
     }),
+    cardNetwork: text("card_network", {
+        enum: ["visa signature", "world mastercard", "amex"]
+    }),
     ...timestamps,
 });
 
@@ -87,6 +90,8 @@ export const transactions = sqliteTable("transactions", {
     userId: text("user_id").references(() => user.id),
     ...timestamps,
 });
+export const transactionsInsertSchemaZ = createInsertSchema(transactions)
+export type transactionsInsertSchema = z.infer<typeof transactionsInsertSchemaZ>
 
 export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").references(() => transactions.id),
@@ -107,10 +112,11 @@ export const userAccounts = sqliteTable("user_accounts", {
 }, (table) => [primaryKey({columns: [table.accountId, table.userId]})])
 
 export const userCards = sqliteTable("user_cards", {
+    cardNumber: text("card_number").primaryKey().unique(),
     cardId: integer("card_id").references(() => cards.id),
     userId: text("user_id").references(() => user.id),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.cardId, table.userId]})])
+})
 
 export const userInsurancePolicies = sqliteTable("user_insurance_policies", {
     insurancePolicyId: integer("insurance_policy_id").references(() => insurancePolicies.id),

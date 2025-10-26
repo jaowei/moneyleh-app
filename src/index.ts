@@ -6,6 +6,7 @@ import {companyRoute} from "./routes/company";
 import {HTTPException} from "hono/http-exception";
 import {alreadyExistsResponse} from "./errors";
 import {uiRoute} from "./routes/ui.ts";
+import {transactionRoute} from "./routes/transaction.ts";
 
 const app = new Hono();
 
@@ -20,6 +21,7 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
 // routes
 app.route("/api/company", companyRoute);
+app.route("/api/transaction", transactionRoute)
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute)
@@ -46,11 +48,7 @@ app.onError((err, c) => {
     appLogger(`${err} | ${JSON.stringify(err)}`)
     if (err.message.includes("UNIQUE constraint failed")) {
         return alreadyExistsResponse;
-    }
-        // else if (err.message.includes("FOREIGN")) {
-        //     return new Response('')
-    // }
-    else if (err instanceof HTTPException) {
+    } else if (err instanceof HTTPException) {
         return err.getResponse();
     }
     return new Response('Error', {

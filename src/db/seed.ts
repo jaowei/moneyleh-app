@@ -28,64 +28,76 @@ const companyIdMap = companyIds.reduce(
 console.log("===Seed cards: Start!")
 await db.insert(schema.cards).values([
     {
-        name: "Altitude",
+        name: "altitude",
         companyId: companyIdMap.DBS,
         cardType: "miles",
+        cardNetwork: "visa signature"
     },
     {
-        name: "Live_Fresh",
+        name: "live fresh",
         companyId: companyIdMap.DBS,
         cardType: "cashback",
+        cardNetwork: "visa signature"
     },
     {
-        name: "Woman's_World",
+        name: "woman's",
         companyId: companyIdMap.DBS,
         cardType: "rewards",
+        cardNetwork: "world mastercard"
     },
     {
-        name: "Revolution",
+        name: "revolution",
         companyId: companyIdMap.HSBC,
         cardType: "rewards",
+        cardNetwork: "visa signature"
     },
     {
-        name: "TravelOne",
+        name: "travelone",
         companyId: companyIdMap.HSBC,
         cardType: "rewards",
+        cardNetwork: "visa signature"
     },
     {
-        name: "Journey",
+        name: "journey",
         companyId: companyIdMap.Standard_Chartered,
         cardType: "miles",
+        cardNetwork: "visa signature"
     },
     {
-        name: "Lady's",
+        name: "lady's",
         companyId: companyIdMap.UOB,
         cardType: "rewards",
+        cardNetwork: "world mastercard"
     },
     {
-        name: "Preferred_Platinum",
+        name: "preferred platinum",
         companyId: companyIdMap.UOB,
         cardType: "rewards",
+        cardNetwork: "visa signature"
     },
     {
-        name: "Krisflyer Ascend",
+        name: "krisflyer ascend",
         companyId: companyIdMap.AMEX,
         cardType: "miles",
+        cardNetwork: "amex"
     },
     {
-        name: "PremierMiles",
+        name: "premier miles",
         companyId: companyIdMap.Citibank,
         cardType: "miles",
+        cardNetwork: "world mastercard"
     },
     {
-        name: "Rewards",
+        name: "rewards",
         companyId: companyIdMap.Citibank,
         cardType: "rewards",
+        cardNetwork: "world mastercard"
     },
     {
-        name: "Ca$hback",
+        name: "ca$hback",
         companyId: companyIdMap.Trust_Bank,
         cardType: "cashback",
+        cardNetwork: "visa signature"
     },
 ]).onConflictDoNothing();
 console.log("===Seed cards: Done!")

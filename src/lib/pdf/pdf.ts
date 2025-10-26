@@ -1,21 +1,47 @@
-// TODO: Experimenting with new PDF library
-import mupdf from 'mupdf'
+import * as mupdf from 'mupdf'
+import {
+    type MuPdfStructuredTextPage, MuPdfStructuredTextPageZ
+} from "./pdf.type.ts";
+import {dbsCard} from "./formats/dbs.ts";
 
-const doc = mupdf.PDFDocument.openDocument(await Bun.file("/mnt/c/Users/97300125/Documents/jaowei/Finance/DBS/2025-6-CC.pdf").arrayBuffer())
-
-const allText: any[] = []
-for (let i = 0; i < doc.countPages(); i++) {
-const page = doc.loadPage(i)
-const res = page.toStructuredText().asText()
-const data = res.split('\n')
-let line: any[] = []
-data.forEach((str) => {
-    if (str) {
-        line.push(str)
-    } else {
-        allText.push(line)
-        line = []
-    }
-})
+const pdfFormats = {
+    dbsCard: dbsCard
 }
-console.log(allText)
+
+const parseStatementPages = (document: mupdf.Document) => {
+    const dataToExtract: MuPdfStructuredTextPage[] = []
+    for (let i = 0; i < document.countPages(); i++) {
+        const page = document.loadPage(i)
+        const convertedText = page.toStructuredText("preserve-spans").asJSON()
+        try {
+            const blockData = JSON.parse(convertedText)
+            const parsedData = MuPdfStructuredTextPageZ.parse(blockData)
+            dataToExtract.push(parsedData)
+        } catch (e) {
+            throw new Error(`Error converting page text: ${JSON.stringify(e)}`)
+        }
+    }
+    return dataToExtract
+}
+
+const determineFormat = (doc: mupdf.Document) => {
+    const firstPage = doc.loadPage(0)
+    if (firstPage.search(pdfFormats.dbsCard.searchString).length) {
+        return pdfFormats.dbsCard.extractData
+    }
+}
+
+export const pdfParser = async (file: File) => {
+    const doc = mupdf.PDFDocument.openDocument(await file.arrayBuffer())
+    if (!doc.countPages()) {
+        throw new Error(`Document does not have any pages!`)
+    }
+
+    const extractor = determineFormat(doc)
+    if (extractor) {
+        const dataToExtract = parseStatementPages(doc)
+        return extractor(dataToExtract)
+    } else {
+        throw new Error(`Cannot determine format for file: ${file.name}`)
+    }
+}

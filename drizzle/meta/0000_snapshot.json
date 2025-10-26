@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d3a0990c-200b-4ba4-8faf-b116fe5f8641",
+  "id": "61a4782a-637f-44b1-a137-8e39b6dd3772",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -104,6 +104,13 @@
         },
         "card_type": {
           "name": "card_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "card_network": {
+          "name": "card_network",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -664,6 +671,13 @@
     "user_cards": {
       "name": "user_cards",
       "columns": {
+        "card_number": {
+          "name": "card_number",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
         "card_id": {
           "name": "card_id",
           "type": "integer",
@@ -701,7 +715,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_cards_card_number_unique": {
+          "name": "user_cards_card_number_unique",
+          "columns": [
+            "card_number"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "user_cards_card_id_cards_id_fk": {
           "name": "user_cards_card_id_cards_id_fk",
@@ -730,15 +752,7 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {
-        "user_cards_card_id_user_id_pk": {
-          "columns": [
-            "card_id",
-            "user_id"
-          ],
-          "name": "user_cards_card_id_user_id_pk"
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },

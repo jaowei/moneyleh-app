@@ -1,0 +1,58 @@
+import z from 'zod'
+import type {transactionsInsertSchema} from "../../db/schema.ts";
+
+// Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
+
+const MuPdfBboxZ = z.object({
+    x: z.number(),
+    y: z.number(),
+    w: z.number(),
+    h: z.number(),
+})
+
+const MuPdfStructuredTextLineZ = z.object({
+    wmode: z.union([z.literal(0), z.literal(1)]),
+    bbox: MuPdfBboxZ,
+    font: z.object({
+        name: z.string(),
+        size: z.number()
+    }),
+    x: z.number(),
+    y: z.number(),
+    text: z.string()
+})
+export type MuPdfStructuredLine = z.infer<typeof MuPdfStructuredTextLineZ>
+
+const MuPdfStructuredTextBlockZ = z.object({
+    type: z.enum(['image', 'text']),
+    bbox: MuPdfBboxZ,
+    lines: z.array(MuPdfStructuredTextLineZ)
+})
+export type MuPdfStructuredTextBlock = z.infer<typeof MuPdfStructuredTextBlockZ>
+
+export const MuPdfStructuredTextPageZ = z.object({
+    blocks: z.array(MuPdfStructuredTextBlockZ)
+})
+export type MuPdfStructuredTextPage = z.infer<typeof MuPdfStructuredTextPageZ>
+
+interface CardData {
+    transactions: transactionsInsertSchema[];
+    total: number;
+    cardNumber: string;
+}
+
+interface PointsData {
+    startBalance: number;
+    earned: number;
+    redeemed: number;
+    expiring: number;
+    endBalance: number;
+}
+
+export interface StatementData {
+    statementDate: string;
+    dueDate: string;
+    creditLimit: number;
+    cards: Record<string, CardData>
+    points: Record<string, PointsData>
+}
