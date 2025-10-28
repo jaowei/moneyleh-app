@@ -124,6 +124,7 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
         points: {}
     }
     let inCardTxn = false
+    let currency: string = ''
     dataToExtract.forEach((pageData, pageNum) => {
         const {blocks} = pageData
         blocks.forEach((block, blockIdx) => {
@@ -143,6 +144,12 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
                 dataIdx.statementDate = blockIdx + 1
             } else if (startingLineText.text.toLowerCase().includes('points summary')) {
                 dataIdx.pointsSummary = blockIdx + 1
+            } else if (startingLineText.text.toLowerCase() === 'date') {
+                if (block.lines[2]?.text.toLowerCase().includes('s$')) {
+                    currency = 'SGD'
+                } else {
+                    appLogger(`WARN: No currency detected!`)
+                }
             } else {
                 const matchRes = startingLineText.text.match(/(.+) CARD NO\.: ([0-9]{4} [0-9]{4} [0-9]{4} [0-9]{4})/)
                 if (matchRes?.length) {
@@ -191,6 +198,7 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
                         if (cardData && block.lines[1]) {
                             cardData.total = parseAmount(block.lines[1]) || 0
                         }
+                    } else if (block.lines[0]?.text.toLowerCase() === 'total:') {
                         appLogger(`End of card transactions!`)
                         inCardTxn = false
                     }
@@ -199,7 +207,8 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
                 const transaction = {
                     transactionDate: '',
                     description: '',
-                    amount: Number.NaN
+                    amount: Number.NaN,
+                    currency
                 }
                 let descStartIdx = 1
                 if (block.lines[0]) {
@@ -233,7 +242,6 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
 
         })
     })
-    appLogger(JSON.stringify(data))
     return data
 }
 
