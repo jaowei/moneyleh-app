@@ -3,9 +3,11 @@ import {
     type MuPdfStructuredTextPage, MuPdfStructuredTextPageZ
 } from "./pdf.type.ts";
 import {dbsCard} from "./formats/dbs.ts";
+import {cpf} from "./formats/cpf.ts";
 
 const pdfFormats = {
-    dbsCard: dbsCard
+    dbsCard: dbsCard,
+    cpf: cpf
 }
 
 const parseStatementPages = (document: mupdf.Document) => {
@@ -28,6 +30,8 @@ const determineFormat = (doc: mupdf.Document) => {
     const firstPage = doc.loadPage(0)
     if (firstPage.search(pdfFormats.dbsCard.searchString).length) {
         return pdfFormats.dbsCard.extractData
+    } else if (firstPage.search(pdfFormats.cpf.searchString).length) {
+        return pdfFormats.cpf.extractData
     }
 }
 

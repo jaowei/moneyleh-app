@@ -91,7 +91,7 @@ export const transactions = sqliteTable("transactions", {
     ...timestamps,
 });
 export const transactionsInsertSchemaZ = createInsertSchema(transactions)
-export type transactionsInsertSchema = z.infer<typeof transactionsInsertSchemaZ>
+export type TransactionsInsertSchema = z.infer<typeof transactionsInsertSchemaZ>
 
 export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").references(() => transactions.id),

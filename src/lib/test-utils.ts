@@ -1,3 +1,13 @@
+import {expect} from "bun:test";
+import {extendedDayjs} from "./dayjs.ts";
+import type {TransactionsInsertSchema} from "../db/schema.ts";
+
 export const jsonHeader = {
     headers: new Headers({"Content-Type": "application/json"}),
 };
+
+export const testTransaction = (t: TransactionsInsertSchema) => {
+    expect(extendedDayjs(t.transactionDate).isValid()).toBe(true)
+    expect(t.description).toBeString()
+    expect(t.amount).toBeNumber()
+}

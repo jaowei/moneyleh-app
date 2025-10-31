@@ -1,5 +1,5 @@
 import z from 'zod'
-import type {transactionsInsertSchema} from "../../db/schema.ts";
+import type {TransactionsInsertSchema} from "../../db/schema.ts";
 
 // Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
 
@@ -36,7 +36,7 @@ export const MuPdfStructuredTextPageZ = z.object({
 export type MuPdfStructuredTextPage = z.infer<typeof MuPdfStructuredTextPageZ>
 
 interface CardData {
-    transactions: transactionsInsertSchema[];
+    transactions: TransactionsInsertSchema[];
     total: number;
     cardNumber: string;
 }
@@ -49,10 +49,39 @@ interface PointsData {
     endBalance: number;
 }
 
-export interface StatementData {
+interface AccountData {
+    transactions: TransactionsInsertSchema[]
+}
+
+interface StatementDataBase {
     statementDate: string;
+}
+
+export interface CardStatementData extends StatementDataBase {
     dueDate: string;
     creditLimit: number;
     cards: Record<string, CardData>
     points: Record<string, PointsData>
+}
+
+export interface AccountStatementData extends StatementDataBase {
+    accounts: Record<string, AccountData>
+}
+
+
+export interface CPFStatementData extends StatementDataBase {
+    accounts: {
+        ordinaryAccount: AccountData
+        specialAccount: AccountData
+        medisaveAccount: AccountData
+    }
+}
+
+export type StatementData = CardStatementData | AccountStatementData | CPFStatementData
+
+export type PdfFormatExtractor = (dataToExtract: MuPdfStructuredTextPage[]) => StatementData
+
+export interface PdfFormat {
+    searchString: string;
+    extractData: PdfFormatExtractor
 }
