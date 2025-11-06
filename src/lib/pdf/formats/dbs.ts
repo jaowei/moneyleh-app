@@ -4,7 +4,7 @@ import type {
     MuPdfStructuredTextPage, PdfFormat,
     StatementData
 } from "../pdf.type.ts";
-import {extendedDayjs, parseDateString} from "../../dayjs.ts";
+import {parseDateString} from "../../dayjs.ts";
 import {appLogger} from "../../../index.ts";
 import {parseTxnDate} from "../pdf.utils.ts";
 

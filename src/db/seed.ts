@@ -174,4 +174,10 @@ await db.insert(authSchema.user).values({
 }).onConflictDoNothing()
 console.log("===Seed test user: Done!")
 
+console.log("===Seed test tag: Start!")
+await db.insert(schema.tags).values({
+    description: 'test-tag',
+}).onConflictDoNothing()
+console.log("===Seed test tag: Done!")
+
 console.log(`===Seeding complete.`);

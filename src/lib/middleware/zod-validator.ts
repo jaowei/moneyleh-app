@@ -1,4 +1,3 @@
-import {createMiddleware} from "hono/factory";
 import {HTTPException} from "hono/http-exception";
 import {validator} from "hono/validator";
 import * as z from "zod";

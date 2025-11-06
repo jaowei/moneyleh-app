@@ -69,10 +69,10 @@ CREATE TABLE `transaction_tags` (
 --> statement-breakpoint
 CREATE TABLE `transactions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`transaction_date` text,
-	`description` text,
-	`currency` text,
-	`amount` real,
+	`transaction_date` text NOT NULL,
+	`description` text NOT NULL,
+	`currency` text NOT NULL,
+	`amount` real NOT NULL,
 	`account_id` integer,
 	`card_id` integer,
 	`user_id` text,

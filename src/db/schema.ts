@@ -1,6 +1,6 @@
 import {sql} from "drizzle-orm";
 import {sqliteTable, text, integer, real, primaryKey} from "drizzle-orm/sqlite-core";
-import {createInsertSchema, createUpdateSchema} from "drizzle-zod";
+import {createInsertSchema, createSelectSchema, createUpdateSchema} from "drizzle-zod";
 import z from "zod";
 import {user} from "./auth-schema.ts";
 
@@ -78,13 +78,15 @@ export const tags = sqliteTable("tags", {
     description: text().notNull().unique(),
     ...timestamps,
 });
+export const tagSelectSchemaZ = createSelectSchema(tags)
+export type TagSelectSchema = z.infer<typeof tagSelectSchemaZ>
 
 export const transactions = sqliteTable("transactions", {
     id: integer().primaryKey({autoIncrement: true}),
-    transactionDate: text("transaction_date"),
-    description: text(),
-    currency: text(),
-    amount: real(),
+    transactionDate: text("transaction_date").notNull(),
+    description: text().notNull(),
+    currency: text().notNull(),
+    amount: real().notNull(),
     accountId: integer("account_id").references(() => accounts.id),
     cardId: integer("card_id").references(() => cards.id),
     userId: text("user_id").references(() => user.id),
@@ -98,6 +100,8 @@ export const transactionTags = sqliteTable("transaction_tags", {
     tagId: integer("tag_id").references(() => tags.id),
     ...timestamps,
 }, (table) => [primaryKey({columns: [table.transactionId, table.tagId]})])
+export const transactionTagsInsertSchemaZ = createInsertSchema(transactionTags)
+export type TransactionTagsInsertSchema = z.infer<typeof transactionTagsInsertSchemaZ>
 
 export const userCompanies = sqliteTable("user_companies", {
     companyId: integer("company_id").references(() => companies.id),

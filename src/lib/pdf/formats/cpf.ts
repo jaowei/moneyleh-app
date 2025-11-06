@@ -98,7 +98,7 @@ const extractData: PdfFormatExtractor = (dataToExtract) => {
     })
 
     Object.values(statementData.accounts).forEach((a) => {
-        a.transactions.forEach((t, idx) => {
+        a.transactions.forEach((t) => {
             const code = t.description?.slice(0, 3) || ''
             const fullDesc = abbrMap.get(code)
             if (fullDesc && t.description) {
