@@ -1,6 +1,17 @@
 import {describe, test, expect} from "bun:test";
 import app from "../index.ts";
-import {jsonHeader} from "../lib/test-utils.ts";
+import {jsonHeader, testUser} from "../lib/test-utils.ts";
+import type {UserCardInsertSchema} from "../db/schema.ts";
+
+const cardData: UserCardInsertSchema[] = [{
+    cardNumber: 'test-card-num',
+    cardId: 1,
+    userId: testUser.id
+}, {
+    cardNumber: 'test-card-num-2',
+    cardId: 2,
+    userId: testUser.id
+}]
 
 describe('/api/ui', () => {
     describe('assign to', () => {
@@ -9,7 +20,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountsIds: [1, 2],
-                    cardIds: [1, 2]
+                    cardData
                 }),
                 ...jsonHeader
             })
@@ -22,7 +33,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountsIds: [1, 2],
-                    cardIds: [1, 2]
+                    cardData
                 }),
                 ...jsonHeader
             })
@@ -30,7 +41,7 @@ describe('/api/ui', () => {
             expect(await res.text()).toInclude('was not found')
 
         })
-        test('no ids given', async () => {
+        test('no card or account ids given', async () => {
             const res = await app.request('/api/ui/assignTo/someId', {
                 method: 'POST',
                 body: JSON.stringify({}),
@@ -45,7 +56,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountsIds: [1, 2],
-                    cardIds: [1, 2, 10000]
+                    cardData: [...cardData, {cardId: 1000, cardNumber: 'abcd', userId: testUser.id}]
                 }),
                 ...jsonHeader
             })
@@ -57,7 +68,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountsIds: [1, 2, 10000],
-                    cardIds: [1, 2]
+                    cardData
                 }),
                 ...jsonHeader
             })
@@ -69,7 +80,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountsIds: [1, 2],
-                    cardIds: [1, 2]
+                    cardData
                 }),
                 ...jsonHeader
             })

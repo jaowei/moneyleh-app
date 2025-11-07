@@ -11,3 +11,9 @@ export const testTransaction = (t: TransactionsInsertSchema) => {
     expect(t.description).toBeString()
     expect(t.amount).toBeNumber()
 }
+
+export const testUser = {
+    id: 'testUser1Id',
+    name: 'testUser1',
+    email: 'testUser1@test.com'
+}

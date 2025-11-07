@@ -3,14 +3,16 @@ import {db} from "../../db/db.ts";
 import {tags, type TransactionsInsertSchema} from "../../db/schema.ts";
 import {like} from "drizzle-orm";
 import {appLogger} from "../../index.ts";
-import path from 'node:path'
 
-const classifierDataFilePath = path.resolve('../../../', import.meta.path, 'classifier.json')
+export const testClassifierPath = 'classifier-test.json'
+const classifierDataFilePath = process.env.NODE_ENV === 'production' ? 'classifier.json' : testClassifierPath
 
 export const initClassifier = async (initialDataPath = classifierDataFilePath) => {
     const initData = Bun.file(initialDataPath)
     if (!(await initData.exists())) {
-        return new LogisticRegressionClassifier()
+        const c = new LogisticRegressionClassifier()
+        await Bun.write(initialDataPath, JSON.stringify(c))
+        return c
     } else {
         const data = await initData.json()
         return LogisticRegressionClassifier.restore(data)

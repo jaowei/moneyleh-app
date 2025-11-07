@@ -117,10 +117,12 @@ export const userAccounts = sqliteTable("user_accounts", {
 
 export const userCards = sqliteTable("user_cards", {
     cardNumber: text("card_number").primaryKey().unique(),
-    cardId: integer("card_id").references(() => cards.id),
-    userId: text("user_id").references(() => user.id),
+    cardId: integer("card_id").references(() => cards.id).notNull(),
+    userId: text("user_id").references(() => user.id).notNull(),
     ...timestamps
 })
+export const userCardInsertSchemaZ = createInsertSchema(userCards)
+export type UserCardInsertSchema = z.infer<typeof userCardInsertSchemaZ>
 
 export const userInsurancePolicies = sqliteTable("user_insurance_policies", {
     insurancePolicyId: integer("insurance_policy_id").references(() => insurancePolicies.id),

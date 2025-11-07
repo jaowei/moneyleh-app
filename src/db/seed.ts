@@ -2,6 +2,7 @@ import {STARTING_COMPANIES} from "./company.seed";
 import {db} from "./db";
 import * as schema from "./schema";
 import * as authSchema from "./auth-schema"
+import {testUser} from "../lib/test-utils.ts";
 
 console.log("===Seed companies: Start!")
 await db
@@ -167,11 +168,7 @@ await db
 console.log("===Seed accounts: Done!")
 
 console.log("===Seed test user: Start!")
-await db.insert(authSchema.user).values({
-    id: 'testUser1Id',
-    name: 'testUser1',
-    email: 'testUser1@test.com'
-}).onConflictDoNothing()
+await db.insert(authSchema.user).values(testUser).onConflictDoNothing()
 console.log("===Seed test user: Done!")
 
 console.log("===Seed test tag: Start!")

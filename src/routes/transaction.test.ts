@@ -1,7 +1,13 @@
-import {describe, expect, test} from "bun:test";
+import {describe, expect, test, afterAll} from "bun:test";
 import app from "../index.ts";
 import {jsonHeader} from "../lib/test-utils.ts";
 import type {PostTransactionPayload} from "./transaction.ts";
+import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
+
+afterAll(async () => {
+    const testFilePath = Bun.file(testClassifierPath)
+    await testFilePath.delete()
+})
 
 describe('/api/transaction', () => {
     describe('create', () => {
