@@ -1,6 +1,6 @@
 import {describe, expect, test} from "bun:test";
 import {pdfParser} from "../pdf.ts";
-import {testTransaction} from "../../test-utils.ts";
+import {testATransaction} from "../../test.utils.ts";
 
 describe("pdf: dbs card format", () => {
     test("use statement with re issued card and fx transactions", async () => {
@@ -17,7 +17,7 @@ describe("pdf: dbs card format", () => {
                 } else {
                     expect(d.transactions.length).toBe(20)
                 }
-                d.transactions.forEach(testTransaction)
+                d.transactions.forEach(testATransaction)
             })
 
             const pointsArr = Object.entries(data.points)

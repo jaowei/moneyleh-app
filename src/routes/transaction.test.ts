@@ -1,16 +1,18 @@
 import {describe, expect, test, afterAll} from "bun:test";
 import app from "../index.ts";
-import {jsonHeader} from "../lib/test-utils.ts";
+import {jsonHeader} from "../lib/test.utils.ts";
 import type {PostTransactionPayload} from "./transaction.ts";
 import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
+import {testUser} from "../lib/test.utils.ts";
+import type {TransactionsUpdateSchema} from "../db/schema.ts";
 
-afterAll(async () => {
-    const testFilePath = Bun.file(testClassifierPath)
-    await testFilePath.delete()
-})
 
 describe('/api/transaction', () => {
     describe('create', () => {
+        afterAll(async () => {
+            const testFilePath = Bun.file(testClassifierPath)
+            await testFilePath.delete()
+        })
         test('file upload: parse transactions', async () => {
             const formData = new FormData()
             const testFile = Bun.file('./test-files/dbsCard.pdf')
@@ -58,6 +60,56 @@ describe('/api/transaction', () => {
             expect(res.status).toBe(200);
             const result = await res.json() as { failed: any[] }
             expect(result.failed.length).toBe(0)
+        })
+    })
+
+    describe('get transactions', () => {
+        test('get per user', async () => {
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
+                method: 'GET'
+            })
+            expect(res.status).toBe(200)
+        })
+        test('get for an invalid user', async () => {
+            const res = await app.request(`/api/transaction/invalidUserId`, {
+                method: 'GET'
+            })
+            expect(res.status).toBe(404)
+        })
+    })
+
+    describe('update transactions', () => {
+        const transactionUpdatePayload: TransactionsUpdateSchema = {
+            id: 1,
+            amount: 999,
+            description: 'I was updated!'
+        }
+        test('update a transaction', async () => {
+            const res = await app.request("/api/transaction/", {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transactions: [transactionUpdatePayload]
+                }),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(200)
+            const resData = await res.json() as { failed: any[] }
+            expect(resData.failed).toHaveLength(0)
+        })
+        test('update an invalid transaction', async () => {
+            const res = await app.request("/api/transaction/", {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transactions: [{
+                        ...transactionUpdatePayload,
+                        id: 100000,
+                    }]
+                }),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(200)
+            const resData = await res.json() as { failed: any[] }
+            expect(resData.failed).toHaveLength(1)
         })
     })
 })

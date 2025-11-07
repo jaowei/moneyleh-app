@@ -7,7 +7,8 @@ import {
     cards, tags,
     transactions as transactionsDb,
     transactionsInsertSchemaZ, type TransactionTagsInsertSchema,
-    userCards, tagSelectSchemaZ, transactionTags as transactionTagsDb
+    userCards, tagSelectSchemaZ, transactionTags as transactionTagsDb, transactionsUpdateSchemaZ,
+    type TransactionsUpdateSchema
 } from "../db/schema.ts";
 import {eq, inArray} from "drizzle-orm";
 import {appLogger} from "../index.ts";
@@ -19,6 +20,7 @@ import {
     tagTransactions,
     trainClassifier
 } from "../lib/descriptionTagger/descriptionTagger.ts";
+import {findUserOrThrow} from "./route.utils.ts";
 
 export const transactionRoute = new Hono()
 
@@ -141,5 +143,46 @@ transactionRoute.post('/*', zodValidator(PostTransactionPayloadZ), async (c) => 
 
     return c.json({
         failed: failedTransactions
+    })
+})
+
+transactionRoute.get('/:userId', async (c) => {
+    const {userId} = c.req.param()
+
+    await findUserOrThrow(userId)
+
+    const queryRes = await db.select().from(transactionsDb).where(eq(transactionsDb.userId, userId))
+
+    return c.json({
+        transactions: queryRes
+    })
+})
+
+const transactionsPatchPayloadZ = z.object({
+    transactions: z.array(transactionsUpdateSchemaZ).min(1)
+})
+
+transactionRoute.patch('/*', zodValidator(transactionsPatchPayloadZ), async (c) => {
+    const {transactions} = c.req.valid('json')
+    const failedUpdates: TransactionsUpdateSchema[] = []
+    for (const t of transactions) {
+        if (!t.id) {
+            failedUpdates.push(t)
+            continue
+        }
+        try {
+            const updateRes = await db.update(transactionsDb).set({
+                ...t,
+                updated_at: new Date().toISOString()
+            }).where(eq(transactionsDb.id, t.id)).returning({id: transactionsDb.id})
+            if (!updateRes.length) {
+                failedUpdates.push(t)
+            }
+        } catch (e) {
+            failedUpdates.push(t)
+        }
+    }
+    return c.json({
+        failed: failedUpdates
     })
 })

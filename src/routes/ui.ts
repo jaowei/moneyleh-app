@@ -7,6 +7,7 @@ import {eq, inArray} from "drizzle-orm";
 import {appLogger} from "../index.ts";
 import {HTTPException} from "hono/http-exception";
 import {user} from "../db/auth-schema.ts";
+import {findUserOrThrow} from "./route.utils.ts";
 
 export const uiRoute = new Hono()
 
@@ -24,13 +25,7 @@ uiRoute.post("/assignTo/:userId", zodValidator(userAssignmentsZ),
             return c.text('No ids to assign!')
         }
 
-        const targetUser = await db.select().from(user).where(eq(user.id, userId))
-
-        if (!targetUser.length) {
-            throw new HTTPException(404, {
-                message: `user id: ${userId} was not found!`
-            })
-        }
+        await findUserOrThrow(userId)
 
         // insert into the associative tables
         // TODO: Add transaction here once drizzle fixes their bug

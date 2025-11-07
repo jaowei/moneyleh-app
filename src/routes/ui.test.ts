@@ -1,6 +1,6 @@
 import {describe, test, expect} from "bun:test";
 import app from "../index.ts";
-import {jsonHeader, testUser} from "../lib/test-utils.ts";
+import {jsonHeader, testUser} from "../lib/test.utils.ts";
 import type {UserCardInsertSchema} from "../db/schema.ts";
 
 const cardData: UserCardInsertSchema[] = [{

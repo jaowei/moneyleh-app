@@ -1,6 +1,6 @@
 import {describe, test, expect} from "bun:test";
 import {pdfParser} from "../pdf.ts";
-import {testTransaction} from "../../test-utils.ts";
+import {testATransaction} from "../../test.utils.ts";
 
 describe('pdf: CPF statement', () => {
     test('cpf statement', async () => {
@@ -15,9 +15,9 @@ describe('pdf: CPF statement', () => {
             expect(data.accounts.specialAccount.transactions.length).toBe(1)
             expect(data.accounts.medisaveAccount.transactions.length).toBe(3)
 
-            data.accounts.ordinaryAccount.transactions.forEach(testTransaction)
-            data.accounts.specialAccount.transactions.forEach(testTransaction)
-            data.accounts.medisaveAccount.transactions.forEach(testTransaction)
+            data.accounts.ordinaryAccount.transactions.forEach(testATransaction)
+            data.accounts.specialAccount.transactions.forEach(testATransaction)
+            data.accounts.medisaveAccount.transactions.forEach(testATransaction)
         } else {
             throw Error()
         }

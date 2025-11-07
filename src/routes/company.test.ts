@@ -1,6 +1,6 @@
 import {describe, expect, test} from "bun:test";
 import app from "..";
-import {jsonHeader} from "../lib/test-utils.ts";
+import {jsonHeader} from "../lib/test.utils.ts";
 
 describe("/api/company", () => {
     describe("create", () => {
