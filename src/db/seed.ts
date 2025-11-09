@@ -2,7 +2,7 @@ import {STARTING_COMPANIES} from "./company.seed";
 import {db} from "./db";
 import * as schema from "./schema";
 import * as authSchema from "./auth-schema"
-import {testUser} from "../lib/test.utils.ts";
+import {testTag, testUser} from "../lib/test.utils.ts";
 
 console.log("===Seed companies: Start!")
 await db
@@ -173,7 +173,7 @@ console.log("===Seed test user: Done!")
 
 console.log("===Seed test tag: Start!")
 await db.insert(schema.tags).values({
-    description: 'test-tag',
+    description: testTag.description,
 }).onConflictDoNothing()
 console.log("===Seed test tag: Done!")
 

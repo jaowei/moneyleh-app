@@ -1,6 +1,6 @@
-import {describe, expect, test} from "bun:test";
+import {afterAll, describe, expect, test} from "bun:test";
 import app from '..'
-import {jsonHeader} from "../lib/test.utils.ts";
+import {jsonHeader, testTag} from "../lib/test.utils.ts";
 import type {TagInsertSchema, TagSelectSchema} from "../db/schema.ts";
 
 describe('/api/tag', () => {
@@ -81,6 +81,18 @@ describe('/api/tag', () => {
     })
 
     describe.only('put', () => {
+        afterAll(async () => {
+            await app.request('/api/tag', {
+                method: 'PUT',
+                ...jsonHeader,
+                body: JSON.stringify({
+                    tags: [{
+                        id: 1,
+                        description: testTag.description
+                    }]
+                })
+            })
+        })
         test('Fails to update: no payload', async () => {
             const res = await app.request('/api/tag', {
                 method: 'PUT',

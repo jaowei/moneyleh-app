@@ -1,6 +1,6 @@
 import {describe, expect, test, afterAll} from "bun:test";
 import app from "../index.ts";
-import {jsonHeader} from "../lib/test.utils.ts";
+import {jsonHeader, testTag} from "../lib/test.utils.ts";
 import type {PostTransactionPayload} from "./transaction.ts";
 import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {testUser} from "../lib/test.utils.ts";
@@ -48,7 +48,7 @@ describe('/api/transaction', () => {
                     amount: 123,
                     tag: {
                         id: 1,
-                        description: 'test-tag'
+                        description: testTag.description
                     }
                 }]
             }

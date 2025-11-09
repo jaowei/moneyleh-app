@@ -8,6 +8,7 @@ import {
 } from "./descriptionTagger.ts";
 import type {TransactionsInsertSchema} from "../../db/schema.ts";
 import {LogisticRegressionClassifier} from "natural";
+import {testTag} from "../test.utils.ts";
 
 afterEach(async () => {
     const file = Bun.file(testClassifierPath)
@@ -33,7 +34,7 @@ describe('description tagger', () => {
         expect(restoreSpy).not.toBeCalled()
         trainClassifier(c, {
             description: 'test-description',
-            tag: 'test-tag'
+            tag: testTag.description
         })
 
         await saveClassifier(c)

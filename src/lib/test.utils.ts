@@ -17,3 +17,7 @@ export const testUser = {
     name: 'testUser1',
     email: 'testUser1@test.com'
 }
+
+export const testTag = {
+    description: 'test-tag'
+}
