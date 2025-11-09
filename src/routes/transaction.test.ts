@@ -13,20 +13,6 @@ describe('/api/transaction', () => {
             const testFilePath = Bun.file(testClassifierPath)
             await testFilePath.delete()
         })
-        test('file upload: parse transactions', async () => {
-            const formData = new FormData()
-            const testFile = Bun.file('./test-files/dbsCard.pdf')
-            formData.append('file', testFile)
-            formData.append('userId', 'testUser1Id')
-            const res = await app.request("/api/transaction/fileUpload", {
-                method: "POST",
-                body: formData
-            });
-            expect(res.status).toBe(200);
-            const result = await res.json() as { transactions: any[] }
-            expect(result).toHaveProperty('transactions')
-            expect(result.transactions.length).toBe(43)
-        })
 
         test('fails to insert into db: no transactions', async () => {
             const res = await app.request("/api/transaction/", {

@@ -14,6 +14,23 @@ const cardData: UserCardInsertSchema[] = [{
 }]
 
 describe('/api/ui', () => {
+    describe('upload and handle files', () => {
+        test('file upload: parse transactions', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/dbsCard.pdf')
+            formData.append('file', testFile)
+            formData.append('userId', 'testUser1Id')
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(200);
+            const result = await res.json() as { transactions: any[] }
+            expect(result).toHaveProperty('transactions')
+            expect(result.transactions.length).toBe(43)
+        })
+
+    })
     describe('assign to', () => {
         test('no user id given', async () => {
             const res = await app.request('/api/ui/assignTo/', {

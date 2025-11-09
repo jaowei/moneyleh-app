@@ -1,4 +1,6 @@
 import {createFileRoute} from '@tanstack/react-router'
+import {uiRouteClient} from "../../lib/backend-clients.ts";
+import type {ChangeEventHandler} from "react";
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
     component: DashboardComponent,
@@ -6,6 +8,20 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 
 function DashboardComponent() {
     const {auth} = Route.useRouteContext()
+
+    const handleFileUploadInput: ChangeEventHandler<HTMLInputElement> = async (e) => {
+        const files = e.target.files
+        if (files?.[0] && auth?.user?.id) {
+            const res = await uiRouteClient.fileUpload.$post({
+                form: {
+                    userId: auth.user.id,
+                    file: files[0]
+                },
+            })
+            console.log(await res.json())
+        }
+    }
+
 
     return (
         <div className="p-6">
@@ -28,7 +44,7 @@ function DashboardComponent() {
                 <p className="text-sm text-gray-500 mt-2">Email: {auth.user?.email}</p>
             </div>
 
-
+            <input type='file' className='file-input' onChange={handleFileUploadInput}/>
         </div>
     )
 }

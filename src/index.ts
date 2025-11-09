@@ -46,7 +46,7 @@ app
         })
     );
 
-app.onError((err, c) => {
+app.onError((err) => {
     appLogger(`${err} | ${JSON.stringify(err)}`)
     if (err.message.includes("UNIQUE constraint failed")) {
         return alreadyExistsResponse;
