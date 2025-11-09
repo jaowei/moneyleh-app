@@ -80,6 +80,12 @@ export const tags = sqliteTable("tags", {
 });
 export const tagSelectSchemaZ = createSelectSchema(tags)
 export type TagSelectSchema = z.infer<typeof tagSelectSchemaZ>
+export const tagInsertSchemaZ = createInsertSchema(tags, {
+    description: z.string().min(1)
+})
+export type TagInsertSchema = z.infer<typeof tagInsertSchemaZ>
+export const tagUpdateSchemaZ = createUpdateSchema(tags)
+export type TagUpdateSchema = z.infer<typeof tagUpdateSchemaZ>
 
 export const transactions = sqliteTable("transactions", {
     id: integer().primaryKey({autoIncrement: true}),

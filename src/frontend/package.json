@@ -11,27 +11,27 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.11",
-    "@tanstack/react-router": "^1.130.12",
-    "@tanstack/react-router-devtools": "^1.130.13",
-    "daisyui": "^5.0.50",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tailwindcss": "^4.1.11"
+    "@tailwindcss/vite": "^4.1.17",
+    "@tanstack/react-router": "^1.134.15",
+    "@tanstack/react-router-devtools": "^1.134.15",
+    "daisyui": "^5.4.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.17"
   },
   "devDependencies": {
-    "@eslint/js": "^9.30.1",
-    "@tanstack/router-plugin": "^1.130.16",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "babel-plugin-react-compiler": "^19.1.0-rc.2",
-    "eslint": "^9.30.1",
+    "@eslint/js": "^9.39.1",
+    "@tanstack/router-plugin": "^1.134.15",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "babel-plugin-react-compiler": "^19.1.0-rc.1-rc-af1b7da-20250421",
+    "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
     "typescript": "~5.8.3",
-    "typescript-eslint": "^8.35.1",
-    "vite": "^7.0.4"
+    "typescript-eslint": "^8.46.3",
+    "vite": "^7.2.2"
   }
 }

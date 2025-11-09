@@ -7,6 +7,7 @@ import {HTTPException} from "hono/http-exception";
 import {alreadyExistsResponse} from "./errors";
 import {uiRoute} from "./routes/ui.ts";
 import {transactionRoute} from "./routes/transaction.ts";
+import {tagRoute} from "./routes/tag.ts";
 
 const app = new Hono();
 
@@ -22,6 +23,7 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 // routes
 app.route("/api/company", companyRoute);
 app.route("/api/transaction", transactionRoute)
+app.route("/api/tag", tagRoute)
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute)
