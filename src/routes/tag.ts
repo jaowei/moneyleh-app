@@ -1,50 +1,13 @@
 import {Hono} from "hono";
-import {zodValidator} from "../lib/middleware/zod-validator.ts";
 import {tagInsertSchemaZ, tags as tagsDb, type TagUpdateSchema, tagUpdateSchemaZ} from "../db/schema.ts";
 import z from "zod";
 import {db} from "../db/db.ts";
 import {eq} from "drizzle-orm";
 import {HTTPException} from "hono/http-exception";
-
-export const tagRoute = new Hono()
+import {zValidator} from "@hono/zod-validator";
 
 const postTagPayloadZ = z.object({
     tags: z.array(tagInsertSchemaZ).min(1)
-})
-
-tagRoute.post("/*", zodValidator(postTagPayloadZ), async (c) => {
-    const {tags} = c.req.valid('json')
-
-    const queryRes = await db.insert(tagsDb).values(tags).onConflictDoNothing().returning()
-
-    c.status(201)
-    return c.json({
-        created: queryRes
-    })
-})
-
-tagRoute.get('/:tagId', async (c) => {
-    const {tagId} = c.req.param()
-
-    const queryRes = await db.select().from(tagsDb).where(eq(tagsDb.id, parseInt(tagId)))
-    if (!queryRes.length) {
-        throw new HTTPException(404, {
-            message: `Tag ${tagId} not found!`
-        })
-    }
-    return c.json(queryRes[0])
-})
-
-tagRoute.get('/*', async (c) => {
-    const queryRes = await db.select().from(tagsDb)
-    if (!queryRes.length) {
-        throw new HTTPException(404, {
-            message: `No tags!`
-        })
-    }
-    return c.json({
-        data: queryRes
-    })
 })
 
 const tagPutPayloadZ = z.object({
@@ -54,7 +17,37 @@ const tagPutPayloadZ = z.object({
     })).min(1)
 })
 
-tagRoute.put('/', zodValidator(tagPutPayloadZ), async (c) => {
+export const tagRoute = new Hono().post("/", zValidator(
+    'json', postTagPayloadZ), async (c) => {
+    const {tags} = c.req.valid('json')
+
+    const queryRes = await db.insert(tagsDb).values(tags).onConflictDoNothing().returning()
+
+    c.status(201)
+    return c.json({
+        created: queryRes
+    })
+}).get('/:tagId', async (c) => {
+    const {tagId} = c.req.param()
+
+    const queryRes = await db.select().from(tagsDb).where(eq(tagsDb.id, parseInt(tagId)))
+    if (!queryRes.length) {
+        throw new HTTPException(404, {
+            message: `Tag ${tagId} not found!`
+        })
+    }
+    return c.json(queryRes[0])
+}).get('/', async (c) => {
+    const queryRes = await db.select().from(tagsDb)
+    if (!queryRes.length) {
+        throw new HTTPException(404, {
+            message: `No tags!`
+        })
+    }
+    return c.json({
+        data: queryRes
+    })
+}).put('/', zValidator('json', tagPutPayloadZ), async (c) => {
     const {tags} = c.req.valid('json')
     const failedUpdates: TagUpdateSchema[] = []
     const updatedTags = []

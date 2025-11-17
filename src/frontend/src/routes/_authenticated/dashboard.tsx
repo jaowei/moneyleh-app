@@ -1,27 +1,49 @@
 import {createFileRoute} from '@tanstack/react-router'
-import {uiRouteClient} from "../../lib/backend-clients.ts";
-import type {ChangeEventHandler} from "react";
+import {backendRouteClient, type Transaction, uiRouteClient} from "../../lib/backend-clients.ts";
+import {type ChangeEventHandler, useState} from "react";
+import TransactionsTable from "../../components/TransactionsTable.tsx";
+import {getBackendErrorResponse} from "../../lib/error.ts";
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
     component: DashboardComponent,
+    loader: async () => {
+        const res = await backendRouteClient.api.tag.$get()
+        if (res.ok) {
+            return (await res.json()).data
+        } else {
+            throw await getBackendErrorResponse(res)
+        }
+    }
 })
 
 function DashboardComponent() {
     const {auth} = Route.useRouteContext()
+    const [transactions, setTransactions] = useState<Transaction[]>([])
 
     const handleFileUploadInput: ChangeEventHandler<HTMLInputElement> = async (e) => {
         const files = e.target.files
-        if (files?.[0] && auth?.user?.id) {
-            const res = await uiRouteClient.fileUpload.$post({
-                form: {
-                    userId: auth.user.id,
-                    file: files[0]
-                },
-            })
-            console.log(await res.json())
+        const userId = auth?.user?.id
+        const targetFile = files?.[0]
+        if (!userId) throw new Error('No user id!')
+        if (!targetFile) throw new Error('No file found!')
+
+        const res = await uiRouteClient.fileUpload.$post({
+            form: {
+                userId,
+                file: files[0]
+            },
+        })
+        if (res.ok) {
+            const resData = await res.json()
+            const transactionsWithUserId = resData.taggedTransactions.map((t) => ({
+                ...t,
+                userId
+            }))
+            setTransactions(transactionsWithUserId)
+        } else {
+            throw await getBackendErrorResponse(res)
         }
     }
-
 
     return (
         <div className="p-6">
@@ -45,6 +67,8 @@ function DashboardComponent() {
             </div>
 
             <input type='file' className='file-input' onChange={handleFileUploadInput}/>
+
+            <TransactionsTable transactions={transactions} setTransactions={setTransactions}/>
         </div>
     )
 }

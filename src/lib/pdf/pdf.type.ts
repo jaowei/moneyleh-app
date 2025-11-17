@@ -35,7 +35,7 @@ export const MuPdfStructuredTextPageZ = z.object({
 })
 export type MuPdfStructuredTextPage = z.infer<typeof MuPdfStructuredTextPageZ>
 
-interface CardData {
+export interface CardData {
     transactions: TransactionsInsertSchema[];
     total: number;
     cardNumber: string;

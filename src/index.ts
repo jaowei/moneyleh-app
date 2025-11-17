@@ -21,9 +21,7 @@ app.use(logger(appLogger));
 app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
 // routes
-app.route("/api/company", companyRoute);
-app.route("/api/transaction", transactionRoute)
-app.route("/api/tag", tagRoute)
+const routes = app.route("/api/company", companyRoute).route("/api/transaction", transactionRoute).route("/api/tag", tagRoute)
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute)
@@ -62,3 +60,4 @@ export default {
     port: 9000,
     ...app
 };
+export type AppType = typeof routes

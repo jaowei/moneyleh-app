@@ -80,7 +80,7 @@ describe('/api/tag', () => {
         })
     })
 
-    describe.only('put', () => {
+    describe('put', () => {
         afterAll(async () => {
             await app.request('/api/tag', {
                 method: 'PUT',

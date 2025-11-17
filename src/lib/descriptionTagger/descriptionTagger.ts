@@ -38,11 +38,18 @@ const tokeniseWord = (word: string) => {
     return tokeniser.tokenize(word)
 }
 
+export interface TaggedTransaction extends TransactionsInsertSchema {
+    tags?: {
+        id: number;
+        description: string;
+    }[]
+}
+
 export const tagTransactions = async (classifier: LogisticRegressionClassifier | undefined, transactions: TransactionsInsertSchema[]) => {
     const c = classifier || await initClassifier()
     const classificationThreshold = 0.75
 
-    const tagged = []
+    const tagged: TaggedTransaction[] = []
     for (const t of transactions) {
         if (t.description && c.docs.length) {
             try {
@@ -68,7 +75,7 @@ export const tagTransactions = async (classifier: LogisticRegressionClassifier |
 
                 tagged.push({
                     ...t,
-                    tag: queryRes[0]
+                    ...(queryRes[0] && {tag: [queryRes[0]]})
                 })
             } catch (e) {
                 appLogger(`WARN: There was an error tagging for description: ${t.description} - ${e}`)

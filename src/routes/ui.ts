@@ -1,15 +1,21 @@
 import {Hono} from "hono";
 import z from "zod";
-import {zodValidator} from "../lib/middleware/zod-validator.ts";
 import {db} from "../db/db.ts";
-import {accounts, cards, userAccounts, userCardInsertSchemaZ, userCards, userCompanies} from "../db/schema.ts";
-import {eq, inArray} from "drizzle-orm";
+import {
+    accounts,
+    cards,
+    userAccounts,
+    userCardInsertSchemaZ,
+    userCards,
+    userCompanies
+} from "../db/schema.ts";
+import {and, eq, inArray} from "drizzle-orm";
 import {appLogger} from "../index.ts";
 import {HTTPException} from "hono/http-exception";
 import {findUserOrThrow} from "./route.utils.ts";
 import type {StatementData} from "../lib/pdf/pdf.type.ts";
 import {pdfParser} from "../lib/pdf/pdf.ts";
-import {tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
+import {type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {zValidator} from "@hono/zod-validator";
 
 const userAssignmentsZ = z.object({
@@ -23,7 +29,7 @@ const FileUploadPayloadZ = z.object({
     file: z.file().mime(["application/pdf", "text/csv", "application/vnd.ms-excel"]).min(5 * 1000).max(150 * 1000)
 })
 
-export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator(userAssignmentsZ),
+export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', userAssignmentsZ),
     async (c) => {
         const userId = c.req.param("userId")
         const {accountsIds, cardData} = c.req.valid('json')
@@ -114,9 +120,14 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator(userAss
             })
     }
 
-    const transactions = []
+    const taggedTransactions: Array<TaggedTransaction & {
+        accountName: string;
+        cardId?: number | null;
+        accountId?: number | null;
+    }> = []
     if ('cards' in statementData) {
         for (const [cardName, data] of Object.entries(statementData.cards)) {
+            let targetCard
             const cardRes = await db.select().from(cards).where(inArray(cards.name, cardName.toLowerCase().split(' ')))
             if (!cardRes.length) {
                 appLogger(`Card with name : ${cardName} not found in database, refining search...`)
@@ -125,24 +136,51 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator(userAss
                 throw new HTTPException(404, {
                     message: 'Card does not exist, please add a card to continue'
                 })
+            } else {
+                targetCard = cardRes[0]
             }
-            if (!cardRes[0]) {
+
+            if (!targetCard) {
                 throw new HTTPException()
             }
-            const userCardRes = await db.select().from(userCards).leftJoin(cards, eq(userCards.cardId, cards.id)).where(eq(cards.id, cardRes[0].id))
+            const userCardRes = await db.select().from(userCards).where(and(eq(userCards.cardId, targetCard.id), eq(userCards.userId, userId)))
             if (!userCardRes.length) {
                 appLogger(`User has no cards assigned, beginning assignment...`)
-                await db.insert(userCards).values({cardId: cardRes[0].id, userId, cardNumber: data.cardNumber})
-                appLogger(`Card ${cardName} | ${data.cardNumber} assigned!`)
+                let insertRes
+                try {
+                    insertRes = await db.insert(userCards).values({
+                        cardId: targetCard.id,
+                        userId,
+                        cardNumber: data.cardNumber
+                    }).returning()
+                } catch (e) {
+                    if (e instanceof Error && e.message.includes('FOREIGN KEY')) {
+                        throw new HTTPException(400, {
+                            message: 'This card already belongs to another user!'
+                        })
+                    }
+                    throw e
+                }
+                if (!insertRes.length) {
+                    throw new HTTPException(500, {
+                        message: 'Could not assign card to user!'
+                    })
+                } else {
+                    appLogger(`Card ${cardName} | ${data.cardNumber} assigned!`)
+                }
+            } else {
+                appLogger(`Card ${cardName} | ${data.cardNumber} is already assigned!`)
             }
 
             const taggedTxns = await tagTransactions(undefined, data.transactions)
-            transactions.push(...taggedTxns)
+            const txnWithCardName = taggedTxns.map((t) => ({...t, accountName: cardName, cardId: targetCard.id}))
+            taggedTransactions.push(...txnWithCardName)
         }
     }
 
     return c.json({
-        transactions
+        taggedTransactions,
+        statementData
     })
 })
 

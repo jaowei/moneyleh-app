@@ -1,7 +1,10 @@
-import {describe, test, expect} from "bun:test";
+import {describe, test, expect, spyOn, afterAll, beforeAll, afterEach, jest} from "bun:test";
 import app from "../index.ts";
 import {jsonHeader, testUser} from "../lib/test.utils.ts";
-import type {UserCardInsertSchema} from "../db/schema.ts";
+import {type UserCardInsertSchema, userCards} from "../db/schema.ts";
+import {db} from "../db/db.ts";
+import {user} from "../db/auth-schema.ts";
+import {eq} from "drizzle-orm";
 
 const cardData: UserCardInsertSchema[] = [{
     cardNumber: 'test-card-num',
@@ -15,21 +18,69 @@ const cardData: UserCardInsertSchema[] = [{
 
 describe('/api/ui', () => {
     describe('upload and handle files', () => {
+        beforeAll(async () => {
+            const userRes = await db.select().from(user).where(eq(user.email, 'testuser1@test.com'))
+            if (userRes[0]) {
+                await db.delete(userCards).where(eq(userCards.userId, userRes[0].id))
+            }
+        })
+        afterAll(async () => {
+            await db.delete(userCards).where(eq(userCards.userId, testUser.id))
+        })
+        afterEach(() => {
+            jest.restoreAllMocks()
+        })
         test('file upload: parse transactions', async () => {
+            const dbSpy = spyOn(db, 'insert')
             const formData = new FormData()
             const testFile = Bun.file('./test-files/dbsCard.pdf')
             formData.append('file', testFile)
-            formData.append('userId', 'testUser1Id')
+            formData.append('userId', testUser.id)
             const res = await app.request("/api/ui/fileUpload", {
                 method: "POST",
                 body: formData
             });
             expect(res.status).toBe(200);
-            const result = await res.json() as { transactions: any[] }
-            expect(result).toHaveProperty('transactions')
-            expect(result.transactions.length).toBe(43)
-        })
+            const result = await res.json() as { taggedTransactions: any[] }
+            expect(result).toHaveProperty('taggedTransactions')
+            expect(result.taggedTransactions.length).toBe(43)
+            expect(dbSpy).toBeCalledTimes(1)
 
+            const res2 = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res2.status).toBe(200)
+            expect(dbSpy).toHaveBeenCalledTimes(1)
+        })
+        test('file upload: no user id', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/dbsCard.pdf')
+            formData.append('file', testFile)
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(400);
+            const result = await res.text()
+            expect(result).toInclude('expected string')
+            expect(result).toInclude('userId')
+        })
+        test('file upload: parse same transactions diff user', async () => {
+            const dbSpy = spyOn(db, 'insert')
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/dbsCard.pdf')
+            formData.append('file', testFile)
+            formData.append('userId', 'anotherUserId')
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(400);
+            const result = await res.text()
+            expect(result).toInclude('belongs to another user')
+            expect(dbSpy).toBeCalledTimes(1)
+        })
     })
     describe('assign to', () => {
         test('no user id given', async () => {

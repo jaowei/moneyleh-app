@@ -4,3 +4,4 @@ node_modules/
 *.db
 .idea
 test-files/
+*-test.json
