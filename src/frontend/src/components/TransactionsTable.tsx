@@ -48,7 +48,7 @@ export default function TransactionsTable({transactions, setTransactions}: Trans
     const [saveError, setSaveError] = useState('')
     const userId = auth?.user?.id
     const route = getRouteApi('/_authenticated/dashboard')
-    const tagData = route.useLoaderData()
+    const {tagData} = route.useLoaderData()
     const handleSaveTransactionsClick = async () => {
         setSaveError('')
         try {

@@ -18,6 +18,17 @@ export const testUser = {
     email: 'testUser1@test.com'
 }
 
+// a test user alone is not enough
+// when accessing frontend we need a user account
+// based on betterAuth auth backend
+export const testUserAccount = {
+    id: 'testUser1AccountId',
+    accountId: 'testUser1AccountId',
+    providerId: 'testProvider1Id',
+    userId: testUser.id,
+    password: 'testUser1pw',
+}
+
 export const testTag = {
     description: 'test-tag'
 }

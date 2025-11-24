@@ -4,6 +4,8 @@ import type {AppType} from "../../../index.ts";
 
 export const uiRouteClient = hc<UiRouteType>('/api/ui')
 type TransactionsRes = InferResponseType<typeof uiRouteClient.fileUpload.$post>['taggedTransactions']
+export type AllAccounts = InferResponseType<typeof uiRouteClient.availableInventory[':userId']['$get']>['allAccounts']
+export type AllCards = InferResponseType<typeof uiRouteClient.availableInventory[':userId']['$get']>['allCards']
 
 export const backendRouteClient = hc<AppType>('')
 export type Tag = InferResponseType<typeof backendRouteClient.api.tag[":tagId"]['$get']>

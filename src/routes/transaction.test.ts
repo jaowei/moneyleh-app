@@ -4,7 +4,7 @@ import {jsonHeader, testTag} from "../lib/test.utils.ts";
 import type {PostTransactionPayload} from "./transaction.ts";
 import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {testUser} from "../lib/test.utils.ts";
-import {transactions, type TransactionsUpdateSchema} from "../db/schema.ts";
+import {transactions, type TransactionsUpdateSchema, userAccounts} from "../db/schema.ts";
 import {db} from "../db/db.ts";
 import {eq} from "drizzle-orm";
 
@@ -167,6 +167,97 @@ describe('/api/transaction', () => {
             expect(res.status).toBe(200)
             const resData = await res.json() as { failed: any[] }
             expect(resData.failed).toHaveLength(1)
+        })
+    })
+
+    describe('create per card/account', () => {
+        test('fails to insert into db: invalid file', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/dbsCard.pdf')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            formData.append('accountId', '1')
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('text/csv')
+        })
+        test('fails to insert into db: no account/card id', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/migrationTest.csv')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('An account id or card id is required')
+        })
+        test('fails to insert into db: both account/card id', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/migrationTest.csv')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            formData.append('accountId', '1')
+            formData.append('cardId', '1')
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('An account id or card id is required')
+        })
+        test('fails to insert into db: unknown user', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/migrationTest.csv')
+            formData.append('file', testFile)
+            formData.append('userId', 'whoareyou')
+            formData.append('cardId', '1')
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(404);
+            expect(await res.text()).toInclude('not found')
+        })
+        test('fails to insert into db: account/card not assigned', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/migrationTest.csv')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            formData.append('accountId', '1')
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('has not been assigned')
+        })
+        test.skip('inserts into db', async () => {
+            // skipped for the time being until we can add transactions
+            // TODO: unskip once we can rollback all insertions so we can test successfully
+            const accountId = 1
+            const testLabel = 'testlabel'
+            await db.insert(userAccounts).values({
+                userId: testUser.id,
+                accountId,
+                accountLabel: testLabel
+            })
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/migrationTest.csv')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            formData.append('accountId', `${accountId}`)
+            const res = await app.request("/api/transaction/csv", {
+                method: "POST",
+                body: formData,
+            });
+            expect(res.status).toBe(200);
+            expect(await res.text()).toInclude('has not been assigned')
+            await db.delete(userAccounts).where(eq(userAccounts.accountLabel, testLabel))
         })
     })
 })

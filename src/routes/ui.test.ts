@@ -7,11 +7,11 @@ import {user} from "../db/auth-schema.ts";
 import {eq} from "drizzle-orm";
 
 const cardData: UserCardInsertSchema[] = [{
-    cardNumber: 'test-card-num',
+    cardLabel: 'test-card-num',
     cardId: 1,
     userId: testUser.id
 }, {
-    cardNumber: 'test-card-num-2',
+    cardLabel: 'test-card-num-2',
     cardId: 2,
     userId: testUser.id
 }]
@@ -154,6 +154,17 @@ describe('/api/ui', () => {
             })
             expect(res.status).toBe(200)
             expect(await res.text()).toInclude('Successfully added')
+        })
+    })
+    describe.only('inventory', () => {
+        test('gets all available inventory and users inventory', async () => {
+            const res = await app.request(`/api/ui/availableInventory/${testUser.id}`)
+            expect(res.status).toBe(200)
+            const data = (await res.json()) as any
+            expect(data).toHaveProperty("allAccounts")
+            expect(data).toHaveProperty("allCards")
+            expect(data).toHaveProperty("userAccounts")
+            expect(data).toHaveProperty("userCards")
         })
     })
 })

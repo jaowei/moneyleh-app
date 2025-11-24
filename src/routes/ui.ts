@@ -3,7 +3,7 @@ import z from "zod";
 import {db} from "../db/db.ts";
 import {
     accounts,
-    cards,
+    cards, companies, userAccountInsertSchemaZ,
     userAccounts,
     userCardInsertSchemaZ,
     userCards,
@@ -19,8 +19,12 @@ import {type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/
 import {zValidator} from "@hono/zod-validator";
 
 const userAssignmentsZ = z.object({
-    accountsIds: z.array(z.number()).optional(),
-    cardData: z.array(userCardInsertSchemaZ).optional(),
+    accountData: z.array(userAccountInsertSchemaZ.extend({
+        accountId: z.number()
+    })).optional(),
+    cardData: z.array(userCardInsertSchemaZ.extend({
+        cardId: z.number()
+    })).optional(),
 })
 
 const FileUploadPayloadZ = z.object({
@@ -32,8 +36,8 @@ const FileUploadPayloadZ = z.object({
 export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', userAssignmentsZ),
     async (c) => {
         const userId = c.req.param("userId")
-        const {accountsIds, cardData} = c.req.valid('json')
-        if (!accountsIds?.length && !cardData?.length) {
+        const {accountData, cardData} = c.req.valid('json')
+        if (!accountData?.length && !cardData?.length) {
             c.status(400)
             return c.text('No ids to assign!')
         }
@@ -45,14 +49,15 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
         // https://github.com/drizzle-team/drizzle-orm/issues/1472
         try {
             const companiesSet = new Set<number>()
-            if (accountsIds) {
-                appLogger(`${accountsIds.length} account id's provided, inserting...`)
-                await db.insert(userAccounts).values(accountsIds.map((acctId) => ({
+            if (accountData) {
+                appLogger(`${accountData.length} accounts provided, inserting...`)
+                await db.insert(userAccounts).values(accountData.map((acc) => ({
+                    ...acc,
                     userId,
-                    accountId: acctId
-                }))).onConflictDoNothing()
-                appLogger(`${accountsIds.length} account id's inserted, getting companies...`)
-                const companiesForAccounts = await db.selectDistinct({companyId: accounts.companyId}).from(accounts).where(inArray(accounts.id, accountsIds))
+                })))
+                appLogger(`${accountData.length} accounts inserted, getting companies...`)
+                const accountIds = accountData.map((a) => a.accountId)
+                const companiesForAccounts = await db.selectDistinct({companyId: accounts.companyId}).from(accounts).where(inArray(accounts.id, accountIds))
                 companiesForAccounts.forEach((companyData) => {
                     if (companyData.companyId) {
                         companiesSet.add(companyData.companyId)
@@ -65,9 +70,9 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
                     {
                         userId,
                         cardId: d.cardId,
-                        cardNumber: d.cardNumber
+                        cardLabel: d.cardLabel
                     }
-                ))).onConflictDoNothing()
+                )))
                 appLogger(`${cardData.length} card id's inserted, getting companies...`)
                 const cardIds = cardData.map((d) => d.cardId)
                 const companiesForCards = await db.selectDistinct({companyId: cards.companyId}).from(cards).where(inArray(cards.id, cardIds))
@@ -84,7 +89,7 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
                 userId,
                 companyId: id
             }))).onConflictDoNothing()
-            return c.text(`Successfully added ${accountsIds?.length} accounts, ${cardData?.length} cards, and ${companiesSet.size} companies to user`)
+            return c.text(`Successfully added ${accountData?.length} accounts, ${cardData?.length} cards, and ${companiesSet.size} companies to user`)
         } catch (e) {
             appLogger(`${e}`)
             if (e instanceof Error && e.message.includes("FOREIGN")) {
@@ -145,13 +150,13 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
             }
             const userCardRes = await db.select().from(userCards).where(and(eq(userCards.cardId, targetCard.id), eq(userCards.userId, userId)))
             if (!userCardRes.length) {
-                appLogger(`User has no cards assigned, beginning assignment...`)
+                appLogger(`Card ${cardName} not assigned to user, beginning assignment...`)
                 let insertRes
                 try {
                     insertRes = await db.insert(userCards).values({
                         cardId: targetCard.id,
                         userId,
-                        cardNumber: data.cardNumber
+                        cardLabel: data.cardNumber
                     }).returning()
                 } catch (e) {
                     if (e instanceof Error && e.message.includes('FOREIGN KEY')) {
@@ -181,6 +186,27 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
     return c.json({
         taggedTransactions,
         statementData
+    })
+}).get('/availableInventory/:userId', async (c) => {
+    const {userId} = c.req.param()
+
+    const allCardRows = await db.select().from(companies)
+        .leftJoin(cards, eq(companies.id, cards.companyId))
+        .leftJoin(userCards, and(eq(cards.id, userCards.cardId), eq(userCards.userId, userId)))
+
+    const userCardRows = allCardRows.filter((row) => row.user_cards)
+
+    const allAccountRows = await db.select().from(companies)
+        .leftJoin(accounts, eq(companies.id, accounts.companyId))
+        .leftJoin(userAccounts, and(eq(userAccounts.accountId, accounts.id), eq(userAccounts.userId, userId)))
+
+    const userAccountRows = allAccountRows.filter((row) => row.user_accounts)
+
+    return c.json({
+        allAccounts: allAccountRows,
+        allCards: allCardRows,
+        userCards: userCardRows,
+        userAccounts: userAccountRows
     })
 })
 

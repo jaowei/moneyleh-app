@@ -1,6 +1,7 @@
 import {backendRouteClient, type Tag} from "../lib/backend-clients.ts";
 
 import {type ReactNode, useRef, useState} from "react";
+import {AddButton} from "./AddButton.tsx";
 
 export type UiTag = Pick<Tag, 'id' | 'description'>
 
@@ -78,10 +79,7 @@ export const TagPicker = ({tags, availableTags, onTagChange}: TagInputProps) => 
                     </button>
                 </div>
             ))}
-            <button className="btn btn-circle"
-                    onClick={() => tagModalRef.current?.showModal()}>
-                <span className="icon-[material-symbols--add-2-rounded]"></span>
-            </button>
+            <AddButton onClick={() => tagModalRef.current?.showModal()}/>
             <dialog ref={tagModalRef} className="modal">
                 <div className="modal-box">
                     <div className="flex w-full flex-col gap-4">

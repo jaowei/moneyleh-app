@@ -7,11 +7,15 @@ import {getBackendErrorResponse} from "../../lib/error.ts";
 export const Route = createFileRoute('/_authenticated/dashboard')({
     component: DashboardComponent,
     loader: async () => {
-        const res = await backendRouteClient.api.tag.$get()
-        if (res.ok) {
-            return (await res.json()).data
+        let tagData
+        const tagDataRes = await backendRouteClient.api.tag.$get()
+        if (tagDataRes.ok) {
+            tagData = (await tagDataRes.json()).data
         } else {
-            throw await getBackendErrorResponse(res)
+            throw await getBackendErrorResponse(tagDataRes)
+        }
+        return {
+            tagData,
         }
     }
 })
@@ -65,6 +69,7 @@ function DashboardComponent() {
                 </p>
                 <p className="text-sm text-gray-500 mt-2">Email: {auth.user?.email}</p>
             </div>
+
 
             <input type='file' className='file-input' onChange={handleFileUploadInput}/>
 

@@ -57,8 +57,8 @@ CREATE TABLE `tags` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `tags_description_unique` ON `tags` (`description`);--> statement-breakpoint
 CREATE TABLE `transaction_tags` (
-	`transaction_id` integer,
-	`tag_id` integer,
+	`transaction_id` integer NOT NULL,
+	`tag_id` integer NOT NULL,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
@@ -85,8 +85,9 @@ CREATE TABLE `transactions` (
 );
 --> statement-breakpoint
 CREATE TABLE `user_accounts` (
-	`account_id` integer,
-	`user_id` text,
+	`account_id` integer NOT NULL,
+	`user_id` text NOT NULL,
+	`account_label` text,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
@@ -96,17 +97,17 @@ CREATE TABLE `user_accounts` (
 );
 --> statement-breakpoint
 CREATE TABLE `user_cards` (
-	`card_number` text PRIMARY KEY NOT NULL,
-	`card_id` integer,
-	`user_id` text,
+	`card_id` integer NOT NULL,
+	`user_id` text NOT NULL,
+	`card_label` text,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
+	PRIMARY KEY(`card_id`, `user_id`),
 	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `user_cards_card_number_unique` ON `user_cards` (`card_number`);--> statement-breakpoint
 CREATE TABLE `user_companies` (
 	`company_id` integer,
 	`user_id` text,

@@ -104,8 +104,8 @@ export const transactionsUpdateSchemaZ = createUpdateSchema(transactions)
 export type TransactionsUpdateSchema = z.infer<typeof transactionsUpdateSchemaZ>
 
 export const transactionTags = sqliteTable("transaction_tags", {
-    transactionId: integer("transaction_id").references(() => transactions.id),
-    tagId: integer("tag_id").references(() => tags.id),
+    transactionId: integer("transaction_id").notNull().references(() => transactions.id),
+    tagId: integer("tag_id").notNull().references(() => tags.id),
     ...timestamps,
 }, (table) => [primaryKey({columns: [table.transactionId, table.tagId]})])
 export const transactionTagsInsertSchemaZ = createInsertSchema(transactionTags)
@@ -118,17 +118,19 @@ export const userCompanies = sqliteTable("user_companies", {
 }, (table) => [primaryKey({columns: [table.companyId, table.userId]})])
 
 export const userAccounts = sqliteTable("user_accounts", {
-    accountId: integer("account_id").references(() => accounts.id),
-    userId: text("user_id").references(() => user.id),
+    accountId: integer("account_id").references(() => accounts.id).notNull(),
+    userId: text("user_id").references(() => user.id).notNull(),
+    accountLabel: text("account_label"),
     ...timestamps
 }, (table) => [primaryKey({columns: [table.accountId, table.userId]})])
+export const userAccountInsertSchemaZ = createInsertSchema(userAccounts)
 
 export const userCards = sqliteTable("user_cards", {
-    cardNumber: text("card_number").primaryKey().unique(),
     cardId: integer("card_id").references(() => cards.id).notNull(),
     userId: text("user_id").references(() => user.id).notNull(),
+    cardLabel: text("card_label"),
     ...timestamps
-})
+}, (table) => [primaryKey({columns: [table.cardId, table.userId]})])
 export const userCardInsertSchemaZ = createInsertSchema(userCards)
 export type UserCardInsertSchema = z.infer<typeof userCardInsertSchemaZ>
 
