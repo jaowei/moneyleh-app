@@ -16,7 +16,7 @@ import {findUserOrThrow} from "./route.utils.ts";
 import type {StatementData} from "../lib/pdf/pdf.type.ts";
 import {pdfParser} from "../lib/pdf/pdf.ts";
 import {type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
-import {zValidator} from "@hono/zod-validator";
+import {zodValidator} from "../lib/middleware/zod-validator.ts";
 
 const userAssignmentsZ = z.object({
     accountData: z.array(userAccountInsertSchemaZ.extend({
@@ -33,7 +33,7 @@ const FileUploadPayloadZ = z.object({
     file: z.file().mime(["application/pdf", "text/csv", "application/vnd.ms-excel"]).min(5 * 1000).max(150 * 1000)
 })
 
-export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', userAssignmentsZ),
+export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator('json', userAssignmentsZ),
     async (c) => {
         const userId = c.req.param("userId")
         const {accountData, cardData} = c.req.valid('json')
@@ -45,8 +45,6 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
         await findUserOrThrow(userId)
 
         // insert into the associative tables
-        // TODO: Add transaction here once drizzle fixes their bug
-        // https://github.com/drizzle-team/drizzle-orm/issues/1472
         try {
             const companiesSet = new Set<number>()
             if (accountData) {
@@ -103,7 +101,7 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zValidator('json', u
         }
     }).post('/assignTo/*', async (c) => {
     return c.text('Please specify a user id', 400)
-}).post("/fileUpload", zValidator('form', FileUploadPayloadZ), async (c) => {
+}).post("/fileUpload", zodValidator('form', FileUploadPayloadZ), async (c) => {
     const {file, userId} = c.req.valid('form')
 
     let statementData: StatementData | undefined = undefined

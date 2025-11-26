@@ -1,16 +1,14 @@
 import {HTTPException} from "hono/http-exception";
-import {validator} from "hono/validator";
 import * as z from "zod";
 import type {ValidationTargets} from "hono";
+import {zValidator} from "@hono/zod-validator";
 
-export function zodValidator<T extends z.ZodType>(schema: T, validationTarget: keyof ValidationTargets = "json") {
-    return validator(validationTarget, (value) => {
-        const parsed = schema.safeParse(value);
-        if (!parsed.success) {
+export function zodValidator<T extends z.ZodType, Target extends keyof ValidationTargets>(target: Target, schema: T) {
+    return zValidator(target, schema, (result, c) => {
+        if (!result.success) {
             throw new HTTPException(400, {
-                message: z.prettifyError(parsed.error)
+                message: z.prettifyError(result.error)
             });
         }
-        return parsed.data;
     })
 } 

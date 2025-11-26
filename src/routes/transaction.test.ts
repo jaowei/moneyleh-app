@@ -1,19 +1,19 @@
-import {describe, expect, test, afterAll, spyOn} from "bun:test";
+import {describe, expect, test, afterEach} from "bun:test";
 import app from "../index.ts";
 import {jsonHeader, testTag} from "../lib/test.utils.ts";
 import type {PostTransactionPayload} from "./transaction.ts";
 import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {testUser} from "../lib/test.utils.ts";
-import {transactions, type TransactionsUpdateSchema, userAccounts} from "../db/schema.ts";
+import {transactions, type TransactionsUpdateSchema, transactionTags, userAccounts} from "../db/schema.ts";
 import {db} from "../db/db.ts";
-import {eq} from "drizzle-orm";
+import {and, eq} from "drizzle-orm";
 
 
 describe('/api/transaction', () => {
     describe('create', () => {
         const fixedDate = 'fixed-date'
         const testTransaction = {
-            transactionDate: new Date().toISOString(),
+            transactionDate: fixedDate,
             description: 'test-description',
             currency: 'SGD',
             amount: 123,
@@ -24,12 +24,22 @@ describe('/api/transaction', () => {
                 description: testTag.description
             }]
         }
-        afterAll(async () => {
-            const testFilePath = Bun.file(testClassifierPath)
-            await testFilePath.delete()
+        afterEach(async () => {
             try {
-                await db.delete(transactions).where(eq(transactions.transactionDate, fixedDate))
+                const testFilePath = Bun.file(testClassifierPath)
+                await testFilePath.delete()
+            } catch {
+                // passthrough
+            }
+            try {
+                const txnToDelete = await db.select().from(transactions).where(eq(transactions.transactionDate, fixedDate))
+                if (txnToDelete[0]) {
+                    console.log('----- Deleting transaction!')
+                    await db.delete(transactionTags).where(eq(transactionTags.transactionId, txnToDelete[0].id))
+                    await db.delete(transactions).where(eq(transactions.transactionDate, fixedDate))
+                }
             } catch (e) {
+                console.log('Error deleting', e)
                 console.log('You probably need to delete a row from transactionsTag table')
             }
         })
@@ -54,9 +64,7 @@ describe('/api/transaction', () => {
                 body: JSON.stringify(testTransactions),
                 ...jsonHeader,
             });
-            expect(res.status).toBe(200);
-            const result = await res.json() as { failed: any[] }
-            expect(result.failed.length).toBe(0)
+            expect(res.status).toBe(201);
         })
 
         test('inserts into db: no tags', async () => {
@@ -71,13 +79,48 @@ describe('/api/transaction', () => {
                 body: JSON.stringify(testTransactions),
                 ...jsonHeader,
             });
-            expect(res.status).toBe(200);
-            const result = await res.json() as { failed: any[] }
-            expect(result.failed.length).toBe(0)
+            expect(res.status).toBe(201);
         })
 
-        test('inserts into db: only once', async () => {
-            const dbSpy = spyOn(db, 'insert')
+        test('inserts into db: invalid tag', async () => {
+            const testTransactions: PostTransactionPayload = {
+                transactions: [{
+                    ...testTransaction,
+                    tags: [{
+                        id: 1,
+                        description: ''
+                    }]
+                }]
+            }
+            const res = await app.request("/api/transaction", {
+                method: "POST",
+                body: JSON.stringify(testTransactions),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('Too small')
+        })
+
+        test('inserts into db: tag not in db', async () => {
+            const testTransactions: PostTransactionPayload = {
+                transactions: [{
+                    ...testTransaction,
+                    tags: [{
+                        id: 100000,
+                        description: 'some-random-tag'
+                    }]
+                }]
+            }
+            const res = await app.request("/api/transaction", {
+                method: "POST",
+                body: JSON.stringify(testTransactions),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(400);
+            expect(await res.text()).toInclude('Tag does not exist')
+        })
+
+        test('inserts into db: only once, test db transaction', async () => {
             const testTransactions: PostTransactionPayload = {
                 transactions: [{
                     ...testTransaction,
@@ -90,19 +133,35 @@ describe('/api/transaction', () => {
                 body: JSON.stringify(testTransactions),
                 ...jsonHeader,
             });
-            expect(res.status).toBe(200);
-            const result = await res.json() as { failed: any[] }
-            expect(result.failed.length).toBe(0)
+            expect(res.status).toBe(201);
+
+            const txnNotAdded = {
+                ...testTransaction,
+                amount: 777,
+                description: 'desc2'
+            }
             const secondRes = await app.request("/api/transaction", {
                 method: "POST",
-                body: JSON.stringify(testTransactions),
+                body: JSON.stringify({
+                    transactions: [
+                        txnNotAdded,
+                        ...testTransactions.transactions,
+                    ]
+                }),
                 ...jsonHeader,
             });
-            expect(dbSpy).toBeCalledTimes(1)
-            expect(secondRes.status).toBe(200)
+            expect(secondRes.status).toBe(400)
+            expect(await secondRes.text()).toInclude('similar transaction')
+            const queryRes = db.select().from(transactions).where(
+                and(
+                    eq(transactions.amount, txnNotAdded.amount),
+                    eq(transactions.description, txnNotAdded.description)
+                )
+            ).all()
+            expect(queryRes.length).toBe(0)
         })
 
-        test.only('inserts into db: invalid payload', async () => {
+        test('inserts into db: invalid payload', async () => {
             const testTransactions: PostTransactionPayload = {
                 transactions: [{
                     ...testTransaction,

@@ -4,7 +4,7 @@ import z from "zod";
 import {db} from "../db/db.ts";
 import {eq} from "drizzle-orm";
 import {HTTPException} from "hono/http-exception";
-import {zValidator} from "@hono/zod-validator";
+import {zodValidator} from "../lib/middleware/zod-validator.ts";
 
 const postTagPayloadZ = z.object({
     tags: z.array(tagInsertSchemaZ).min(1)
@@ -17,8 +17,8 @@ const tagPutPayloadZ = z.object({
     })).min(1)
 })
 
-export const tagRoute = new Hono().post("/", zValidator(
-    'json', postTagPayloadZ), async (c) => {
+export const tagRoute = new Hono().post("/", zodValidator('json'
+    , postTagPayloadZ), async (c) => {
     const {tags} = c.req.valid('json')
 
     const queryRes = await db.insert(tagsDb).values(tags).onConflictDoNothing().returning()
@@ -47,7 +47,7 @@ export const tagRoute = new Hono().post("/", zValidator(
     return c.json({
         data: queryRes
     })
-}).put('/', zValidator('json', tagPutPayloadZ), async (c) => {
+}).put('/', zodValidator('json', tagPutPayloadZ), async (c) => {
     const {tags} = c.req.valid('json')
     const failedUpdates: TagUpdateSchema[] = []
     const updatedTags = []

@@ -19,7 +19,6 @@ import {
     trainClassifier
 } from "../lib/descriptionTagger/descriptionTagger.ts";
 import {findUserOrThrow} from "./route.utils.ts";
-import {zValidator} from "@hono/zod-validator";
 import {csvParserDirectUpload} from "../lib/csv/directUpload.ts";
 
 const allowOnlyAccountOrCardIdErrMsg = 'An account id or card id is required, both cannot be empty and filled in the same transaction'
@@ -54,71 +53,78 @@ const transactionsPatchPayloadZ = z.object({
     transactions: z.array(transactionsUpdateSchemaZ).min(1)
 })
 
-export const transactionRoute = new Hono().post('/', zValidator('json', PostTransactionPayloadZ), async (c) => {
+export const transactionRoute = new Hono().post('/', zodValidator('json', PostTransactionPayloadZ), async (c) => {
     const {transactions} = c.req.valid('json')
 
     const classifier = await initClassifier()
-    const transactionTags: TransactionTagsInsertSchema[] = []
-    const failedTransactions: TransactionFromUI = []
-    for (const t of transactions) {
-        const {tags, ...rest} = t
+    try {
+        db.transaction((tx) => {
+            for (const t of transactions) {
+                const {tags, ...rest} = t
 
-        const findRes = await db.select().from(transactionsDb).where(and(eq(transactionsDb.description, t.description),
-            eq(transactionsDb.amount, t.amount), eq(transactionsDb.transactionDate, t.transactionDate), eq(transactionsDb.userId, t.userId)))
+                const findRes = tx.select().from(transactionsDb).where(and(
+                    eq(transactionsDb.description, t.description),
+                    eq(transactionsDb.amount, t.amount),
+                    eq(transactionsDb.transactionDate, t.transactionDate),
+                    eq(transactionsDb.userId, t.userId))
+                ).all()
 
-        if (findRes.length) {
-            appLogger(`Found ${findRes.length} similar transaction/s, skipping insert`)
-            continue
-        }
-
-        const txnId = await db.insert(transactionsDb).values(rest).returning({id: transactionsDb.id})
-        if (!txnId[0]) {
-            appLogger(`WARN: Could not add transaction ${t.description}`)
-            failedTransactions.push(t)
-            continue
-        }
-
-        if (!tags) continue
-
-        const tagIds = tags.map((tag) => tag.id)
-        const queryRes = await db.select({
-            id: tagsDb.id,
-            description: tagsDb.description
-        }).from(tagsDb).where(inArray(tagsDb.id, tagIds))
-
-        for (const res of queryRes) {
-            transactionTags.push(
-                {
-                    transactionId: txnId[0].id,
-                    tagId: res.id
+                if (findRes.length) {
+                    appLogger(`Found ${findRes.length} similar transaction/s, skipping insert`)
+                    throw new Error('Found similar transaction')
                 }
-            )
-            trainClassifier(classifier, {description: t.description, tag: res.description})
-        }
 
-        if (queryRes.length !== tagIds.length) {
-            appLogger(`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`)
-        }
-    }
+                const txnId = tx.insert(transactionsDb).values(rest).returning({id: transactionsDb.id}).all()
+                const insertedTxn = txnId[0]
+                if (!insertedTxn) {
+                    appLogger(`WARN: Could not add transaction ${t.description}`)
+                    // enable type guard to work with throw keyword
+                    throw tx.rollback()
+                }
 
-    if (!transactionTags.length) {
-        appLogger(`No tags to assign`)
-    } else {
-        const ids = await db.insert(transactionTagsDb).values(transactionTags).returning({id: transactionTagsDb.tagId})
-        if (ids.length !== transactionTags.length) {
-            throw new HTTPException(500, {
-                message: `Did not tag all transactions properly: ${ids.length}/${transactionTags.length}`
-            })
-        }
+                if (!tags || !tags.length) continue
+
+                const tagIds = tags.map((tag) => tag.id)
+                const queryRes = tx.select({
+                    id: tagsDb.id,
+                    description: tagsDb.description
+                }).from(tagsDb).where(inArray(tagsDb.id, tagIds)).all()
+
+                if (queryRes.length !== tagIds.length) {
+                    appLogger(`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`)
+                    appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`)
+                    appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`)
+                    throw new Error('Tag does not exist!')
+                } else {
+                    const transactionTagsToInsert = queryRes.map((foundTag) => {
+                        trainClassifier(classifier, {description: t.description, tag: foundTag.description})
+                        return {
+                            transactionId: insertedTxn.id,
+                            tagId: foundTag.id
+                        }
+                    })
+                    const ids = tx.insert(transactionTagsDb).values(transactionTagsToInsert).returning({id: transactionTagsDb.tagId}).all()
+                    if (ids.length !== queryRes.length) {
+                        appLogger(`WARN: Not all tags inserted`)
+                        tx.rollback()
+                    } else {
+                        appLogger(`Inserted ${ids.length} tags`)
+                    }
+                }
+            }
+        })
+    } catch (e) {
+        const message = e instanceof Error ? e.message : JSON.stringify(e)
+        throw new HTTPException(400, {
+            message
+        })
     }
 
     await saveClassifier(classifier)
 
-    return c.json({
-        failed: failedTransactions
-    })
+    return c.text('All inserted', 201)
 })
-    .post('/csv', zValidator('form', postTransactionCsvPayloadZ), async (c) => {
+    .post('/csv', zodValidator('form', postTransactionCsvPayloadZ), async (c) => {
         const {userId, accountId, cardId, file} = c.req.valid('form')
 
         await findUserOrThrow(userId)
@@ -233,7 +239,7 @@ export const transactionRoute = new Hono().post('/', zValidator('json', PostTran
         return c.json({
             transactions: queryRes
         })
-    }).patch('/*', zodValidator(transactionsPatchPayloadZ), async (c) => {
+    }).patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
         const {transactions} = c.req.valid('json')
         const failedUpdates: TransactionsUpdateSchema[] = []
         for (const t of transactions) {

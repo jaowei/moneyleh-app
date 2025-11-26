@@ -11,7 +11,7 @@ import {HTTPException} from "hono/http-exception";
 
 export const companyRoute = new Hono();
 
-companyRoute.post("/", zodValidator(companiesInsertSchema), async (c) => {
+companyRoute.post("/", zodValidator('json', companiesInsertSchema), async (c) => {
     const data = c.req.valid("json");
     const created = await db.insert(companies).values(data).returning();
     c.status(201);
@@ -36,7 +36,7 @@ companyRoute.get("/:id", async (c) => {
     });
 });
 
-companyRoute.put("/:id", zodValidator(companiesUpdateSchema), async (c) => {
+companyRoute.put("/:id", zodValidator('json', companiesUpdateSchema), async (c) => {
     const data = c.req.valid("json");
     const targetId = parseInt(c.req.param("id"));
     const updatedCompanyId = await db
