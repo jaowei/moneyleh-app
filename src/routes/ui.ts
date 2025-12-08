@@ -108,7 +108,7 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator('json',
     // TODO: How to prevent duplicate statement upload
     switch (file.type) {
         case 'application/pdf':
-            statementData = await pdfParser(file)
+            statementData = await pdfParser(file, userId)
             break;
         // case "application/vnd.ms-excel":
         //     console.log('I am xls')

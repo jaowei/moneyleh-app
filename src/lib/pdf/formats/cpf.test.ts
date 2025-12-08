@@ -1,13 +1,13 @@
 import {describe, test, expect} from "bun:test";
 import {pdfParser} from "../pdf.ts";
-import {testATransaction} from "../../test.utils.ts";
+import {testATransaction, testUser} from "../../test.utils.ts";
 
 describe('pdf: CPF statement', () => {
     test('cpf statement', async () => {
         const file = Bun.file('./test-files/cpf.pdf')
         const buf = await file.arrayBuffer()
         const f = new File([buf], 'file')
-        const data = await pdfParser(f)
+        const data = await pdfParser(f, testUser.id)
         if ("accounts" in data) {
             const accounts = Object.keys(data.accounts)
             expect(accounts.length).toBe(3)

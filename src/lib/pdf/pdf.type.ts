@@ -79,7 +79,7 @@ export interface CPFStatementData extends StatementDataBase {
 
 export type StatementData = CardStatementData | AccountStatementData | CPFStatementData
 
-export type PdfFormatExtractor = (dataToExtract: MuPdfStructuredTextPage[]) => StatementData
+export type PdfFormatExtractor = (dataToExtract: MuPdfStructuredTextPage[], userId: string) => StatementData
 
 export interface PdfFormat {
     searchString: string;

@@ -1,7 +1,7 @@
 import type {
     MuPdfStructuredLine,
     MuPdfStructuredTextBlock,
-    MuPdfStructuredTextPage, PdfFormat,
+    PdfFormat, PdfFormatExtractor,
     StatementData
 } from "../pdf.type.ts";
 import {parseDateString} from "../../dayjs.ts";
@@ -87,7 +87,7 @@ const parseAmount = (amountLine: MuPdfStructuredLine) => {
     }
 }
 
-const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
+const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
     const dataIdx = {
         statementDate: -1,
         pointsSummary: -1
@@ -185,7 +185,8 @@ const extractData = (dataToExtract: MuPdfStructuredTextPage[]) => {
                     transactionDate: '',
                     description: '',
                     amount: Number.NaN,
-                    currency
+                    currency,
+                    userId
                 }
                 let descStartIdx = 1
                 if (block.lines[0]) {

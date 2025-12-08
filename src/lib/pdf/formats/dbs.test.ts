@@ -1,13 +1,13 @@
 import {describe, expect, test} from "bun:test";
 import {pdfParser} from "../pdf.ts";
-import {testATransaction} from "../../test.utils.ts";
+import {testATransaction, testUser} from "../../test.utils.ts";
 
 describe("pdf: dbs card format", () => {
     test("use statement with re issued card and fx transactions", async () => {
         const file = Bun.file('./test-files/dbsCard-fx-reissue.pdf')
         const buf = await file.arrayBuffer()
         const f = new File([buf], 'file')
-        const data = await pdfParser(f)
+        const data = await pdfParser(f, testUser.id)
         if ("cards" in data) {
             const cardsArr = Object.entries(data.cards)
             expect(cardsArr.length).toBe(2)

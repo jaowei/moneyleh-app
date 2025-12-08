@@ -1,4 +1,4 @@
-import {createFileRoute, useRouter} from "@tanstack/react-router";
+import {createFileRoute, Link, useRouter} from "@tanstack/react-router";
 import {type AllAccounts, type AllCards, uiRouteClient} from "../../lib/backend-clients.ts";
 import {getBackendErrorResponse} from "../../lib/error.ts";
 import {type ChangeEventHandler, type ReactNode, useRef, useState} from "react";
@@ -6,7 +6,7 @@ import {AddButton, AddIcon} from "../../components/AddButton.tsx";
 import AddTransactionsModal from "../../components/AddTransactionsModal.tsx";
 
 
-export const Route = createFileRoute('/_authenticated/inventory')({
+export const Route = createFileRoute('/_authenticated/inventory/')({
     component: InventoryComponent,
     loader: async ({context: {auth}}) => {
         const userId = auth?.user?.id
@@ -205,6 +205,9 @@ function InventoryComponent() {
                                     <div>{acc.companies.name}</div>
                                     <div>{acc.accounts?.name}</div>
                                     <div className="list-col-grow">{acc.user_accounts?.accountLabel}</div>
+                                    {acc.accounts?.id && <Link to='/inventory/$accountId' params={{
+                                        accountId: `${acc.accounts.id}`
+                                    }}>Go to</Link>}
                                     <AddTransactionsModal accountId={acc.accounts?.id}/>
                                 </li>
                             ))}

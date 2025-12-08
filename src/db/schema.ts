@@ -95,13 +95,15 @@ export const transactions = sqliteTable("transactions", {
     amount: real().notNull(),
     accountId: integer("account_id").references(() => accounts.id),
     cardId: integer("card_id").references(() => cards.id),
-    userId: text("user_id").references(() => user.id),
+    userId: text("user_id").references(() => user.id).notNull(),
     ...timestamps,
 });
 export const transactionsInsertSchemaZ = createInsertSchema(transactions)
 export type TransactionsInsertSchema = z.infer<typeof transactionsInsertSchemaZ>
 export const transactionsUpdateSchemaZ = createUpdateSchema(transactions)
 export type TransactionsUpdateSchema = z.infer<typeof transactionsUpdateSchemaZ>
+export const transactionsSelectSchemaZ = createSelectSchema(transactions)
+export type TransactionsSelectSchema = z.infer<typeof transactionsSelectSchemaZ>
 
 export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").notNull().references(() => transactions.id),

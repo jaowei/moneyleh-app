@@ -34,12 +34,7 @@ export default function AddTransactionsModal({accountId, cardId}: AddTransaction
             }
         })
         if (res.ok) {
-            const insertResults = await res.json()
-            if (insertResults.failed.length) {
-                // TODO: allow user to reinsert
-            } else {
-                dialogRef.current?.close()
-            }
+            dialogRef.current?.close()
         } else {
             setUploadError(await res.text())
         }

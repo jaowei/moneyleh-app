@@ -1,14 +1,14 @@
 import {describe, test, expect, afterEach, spyOn} from "bun:test";
 import {
     initClassifier,
-    saveClassifier,
+    saveAndTrainClassifier,
     tagTransactions,
     testClassifierPath,
-    trainClassifier
+    addDocuments
 } from "./descriptionTagger.ts";
 import type {TransactionsInsertSchema} from "../../db/schema.ts";
 import {LogisticRegressionClassifier} from "natural";
-import {testTag} from "../test.utils.ts";
+import {testTag, testUser} from "../test.utils.ts";
 
 afterEach(async () => {
     const file = Bun.file(testClassifierPath)
@@ -21,6 +21,7 @@ describe('description tagger', () => {
         description: 'test-description',
         currency: 'SGD',
         amount: 123,
+        userId: testUser.id
     }]
     test('tag a transaction', async () => {
         const tagged = await tagTransactions(undefined, transactions)
@@ -32,12 +33,12 @@ describe('description tagger', () => {
         const restoreSpy = spyOn(LogisticRegressionClassifier, 'restore')
         const c = await initClassifier()
         expect(restoreSpy).not.toBeCalled()
-        trainClassifier(c, {
+        addDocuments(c, {
             description: 'test-description',
             tag: testTag.description
         })
 
-        await saveClassifier(c)
+        await saveAndTrainClassifier(c)
 
         const c2 = await initClassifier()
         expect(c2).toBeInstanceOf(LogisticRegressionClassifier)
@@ -46,5 +47,21 @@ describe('description tagger', () => {
         const tagged = await tagTransactions(c, transactions)
         expect(tagged.length).toBe(transactions.length)
         expect(tagged[0]).toHaveProperty('tag')
+    })
+
+    // used to perform load test
+    // 800 documents takes about 8s
+    test.skip('load test add documents and train', async () => {
+        const trainingLoad = 800
+        const c = await initClassifier()
+
+        for (let i = 0; i < trainingLoad; i++) {
+            addDocuments(c, {
+                description: 'test-description',
+                tag: `${testTag.description}-${i}`
+            })
+        }
+
+        await saveAndTrainClassifier(c)
     })
 })

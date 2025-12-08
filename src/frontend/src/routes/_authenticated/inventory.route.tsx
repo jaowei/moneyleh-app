@@ -1,0 +1,13 @@
+import {createFileRoute, Outlet} from "@tanstack/react-router";
+
+export const Route = createFileRoute('/_authenticated/inventory')({
+    component: InventoryLayoutComponent
+})
+
+function InventoryLayoutComponent() {
+    return (
+        <div>
+            <Outlet/>
+        </div>
+    )
+}

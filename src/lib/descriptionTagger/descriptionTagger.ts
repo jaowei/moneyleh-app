@@ -4,6 +4,10 @@ import {tags, type TransactionsInsertSchema} from "../../db/schema.ts";
 import {like} from "drizzle-orm";
 import {appLogger} from "../../index.ts";
 
+export type DocumentToAdd = {
+    description: string,
+    tag: string
+}
 export const testClassifierPath = 'classifier-test.json'
 const classifierDataFilePath = process.env.NODE_ENV === 'production' ? 'classifier.json' : testClassifierPath
 
@@ -19,16 +23,13 @@ export const initClassifier = async (initialDataPath = classifierDataFilePath) =
     }
 }
 
-export const trainClassifier = (classifier: LogisticRegressionClassifier, targetDoc: {
-    description: string,
-    tag: string
-}) => {
+export const addDocuments = (classifier: LogisticRegressionClassifier, targetDoc: DocumentToAdd) => {
     const res = tokeniseWord(targetDoc.description)
     classifier.addDocument(res, targetDoc.tag)
-    classifier.train()
 }
 
-export const saveClassifier = async (classifier: LogisticRegressionClassifier, filePath = classifierDataFilePath) => {
+export const saveAndTrainClassifier = async (classifier: LogisticRegressionClassifier, filePath = classifierDataFilePath) => {
+    classifier.train()
     const serialised = JSON.stringify(classifier)
     await Bun.write(filePath, serialised)
 }

@@ -34,7 +34,7 @@ const parseTxn = (account: string, amountStr?: string) => {
     }
 }
 
-const extractData: PdfFormatExtractor = (dataToExtract) => {
+const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
     const statementData: CPFStatementData = {
         statementDate: '',
         accounts: {
@@ -75,7 +75,8 @@ const extractData: PdfFormatExtractor = (dataToExtract) => {
                         transactionDate: txnDate,
                         currency: 'SGD',
                         amount: oaAmt || saAmt || maAmt,
-                        description: block.lines.slice(1, block.lines.length - 3).map((l) => l.text).join(' ')
+                        description: block.lines.slice(1, block.lines.length - 3).map((l) => l.text).join(' '),
+                        userId
                     }
                     if (oaAmt) {
                         statementData.accounts.ordinaryAccount.transactions.push(transaction)

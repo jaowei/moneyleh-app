@@ -35,7 +35,7 @@ const determineFormat = (doc: mupdf.Document) => {
     }
 }
 
-export const pdfParser = async (file: File) => {
+export const pdfParser = async (file: File, userId: string) => {
     const doc = mupdf.PDFDocument.openDocument(await file.arrayBuffer())
     if (!doc.countPages()) {
         throw new Error(`Document does not have any pages!`)
@@ -44,7 +44,7 @@ export const pdfParser = async (file: File) => {
     const extractor = determineFormat(doc)
     if (extractor) {
         const dataToExtract = parseStatementPages(doc)
-        return extractor(dataToExtract)
+        return extractor(dataToExtract, userId)
     } else {
         throw new Error(`Cannot determine format for file: ${file.name}`)
     }
