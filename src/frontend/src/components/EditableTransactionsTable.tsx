@@ -1,20 +1,19 @@
-import {backendRouteClient, type Tag, type Transaction} from "../lib/backend-clients.ts";
-import {getRouteApi} from "@tanstack/react-router";
+import {backendRouteClient, type Tag, type EditableTransaction} from "../lib/backend-clients.ts";
 import {TagPicker, type UiTag} from "./TagPicker.tsx";
 import {type Dispatch, type SetStateAction, useState} from "react";
-import {Route} from "../routes/_authenticated/dashboard.tsx";
+import {useAuth} from "../context/auth.tsx";
 
 interface TransactionsTableProps {
-    transactions: Transaction[];
-    setTransactions: Dispatch<SetStateAction<Transaction[]>>
+    transactions: EditableTransaction[];
+    setTransactions: Dispatch<SetStateAction<EditableTransaction[]>>
+    tagData: Tag[]
 }
 
 interface TransactionRowProps {
-    transaction: Transaction;
+    transaction: EditableTransaction;
     transactionIndex: number;
     tagData?: Tag[]
-    setTransactions: Dispatch<SetStateAction<Transaction[]>>
-    userId: string
+    setTransactions: Dispatch<SetStateAction<EditableTransaction[]>>
 }
 
 const TransactionRow = ({transaction, tagData, setTransactions, transactionIndex}: TransactionRowProps) => {
@@ -43,12 +42,10 @@ const TransactionRow = ({transaction, tagData, setTransactions, transactionIndex
     )
 }
 
-export default function TransactionsTable({transactions, setTransactions}: TransactionsTableProps) {
-    const {auth} = Route.useRouteContext()
+export default function EditableTransactionsTable({transactions, setTransactions, tagData}: TransactionsTableProps) {
+    const {user} = useAuth()
     const [saveError, setSaveError] = useState('')
-    const userId = auth?.user?.id
-    const route = getRouteApi('/_authenticated/dashboard')
-    const {tagData} = route.useLoaderData()
+    const userId = user?.id
     const handleSaveTransactionsClick = async () => {
         setSaveError('')
         try {
@@ -76,6 +73,11 @@ export default function TransactionsTable({transactions, setTransactions}: Trans
             <button className="btn btn-primary" disabled={!transactions.length}
                     onClick={handleSaveTransactionsClick}>Save transactions
             </button>
+            {saveError &&
+                <div role="alert" className="alert alert-error">
+                    <span>{saveError}</span>
+                </div>
+            }
             <table className="table table-zebra table-xs">
                 <thead>
                 <tr>
@@ -90,16 +92,10 @@ export default function TransactionsTable({transactions, setTransactions}: Trans
                 <tbody>
                 {transactions.map((t, idx) => {
                     return <TransactionRow transaction={t} tagData={tagData} setTransactions={setTransactions}
-                                           transactionIndex={idx} userId={userId}/>
+                                           transactionIndex={idx}/>
                 })}
                 </tbody>
             </table>
-            {/*TODO: Get popper js to handle toast*/}
-            {saveError && <div className="toast toast-top toast-center">
-                <div role="alert" className="alert alert-error">
-                    <span>{saveError}</span>
-                </div>
-            </div>}
         </div>
     )
 }

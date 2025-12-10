@@ -1,5 +1,10 @@
 import {createFileRoute, Link, useRouter} from "@tanstack/react-router";
-import {type AllAccounts, type AllCards, uiRouteClient} from "../../lib/backend-clients.ts";
+import {
+    type AllAccounts,
+    type AllCards,
+    fetchTagData,
+    uiRouteClient
+} from "../../lib/backend-clients.ts";
 import {getBackendErrorResponse} from "../../lib/error.ts";
 import {type ChangeEventHandler, type ReactNode, useRef, useState} from "react";
 import {AddButton, AddIcon} from "../../components/AddButton.tsx";
@@ -10,8 +15,11 @@ export const Route = createFileRoute('/_authenticated/inventory/')({
     component: InventoryComponent,
     loader: async ({context: {auth}}) => {
         const userId = auth?.user?.id
+
         if (!userId) throw new Error()
+
         let inventory
+
         const allInventoryRes = await uiRouteClient.availableInventory[':userId'].$get({
             param: {userId}
         })
@@ -20,8 +28,12 @@ export const Route = createFileRoute('/_authenticated/inventory/')({
         } else {
             throw await getBackendErrorResponse(allInventoryRes)
         }
+
+        const tagData = await fetchTagData()
+
         return {
-            inventory
+            inventory,
+            tagData
         }
     }
 })
@@ -188,7 +200,7 @@ const AllInventoryList = ({allAccounts, allCards}: { allAccounts: AllAccounts, a
 }
 
 function InventoryComponent() {
-    const {inventory} = Route.useLoaderData()
+    const {inventory, tagData} = Route.useLoaderData()
 
     return <div>
         <div className="drawer drawer-open">
@@ -205,10 +217,10 @@ function InventoryComponent() {
                                     <div>{acc.companies.name}</div>
                                     <div>{acc.accounts?.name}</div>
                                     <div className="list-col-grow">{acc.user_accounts?.accountLabel}</div>
-                                    {acc.accounts?.id && <Link to='/inventory/$accountId' params={{
+                                    {acc.accounts?.id && <Link to='/inventory/account/$accountId' params={{
                                         accountId: `${acc.accounts.id}`
                                     }}>Go to</Link>}
-                                    <AddTransactionsModal accountId={acc.accounts?.id}/>
+                                    <AddTransactionsModal accountId={acc.accounts?.id} tagData={tagData}/>
                                 </li>
                             ))}
                         </CurrentInventoryDisplayList>
@@ -219,7 +231,7 @@ function InventoryComponent() {
                                     <div>{card.companies.name}</div>
                                     <div>{card.cards?.name}</div>
                                     <div className="list-col-grow">{card.user_cards?.cardLabel}</div>
-                                    <AddTransactionsModal cardId={card.cards?.id}/>
+                                    <AddTransactionsModal cardId={card.cards?.id} tagData={tagData}/>
                                 </li>
                             ))}
                         </CurrentInventoryDisplayList>

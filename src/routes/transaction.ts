@@ -21,6 +21,7 @@ import {
 import {findUserOrThrow} from "./route.utils.ts";
 import {csvParserDirectUpload} from "../lib/csv/directUpload.ts";
 import WorkerPool from "../lib/descriptionTagger/classifier-trainer-worker-pool.ts";
+import {paginationZ, refineAccountOrCardId} from "./route.types.ts";
 
 const allowOnlyAccountOrCardIdErrMsg = 'An account id or card id is required, both cannot be empty and filled in the same transaction'
 
@@ -30,9 +31,7 @@ const transactionFromUIZ = transactionsInsertSchemaZ.extend({
         description: z.string().min(1)
     })).optional(),
     userId: z.string()
-}).refine((data) => !(data.accountId && data.cardId) && !(!data.accountId && !data.cardId), {
-    error: allowOnlyAccountOrCardIdErrMsg
-})
+}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
 const transactionsFromUIZ = z.array(transactionFromUIZ).min(1)
 export type TransactionFromUI = z.infer<typeof transactionsFromUIZ>
 
@@ -46,9 +45,7 @@ const postTransactionCsvPayloadZ = z.object({
     accountId: z.coerce.number().optional(),
     cardId: z.coerce.number().optional(),
     file: z.file().mime(["text/csv"]).max(1000 * 1000) // max 1mb
-}).refine((data) => !(data.cardId && data.accountId) && !(!data.cardId && !data.accountId), {
-    error: allowOnlyAccountOrCardIdErrMsg
-})
+}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
 
 const transactionsPatchPayloadZ = z.object({
     transactions: z.array(transactionsUpdateSchemaZ).min(1)
@@ -57,8 +54,8 @@ const transactionsPatchPayloadZ = z.object({
 const getUserTransactionsQueryZ = z.discriminatedUnion(
     "type",
     [
-        z.object({type: z.literal("account"), accountId: z.coerce.number()}),
-        z.object({type: z.literal("card"), cardId: z.coerce.number()}),
+        z.object({type: z.literal("account"), accountId: z.coerce.number(), ...paginationZ.shape}),
+        z.object({type: z.literal("card"), cardId: z.coerce.number(), ...paginationZ.shape}),
     ]
 )
 
@@ -279,11 +276,25 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
     })
     .get('/:userId', zodValidator('query', getUserTransactionsQueryZ), async (c) => {
         const {userId} = c.req.param()
-        const filter = c.req.valid('query')
+        const {limit, offset, ...targetId} = c.req.valid('query')
 
-        const transactionFilter = filter.type === 'account' ? eq(accounts.id, filter.accountId) : eq(cards.id, filter.cardId)
+        const isAccount = targetId.type === 'account'
+        const transactionFilter = isAccount ? eq(accounts.id, targetId.accountId) : eq(cards.id, targetId.cardId)
 
         await findUserOrThrow(userId)
+
+        let displayName = ''
+        if (isAccount) {
+            const accountQuery = await db.select().from(accounts).where(transactionFilter)
+            if (accountQuery[0]) {
+                displayName = accountQuery[0].name
+            }
+        } else {
+            const cardQuery = await db.select().from(cards).where(transactionFilter)
+            if (cardQuery[0]) {
+                displayName = `${cardQuery[0].name} - ${cardQuery[0].cardNetwork}`
+            }
+        }
 
         const queryRes = await db.select().from(transactionsDb).where(
             and(eq(transactionsDb.userId, userId), transactionFilter))
@@ -291,6 +302,8 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             .leftJoin(tagsDb, eq(transactionTagsDb.tagId, tagsDb.id))
             .leftJoin(accounts, eq(accounts.id, transactionsDb.accountId))
             .leftJoin(cards, eq(cards.id, transactionsDb.cardId))
+            .limit(limit)
+            .offset(offset)
 
         const transactionsToReturn: Record<number, TransactionsSelectSchema & {
             tags: TagSelectSchema[];
@@ -315,6 +328,7 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
         }
 
         return c.json({
+            displayName,
             transactions: Object.values(transactionsToReturn)
         })
     }).patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {

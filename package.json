@@ -3,12 +3,14 @@
     "type": "module",
     "scripts": {
         "dev": "bun run --hot src/index.ts",
+        "dev:fe": "cd src/frontend && bun run dev",
         "start": "bun run src/index.ts",
         "generate:better-auth": "bunx --bun @better-auth/cli generate --output src/db/auth-schema.ts",
         "migrate:better-auth": "bunx --bun @better-auth/cli migrate",
         "generate:migrations": "bun drizzle-kit generate",
         "migrate:db": "bun run ./src/db/migrate.ts",
-        "seed:db": "bun run ./src/db/seed.ts"
+        "seed:db": "bun run ./src/db/seed.ts",
+        "build:fe-dev": "cd src/frontend && bun run build:dev"
     },
     "dependencies": {
         "@hono/zod-validator": "^0.7.5",

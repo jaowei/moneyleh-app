@@ -1,53 +1,11 @@
 import {createFileRoute} from '@tanstack/react-router'
-import {backendRouteClient, type Transaction, uiRouteClient} from "../../lib/backend-clients.ts";
-import {type ChangeEventHandler, useState} from "react";
-import TransactionsTable from "../../components/TransactionsTable.tsx";
-import {getBackendErrorResponse} from "../../lib/error.ts";
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
     component: DashboardComponent,
-    loader: async () => {
-        let tagData
-        const tagDataRes = await backendRouteClient.api.tag.$get()
-        if (tagDataRes.ok) {
-            tagData = (await tagDataRes.json()).data
-        } else {
-            throw await getBackendErrorResponse(tagDataRes)
-        }
-        return {
-            tagData,
-        }
-    }
 })
 
 function DashboardComponent() {
     const {auth} = Route.useRouteContext()
-    const [transactions, setTransactions] = useState<Transaction[]>([])
-
-    const handleFileUploadInput: ChangeEventHandler<HTMLInputElement> = async (e) => {
-        const files = e.target.files
-        const userId = auth?.user?.id
-        const targetFile = files?.[0]
-        if (!userId) throw new Error('No user id!')
-        if (!targetFile) throw new Error('No file found!')
-
-        const res = await uiRouteClient.fileUpload.$post({
-            form: {
-                userId,
-                file: files[0]
-            },
-        })
-        if (res.ok) {
-            const resData = await res.json()
-            const transactionsWithUserId = resData.taggedTransactions.map((t) => ({
-                ...t,
-                userId
-            }))
-            setTransactions(transactionsWithUserId)
-        } else {
-            throw await getBackendErrorResponse(res)
-        }
-    }
 
     return (
         <div className="p-6">
@@ -69,11 +27,6 @@ function DashboardComponent() {
                 </p>
                 <p className="text-sm text-gray-500 mt-2">Email: {auth.user?.email}</p>
             </div>
-
-
-            <input type='file' className='file-input' onChange={handleFileUploadInput}/>
-
-            <TransactionsTable transactions={transactions} setTransactions={setTransactions}/>
         </div>
     )
 }
