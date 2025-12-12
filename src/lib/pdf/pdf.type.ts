@@ -1,5 +1,6 @@
 import z from 'zod'
 import type {TransactionsInsertSchema} from "../../db/schema.ts";
+import {Page, type PDFPage} from "mupdf";
 
 // Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
 
@@ -50,7 +51,8 @@ interface PointsData {
 }
 
 interface AccountData {
-    transactions: TransactionsInsertSchema[]
+    transactions: TransactionsInsertSchema[],
+    accountNumber: string
 }
 
 interface StatementDataBase {
@@ -83,5 +85,6 @@ export type PdfFormatExtractor = (dataToExtract: MuPdfStructuredTextPage[], user
 
 export interface PdfFormat {
     searchString: string;
+    searchFn?: (page: PDFPage | Page) => boolean;
     extractData: PdfFormatExtractor
 }

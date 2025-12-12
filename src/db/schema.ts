@@ -126,6 +126,7 @@ export const userAccounts = sqliteTable("user_accounts", {
     ...timestamps
 }, (table) => [primaryKey({columns: [table.accountId, table.userId]})])
 export const userAccountInsertSchemaZ = createInsertSchema(userAccounts)
+export type UserAccountsInsertSchema = z.infer<typeof userAccountInsertSchemaZ>
 
 export const userCards = sqliteTable("user_cards", {
     cardId: integer("card_id").references(() => cards.id).notNull(),

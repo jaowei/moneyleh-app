@@ -1,4 +1,5 @@
 import type {
+    AccountStatementData,
     MuPdfStructuredLine,
     MuPdfStructuredTextBlock,
     PdfFormat, PdfFormatExtractor,
@@ -8,7 +9,7 @@ import {parseDateString} from "../../dayjs.ts";
 import {appLogger} from "../../../index.ts";
 import {parseTxnDate} from "../pdf.utils.ts";
 
-const extractStatementMetadata = (block: MuPdfStructuredTextBlock) => {
+const extractStatementMetadataCard = (block: MuPdfStructuredTextBlock) => {
     const data = {
         statementDate: '',
         creditLimit: -1,
@@ -49,7 +50,7 @@ const extractStatementMetadata = (block: MuPdfStructuredTextBlock) => {
     return data
 }
 
-const parsePointsSummaryLine = (pointLine?: MuPdfStructuredLine) => {
+const parsePointsSummaryLineCard = (pointLine?: MuPdfStructuredLine) => {
     const value = pointLine?.text?.replaceAll(',', '')
     if (!value) return 0
 
@@ -60,21 +61,21 @@ const parsePointsSummaryLine = (pointLine?: MuPdfStructuredLine) => {
 
 }
 
-const extractPointsData = (block: MuPdfStructuredTextBlock) => {
+const extractPointsDataCard = (block: MuPdfStructuredTextBlock) => {
     if (!block.lines[0]) {
         appLogger(`WARN: Card number does not exist on point summary`)
     }
     return {
         cardNum: block.lines[0]?.text || '',
-        startBalance: parsePointsSummaryLine(block.lines[1]),
-        earned: parsePointsSummaryLine(block.lines[2]),
-        redeemed: parsePointsSummaryLine(block.lines[3]),
-        endBalance: parsePointsSummaryLine(block.lines[4]),
-        expiring: parsePointsSummaryLine(block.lines[5]),
+        startBalance: parsePointsSummaryLineCard(block.lines[1]),
+        earned: parsePointsSummaryLineCard(block.lines[2]),
+        redeemed: parsePointsSummaryLineCard(block.lines[3]),
+        endBalance: parsePointsSummaryLineCard(block.lines[4]),
+        expiring: parsePointsSummaryLineCard(block.lines[5]),
     }
 }
 
-const parseAmount = (amountLine: MuPdfStructuredLine) => {
+const parseAmountCard = (amountLine: MuPdfStructuredLine) => {
     const clean = amountLine.text.replaceAll(',', '')
     let sign = -1
     if (clean.includes('CR')) {
@@ -87,7 +88,7 @@ const parseAmount = (amountLine: MuPdfStructuredLine) => {
     }
 }
 
-const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
+const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
     const dataIdx = {
         statementDate: -1,
         pointsSummary: -1
@@ -148,7 +149,7 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
             }
 
             if (dataIdx.statementDate === blockIdx) {
-                const {statementDate, creditLimit, dueDate} = extractStatementMetadata(block)
+                const {statementDate, creditLimit, dueDate} = extractStatementMetadataCard(block)
                 data.statementDate = statementDate
                 data.creditLimit = creditLimit
                 data.dueDate = dueDate
@@ -162,7 +163,7 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
                     dataIdx.pointsSummary = -1
                     return
                 }
-                const {cardNum, ...rest} = extractPointsData(block)
+                const {cardNum, ...rest} = extractPointsDataCard(block)
                 data.points[cardNum] = {...rest}
             }
 
@@ -173,7 +174,7 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
                         // TODO: Figure out how to check for discrepancy rather than taking the statement value
                         // have to match even with the credit card payment transaction line
                         if (cardData && block.lines[1]) {
-                            cardData.total = parseAmount(block.lines[1]) || 0
+                            cardData.total = parseAmountCard(block.lines[1]) || 0
                         }
                     } else if (block.lines[0]?.text.toLowerCase() === 'total:') {
                         appLogger(`End of card transactions!`)
@@ -205,7 +206,7 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 
                 let amountLine = block.lines.at(-1)
                 if (amountLine) {
-                    transaction.amount = parseAmount(amountLine) || 0
+                    transaction.amount = parseAmountCard(amountLine) || 0
                 } else {
                     appLogger(`WARN: Amount block could not be detected`)
                 }
@@ -223,8 +224,122 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
     return data
 }
 
+const extractStatementMetadataAccount = () => {
+
+}
+
+const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
+    let pageNum = 0
+    const dataIdx = {
+        transactionsDetails: -1,
+        transactions: -1
+    }
+    const extractedData: AccountStatementData = {
+        statementDate: '',
+        accounts: {}
+    }
+    let currentCurrency = 'SGD'
+    let currentAccount: string | undefined = undefined
+    for (const data of dataToExtract) {
+        pageNum++
+        const {blocks} = data
+        blocks.forEach((block, blockIdx) => {
+            const firstLineOfBlock = block.lines[0]
+
+            if (!firstLineOfBlock) return
+
+            if (firstLineOfBlock.text.toLowerCase() === 'account summary') {
+                const dateLine = block.lines[1]
+                if (dateLine) {
+                    extractedData.statementDate = parseDateString(dateLine.text.slice(-11), 'DD MMM YYYY') || ''
+                } else {
+                    appLogger(`WARN: could not get statement date`)
+                }
+            }
+
+            // transaction details pages
+            const lastLineOfBlock = block.lines.at(-1)
+            if (!lastLineOfBlock) return
+
+            if (firstLineOfBlock.text.includes('Balance Brought Forward')) {
+                // SRS accounts do not have currency in this line
+                if (lastLineOfBlock.text.length > 5) {
+                    currentCurrency = lastLineOfBlock.text.slice(0, 3)
+                }
+                dataIdx.transactions = blockIdx + 1
+            } else if (firstLineOfBlock.text.includes('Balance Carried Forward')) {
+                dataIdx.transactions = -1
+            } else {
+                const accountNumMatch = lastLineOfBlock.text.match(/(Account No.) (.*)/)
+                if (accountNumMatch) {
+                    const accountName = firstLineOfBlock.text
+                    const accountNumber = accountNumMatch[2]
+                    if (accountNumber && !extractedData.accounts[accountName]?.accountNumber) {
+                        currentAccount = accountName
+                        extractedData.accounts[accountName] = {
+                            transactions: [],
+                            accountNumber
+                        }
+                    }
+                }
+            }
+
+            // collect transactions per account
+            if (currentAccount && blockIdx >= dataIdx.transactions) {
+                if (!extractedData.accounts[currentAccount]?.accountNumber) {
+                    appLogger(`WARN account was not found but collecting transactions`)
+                }
+
+                // parse date
+                const transactionDate = parseDateString(firstLineOfBlock.text, 'DD/MM/YYYY')
+                // the current block contains amount only skip to the next block
+                if (!transactionDate) {
+                    return
+                }
+
+                // parse amount
+                const amountBlock = blocks[blockIdx + 1]
+                let amount = 0
+                const amountLineToParse = amountBlock?.lines[0]
+                if (amountBlock && amountLineToParse) {
+                    const cleanAmt = amountLineToParse.text.trim().replaceAll(",", "")
+                    const isWithdrawal = amountBlock.bbox.x < 445
+                    try {
+                        amount = isWithdrawal ? -1 * parseFloat(cleanAmt) : parseFloat(cleanAmt)
+                    } catch {
+                        appLogger(`ERROR: Error parsing amount block ${blockIdx}`)
+                    }
+                }
+
+                // parse description
+                const description = block.lines.slice(1).map((l) => l.text).join(' ')
+
+                extractedData.accounts[currentAccount]?.transactions.push({
+                    transactionDate,
+                    currency: currentCurrency,
+                    amount,
+                    userId,
+                    description
+                })
+            }
+        })
+
+    }
+
+    return extractedData
+}
 
 export const dbsCard: PdfFormat = {
     searchString: 'DBS Cards',
-    extractData
+    extractData: extractDataCard
+}
+export const dbsAccount: PdfFormat = {
+    searchString: 'Consolidated Statement',
+    searchFn: (page) => {
+        const statementName = page.search('Consolidated Statement').length
+        const companyName1 = page.search('DBS Co.').length
+        const companyName2 = page.search('POSB Biz').length
+        return !!statementName && !!companyName1 && !!companyName2
+    },
+    extractData: extractDataAccount
 }

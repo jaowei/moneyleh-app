@@ -66,7 +66,6 @@ describe('/api/transaction', () => {
             const testTransactions: PostTransactionPayload = {
                 transactions: [{
                     ...testTransaction,
-                    tags: []
                 }]
             }
             const res = await app.request("/api/transaction", {
@@ -203,7 +202,7 @@ describe('/api/transaction', () => {
             expect(res.status).toBe(200)
             const resData = await res.json() as { transactions: any[] }
             expect(resData.transactions.length).toBe(1)
-            expect(resData.transactions[0].accountName).toBe("Multiplier")
+            expect(resData.transactions[0].accountName).toBe("multiplier")
             expect(resData.transactions[0].tags[0].description).toBe(testTag.description)
         })
 

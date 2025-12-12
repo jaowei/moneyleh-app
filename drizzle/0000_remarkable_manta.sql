@@ -75,7 +75,7 @@ CREATE TABLE `transactions` (
 	`amount` real NOT NULL,
 	`account_id` integer,
 	`card_id` integer,
-	`user_id` text,
+	`user_id` text NOT NULL,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,

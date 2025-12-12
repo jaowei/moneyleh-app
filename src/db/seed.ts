@@ -109,57 +109,62 @@ await db
     .insert(schema.accounts)
     .values([
         {
-            name: 'Multiplier',
+            name: 'multiplier',
             companyId: companyIdMap.DBS,
             accountType: 'cash'
         },
         {
-            name: 'MyAccount',
+            name: 'my_account',
             companyId: companyIdMap.DBS,
             accountType: 'cash'
         },
         {
-            name: 'ESavings',
+            name: 'supplementary_retirement_scheme_account',
             companyId: companyIdMap.DBS,
             accountType: 'cash'
         },
         {
-            name: 'One',
+            name: 'esavings',
+            companyId: companyIdMap.DBS,
+            accountType: 'cash'
+        },
+        {
+            name: 'one',
             companyId: companyIdMap.UOB,
             accountType: 'cash'
         },
         {
-            name: 'Ordinary_Account',
+            name: 'ordinary_account',
             companyId: companyIdMap.CPF,
             accountType: 'CPF'
         },
         {
-            name: 'Medisave_Account',
+            name: 'medisave_account',
             companyId: companyIdMap.CPF,
             accountType: 'CPF'
         },
         {
-            name: 'Special_Account',
+            name: 'special_account',
             companyId: companyIdMap.CPF,
             accountType: 'CPF'
         },
         {
-            name: 'Cash',
+            name: 'cash',
             companyId: companyIdMap.Interactive_Brokers,
             accountType: 'brokerage'
         },
         {
-            name: 'Cash',
+            name: 'cash',
             companyId: companyIdMap.Moo_Moo,
             accountType: 'brokerage'
         },
         {
-            name: 'Cash',
+            name: 'cash',
             companyId: companyIdMap.Tiger_Brokers,
             accountType: 'brokerage'
         },
         {
-            name: 'Cash',
+            name: 'cash',
             companyId: companyIdMap.IFast,
             accountType: 'brokerage'
         },
