@@ -50,8 +50,11 @@ interface PointsData {
     endBalance: number;
 }
 
-interface AccountData {
+interface AccountDataBase {
     transactions: TransactionsInsertSchema[],
+}
+
+interface AccountData extends AccountDataBase {
     accountNumber: string
 }
 
@@ -60,6 +63,7 @@ interface StatementDataBase {
 }
 
 export interface CardStatementData extends StatementDataBase {
+    type: 'card';
     dueDate: string;
     creditLimit: number;
     cards: Record<string, CardData>
@@ -67,15 +71,17 @@ export interface CardStatementData extends StatementDataBase {
 }
 
 export interface AccountStatementData extends StatementDataBase {
+    type: 'account';
     accounts: Record<string, AccountData>
 }
 
 
 export interface CPFStatementData extends StatementDataBase {
+    type: 'cpf';
     accounts: {
-        ordinaryAccount: AccountData
-        specialAccount: AccountData
-        medisaveAccount: AccountData
+        ordinaryAccount: AccountDataBase
+        specialAccount: AccountDataBase
+        medisaveAccount: AccountDataBase
     }
 }
 

@@ -1,9 +1,8 @@
 import type {
-    AccountStatementData,
+    AccountStatementData, CardStatementData,
     MuPdfStructuredLine,
     MuPdfStructuredTextBlock,
     PdfFormat, PdfFormatExtractor,
-    StatementData
 } from "../pdf.type.ts";
 import {parseDateString} from "../../dayjs.ts";
 import {appLogger} from "../../../index.ts";
@@ -94,7 +93,8 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
         pointsSummary: -1
     }
     let currentCardName = ''
-    const data: StatementData = {
+    const data: CardStatementData = {
+        type: 'card',
         statementDate: '',
         dueDate: '',
         creditLimit: -1,
@@ -224,10 +224,6 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
     return data
 }
 
-const extractStatementMetadataAccount = () => {
-
-}
-
 const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
     let pageNum = 0
     const dataIdx = {
@@ -235,6 +231,7 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
         transactions: -1
     }
     const extractedData: AccountStatementData = {
+        type: 'account',
         statementDate: '',
         accounts: {}
     }

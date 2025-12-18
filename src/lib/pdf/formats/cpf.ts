@@ -36,6 +36,7 @@ const parseTxn = (account: string, amountStr?: string) => {
 
 const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
     const statementData: CPFStatementData = {
+        type: 'cpf',
         statementDate: '',
         accounts: {
             ordinaryAccount: {transactions: []},
