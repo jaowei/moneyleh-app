@@ -70,12 +70,14 @@ export default function AddTransactionsModal({accountId, cardId, tagData}: AddTr
         dialogRef.current?.close()
     }
 
+    const tabGroupName = `tab-group-${accountId || cardId}`
+
     return (<div>
         <AddButton onClick={handleAddButtonClick}/>
         <dialog ref={dialogRef} className="modal">
             <div className="modal-box">
                 <div className="tabs tabs-border">
-                    <input type="radio" name="tab-group" className="tab" aria-label="Bulk" defaultChecked/>
+                    <input type="radio" name={tabGroupName} className="tab" aria-label="Bulk" defaultChecked/>
                     <div className="tab-content border-base-300 p-6 bg-base-100">
                         <fieldset className="fieldset">
                             <legend className="fieldset-legend">Bulk Upload (only CSV)</legend>
@@ -88,7 +90,7 @@ export default function AddTransactionsModal({accountId, cardId, tagData}: AddTr
                         </fieldset>
                     </div>
 
-                    <input type="radio" name="tab-group" className="tab" aria-label="Statement"/>
+                    <input type="radio" name={tabGroupName} className="tab" aria-label="Statement"/>
                     <div className="tab-content border-base-300 p-6 bg-base-100">
                         <fieldset className="fieldset">
                             <legend className="fieldset-legend">Upload a {accountId ? 'account' : 'card'} statement

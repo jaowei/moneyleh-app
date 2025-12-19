@@ -15,7 +15,7 @@ import {HTTPException} from "hono/http-exception";
 import {findUserOrThrow} from "./route.utils.ts";
 import type {StatementData} from "../lib/pdf/pdf.type.ts";
 import {pdfParser} from "../lib/pdf/pdf.ts";
-import {initClassifier, type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
+import {type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {zodValidator} from "../lib/middleware/zod-validator.ts";
 
 const userAssignmentsZ = z.object({
