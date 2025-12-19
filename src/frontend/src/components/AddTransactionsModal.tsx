@@ -59,11 +59,7 @@ export default function AddTransactionsModal({accountId, cardId, tagData}: AddTr
         })
         if (res.ok) {
             const resData = await res.json()
-            const transactionsWithUserId = resData.taggedTransactions.map((t) => ({
-                ...t,
-                userId
-            }))
-            setTransactions(transactionsWithUserId)
+            setTransactions(resData.taggedTransactions)
         } else {
             throw await getBackendErrorResponse(res)
         }

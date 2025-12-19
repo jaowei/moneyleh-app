@@ -58,25 +58,36 @@ export const tagTransactions = async (classifier: LogisticRegressionClassifier |
 
                 const classificationRes = c.getClassifications(res)
 
+                if (!classificationRes.length) {
+                    tagged.push(t)
+                }
+
+                const filteredRes = classificationRes.filter((result) => result.value > classificationThreshold).sort((a, b) => {
+                    // descending order
+                    return b.value - a.value
+                })
+
                 // skip if inference confidence is lower than threshold
-                if (!(classificationRes.length && classificationRes[0] && classificationRes[0].value > classificationThreshold)) {
+                if (!filteredRes[0]) {
                     tagged.push(t)
                     continue
                 }
+                console.log(filteredRes[0])
 
+                // TODO: We only return the top result for now, see if there is a use case to return top X results
                 const queryRes = await db.select({
                     id: tags.id,
                     description: tags.description
-                }).from(tags).where(like(tags.description, classificationRes[0].label))
+                }).from(tags).where(like(tags.description, filteredRes[0].label))
 
-                if (!queryRes.length && !queryRes[0]) {
+                if (!queryRes[0]) {
                     tagged.push(t)
                     continue
                 }
 
                 tagged.push({
                     ...t,
-                    ...(queryRes[0] && {tag: [queryRes[0]]})
+                    tags: [queryRes[0]],
                 })
             } catch (e) {
                 appLogger(`WARN: There was an error tagging for description: ${t.description} - ${e}`)

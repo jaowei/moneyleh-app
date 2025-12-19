@@ -26,7 +26,7 @@ describe('description tagger', () => {
     test('tag a transaction', async () => {
         const tagged = await tagTransactions(undefined, transactions)
         expect(tagged.length).toBe(transactions.length)
-        expect(tagged[0]).not.toHaveProperty('tag')
+        expect(tagged[0]).not.toHaveProperty('tags')
     })
 
     test('add documents and save', async () => {
@@ -46,7 +46,7 @@ describe('description tagger', () => {
 
         const tagged = await tagTransactions(c, transactions)
         expect(tagged.length).toBe(transactions.length)
-        expect(tagged[0]).toHaveProperty('tag')
+        expect(tagged[0]).toHaveProperty('tags')
     })
 
     // used to perform load test

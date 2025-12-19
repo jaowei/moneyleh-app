@@ -15,7 +15,7 @@ import {HTTPException} from "hono/http-exception";
 import {findUserOrThrow} from "./route.utils.ts";
 import type {StatementData} from "../lib/pdf/pdf.type.ts";
 import {pdfParser} from "../lib/pdf/pdf.ts";
-import {type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
+import {initClassifier, type TaggedTransaction, tagTransactions} from "../lib/descriptionTagger/descriptionTagger.ts";
 import {zodValidator} from "../lib/middleware/zod-validator.ts";
 
 const userAssignmentsZ = z.object({
@@ -150,21 +150,12 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator('json',
                 const userCardRes = await db.select().from(userCards).where(and(eq(userCards.cardId, targetCard.id), eq(userCards.userId, userId)))
                 if (!userCardRes.length) {
                     appLogger(`Card ${cardName} not assigned to user, beginning assignment...`)
-                    let insertRes
-                    try {
-                        insertRes = await db.insert(userCards).values({
-                            cardId: targetCard.id,
-                            userId,
-                            cardLabel: data.cardNumber
-                        }).returning()
-                    } catch (e) {
-                        if (e instanceof Error && e.message.includes('FOREIGN KEY')) {
-                            throw new HTTPException(400, {
-                                message: 'This card already belongs to the user!'
-                            })
-                        }
-                        throw e
-                    }
+                    const insertRes = await db.insert(userCards).values({
+                        cardId: targetCard.id,
+                        userId,
+                        cardLabel: data.cardNumber
+                    }).returning()
+
                     if (!insertRes.length) {
                         throw new HTTPException(500, {
                             message: 'Could not assign card to user!'
@@ -202,30 +193,21 @@ export const uiRoute = new Hono().post("/assignTo/:userId", zodValidator('json',
                 const userAccountRes = await db.select().from(userAccounts).where(and(eq(userAccounts.accountId, targetAccount.id), eq(userAccounts.userId, userId)))
                 if (!userAccountRes.length) {
                     appLogger(`Account ${accountName} not assigned to user, beginning assignment...`)
-                    let insertRes
-                    try {
-                        insertRes = await db.insert(userAccounts).values({
-                            accountId: targetAccount.id,
-                            userId,
-                            accountLabel: data.accountNumber
-                        }).returning()
-                    } catch (e) {
-                        if (e instanceof Error && e.message.includes('FOREIGN KEY')) {
-                            throw new HTTPException(400, {
-                                message: 'This  already belongs to the user!'
-                            })
-                        }
-                        throw e
-                    }
+                    const insertRes = await db.insert(userAccounts).values({
+                        accountId: targetAccount.id,
+                        userId,
+                        accountLabel: data.accountNumber
+                    }).returning()
+
                     if (!insertRes.length) {
                         throw new HTTPException(500, {
                             message: 'Could not assign account to user!'
                         })
                     } else {
-                        appLogger(`Card ${accountName} | ${data.accountNumber} assigned!`)
+                        appLogger(`Account ${accountName} | ${data.accountNumber} assigned!`)
                     }
                 } else {
-                    appLogger(`Card ${accountName} | ${data.accountNumber} is already assigned!`)
+                    appLogger(`Account ${accountName} | ${data.accountNumber} is already assigned!`)
                 }
 
                 const taggedTxns = await tagTransactions(undefined, data.transactions)
