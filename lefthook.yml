@@ -5,8 +5,12 @@
 #
 pre-push:
   jobs:
+  - name: build frontend
+    run: cd src/frontend && bun run build
+
   - name: test
     run: bun test
+
 #     - name: packages audit
 #       tags:
 #         - frontend
