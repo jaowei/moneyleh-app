@@ -1,16 +1,18 @@
-import {createFileRoute, redirect} from "@tanstack/react-router";
-import {useState} from "react";
-import {ERROR_MESSAGES} from "../lib/error";
-import {authClient} from "../lib/auth-client.ts";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useState } from "react";
+import { ERROR_MESSAGES } from "../lib/error";
+import { authClient } from "../lib/auth-client.ts";
+
+const fallbackRoute = "/dashboard"
 
 export const Route = createFileRoute("/login")({
     validateSearch: (search) => ({
-        redirect: (search.redirect as string) || "/",
+        redirect: (search.redirect as string) || fallbackRoute,
     }),
-    beforeLoad: ({context, search}) => {
+    beforeLoad: ({ context, search }) => {
         // Redirect if already authenticated
         if (context.auth.isAuthenticated) {
-            throw redirect({to: search.redirect});
+            throw redirect({ to: search.redirect });
         }
     },
     component: LoginComponent,
@@ -21,7 +23,7 @@ const passwordInputName = "password"
 const usernameInputName = "username"
 
 function LoginComponent() {
-    const {auth} = Route.useRouteContext();
+    const { auth } = Route.useRouteContext();
     const [error, setError] = useState("");
     const [formSuccess, setFormSuccess] = useState<string>("");
     const [isSignUp, setIsSignUp] = useState<boolean>(false)
@@ -65,9 +67,9 @@ function LoginComponent() {
                 className="max-w-md w-full space-y-4 p-6 border rounded-lg"
             >
                 <div className="tabs tabs-box">
-                    <input type="radio" name="login" className="tab" aria-label="Sign Up" onClick={handleInputClick}/>
+                    <input type="radio" name="login" className="tab" aria-label="Sign Up" onClick={handleInputClick} />
                     <input type="radio" name="login" className="tab" aria-label="Login" defaultChecked
-                           onClick={handleInputClick}/>
+                        onClick={handleInputClick} />
                 </div>
                 <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
                     <legend className="fieldset-legend">{formType}</legend>
