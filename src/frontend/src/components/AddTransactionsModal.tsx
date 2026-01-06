@@ -47,26 +47,19 @@ export default function AddTransactionsModal({ accountId, cardId }: AddTransacti
         dialogRef.current?.close()
     }
 
-    const tabGroupName = `tab-group-${accountId || cardId}`
-
     return (<div>
         <AddButton onClick={handleAddButtonClick} />
         <dialog ref={dialogRef} className="modal">
             <div className="modal-box">
-                <div className="tabs tabs-border">
-                    <input type="radio" name={tabGroupName} className="tab" aria-label="Bulk" defaultChecked />
-                    <div className="tab-content border-base-300 p-6 bg-base-100">
-                        <fieldset className="fieldset">
-                            <legend className="fieldset-legend">Bulk Upload (only CSV)</legend>
-                            <input type='file' className='file-input' accept="text/csv"
-                                onChange={handleFileBulkUploadInput} />
-                            <p className="label">CSV must be in the correct format</p>
-                            {uploadError &&
-                                <div className="alert alert-error">{uploadError}</div>
-                            }
-                        </fieldset>
-                    </div>
-                </div>
+                <fieldset className="fieldset">
+                    <legend className="fieldset-legend">Bulk Upload (only CSV)</legend>
+                    <input type='file' className='file-input' accept="text/csv"
+                        onChange={handleFileBulkUploadInput} />
+                    <p className="label">CSV must be in the correct format</p>
+                    {uploadError &&
+                        <div className="alert alert-error">{uploadError}</div>
+                    }
+                </fieldset>
                 <div className="modal-action">
                     <button className="btn" onClick={handleModalCloseClick}>Close</button>
                 </div>
