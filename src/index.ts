@@ -8,11 +8,12 @@ import {alreadyExistsResponse} from "./errors";
 import {uiRoute} from "./routes/ui.ts";
 import {transactionRoute} from "./routes/transaction.ts";
 import {tagRoute} from "./routes/tag.ts";
+import dayjs from "dayjs";
 
 const app = new Hono();
 
 export const appLogger = (message: string, ...rest: string[]) => {
-    console.log(message, ...rest)
+    console.log(`[${dayjs().toISOString()}] ${message}`, ...rest)
 }
 
 app.use(logger(appLogger));
