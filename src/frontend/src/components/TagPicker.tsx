@@ -1,7 +1,6 @@
 import {backendRouteClient, type Tag} from "../lib/backend-clients.ts";
 
 import {type ReactNode, useRef, useState} from "react";
-import {AddButton} from "./AddButton.tsx";
 
 export type UiTag = Pick<Tag, 'id' | 'description'>
 
@@ -11,14 +10,58 @@ interface TagInputProps {
     availableTags?: UiTag[]
 }
 
-const TagContainer = ({title, children}: { title: string; children: ReactNode }) => {
+const TagsContainer = ({title, children}: { title: string; children: ReactNode }) => {
     return (
         <div className="flex flex-col items-center">
             <h2>{title}</h2>
-            <div className="card bg-base-300 rounded-box grid w-full h-full place-items-center p-2">
+            <div className="card bg-base-300 rounded-box flex flex-row w-[90%] flex-wrap gap-2 p-2">
                 {children}
             </div>
         </div>
+    )
+}
+
+const TagTextButton = ({tagDescription, children}: {
+    tagDescription: string;
+    children: ReactNode;
+}) => {
+    return (
+        <div className="tooltip" data-tip={tagDescription}>
+            {children}
+        </div>
+    )
+}
+
+const TagDeleteButton = ({onClick, tagDescription}: { onClick: () => void; tagDescription: string }) => {
+    return (
+        <button className="btn btn-soft btn-error" onClick={onClick}>
+            <div className="truncate max-w-24">
+                {tagDescription}
+            </div>
+            <span className="icon-[iwwa--delete]"></span>
+        </button>
+    )
+}
+
+const TagAddButton = ({onClick, tagDescription}: { onClick: () => void; tagDescription: string }) => {
+    return (
+        <button className="btn btn-soft btn-accent" onClick={onClick}>
+            <div className="truncate max-w-24">
+                {tagDescription}
+            </div>
+            <span className="icon-[material-symbols--add-2-rounded]"></span>
+        </button>
+    )
+}
+
+const TagPreviewButton = ({onClick, tagDescription}: { onClick: () => void; tagDescription: string }) => {
+    return (
+        <button className="btn btn-soft btn-xs btn-warning" onClick={onClick}>
+            <div className="truncate max-w-24">
+                {tagDescription}
+            </div>
+            <span className="icon-[iwwa--delete]"></span>
+        </button>
     )
 }
 
@@ -69,56 +112,50 @@ export const TagPicker = ({tags, availableTags, onTagChange}: TagInputProps) => 
     }
 
     return (
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">
             {selectedTags?.map((t) => (
-                <div key={t.id} className="join">
-                    <div
-                        className="badge badge-md badge-primary join-item overflow-hidden whitespace-nowrap max-w-16">{t.description}</div>
-                    <button className="btn btn-xs btn-circle btn-error join-item" onClick={handleTagRemoval(t)}>
-                        <span className="icon-[iwwa--delete]"></span>
-                    </button>
-                </div>
+                <TagTextButton key={t.id} tagDescription={t.description}>
+                    <TagPreviewButton tagDescription={t.description} onClick={handleTagRemoval(t)}/>
+                </TagTextButton>
             ))}
-            <AddButton onClick={() => tagModalRef.current?.showModal()}/>
+            <button className="btn btn-xs btn-accent" onClick={() => tagModalRef.current?.showModal()}>
+                <span className="icon-[fluent--tag-48-regular]"></span>
+            </button>
             <dialog ref={tagModalRef} className="modal">
-                <div className="modal-box">
-                    <div className="flex w-full flex-col gap-4">
-                        <TagContainer title="Selected Tags">
+                <div className="modal-box max-w-[75vw] max-h-[95vh]">
+                    <div className="flex w-full max-h-[75vh] flex-col gap-4 overflow-auto">
+                        <div className="flex flex-col items-center">
+                            <fieldset className="fieldset">
+                                <div className="join">
+                                    <input type="text" className="input join-item" placeholder="Add new tags"
+                                           value={newTagName}
+                                           onChange={(e) => setNewTagName(e.target.value)}/>
+                                    <button className="btn join-item" disabled={!newTagName}
+                                            onClick={handleCreateTagClick}>Add tag
+                                    </button>
+                                </div>
+                                {tagCreationError && <p>{tagCreationError}</p>}
+                            </fieldset>
+                        </div>
+                        <div className="divider"></div>
+                        <TagsContainer title="Selected Tags">
                             {!selectedTags ?
                                 <h3>No tags selected yet, pick some from below</h3> : selectedTags?.map((t) => (
-                                    <div key={t.id} className="join">
-                                        <input type="text" className="input join-item" readOnly value={t.description}/>
-                                        <button className="btn btn-circle join-item btn-error"
-                                                onClick={handleTagRemoval(t)}>
-                                            <span className="icon-[iwwa--delete]"></span>
-                                        </button>
-                                    </div>
+                                    <TagTextButton key={t.id} tagDescription={t.description}>
+                                        <TagDeleteButton tagDescription={t.description}
+                                                         onClick={handleTagRemoval(t)}/>
+                                    </TagTextButton>
                                 ))}
-                        </TagContainer>
+                        </TagsContainer>
                         <div className="divider"></div>
-                        <TagContainer title="Available Tags">
+                        <TagsContainer title="Available Tags">
                             {!remainingTags ?
                                 <h3>No tags available, start adding some below</h3> : remainingTags.map((t) => (
-                                    <div key={t.id} className="join">
-                                        <input type="text" className="input join-item" readOnly value={t.description}/>
-                                        <button className="btn btn-circle join-item btn-success"
-                                                onClick={handleTagAddition(t)
-                                                }>
-                                            <span className="icon-[material-symbols--add-2-rounded]"></span>
-                                        </button>
-                                    </div>
+                                    <TagTextButton key={t.id} tagDescription={t.description}>
+                                        <TagAddButton tagDescription={t.description} onClick={handleTagAddition(t)}/>
+                                    </TagTextButton>
                                 ))}
-                        </TagContainer>
-                        <div className="divider"></div>
-                        <fieldset className="fieldset">
-                            <div className="join">
-                                <input type="text" className="input join-item" placeholder="Add new tags"
-                                       value={newTagName}
-                                       onChange={(e) => setNewTagName(e.target.value)}/>
-                                <button className="btn join-item" onClick={handleCreateTagClick}>Add tag</button>
-                            </div>
-                            {tagCreationError && <p>{tagCreationError}</p>}
-                        </fieldset>
+                        </TagsContainer>
                     </div>
                     <div className="modal-action">
                         <form method="dialog">

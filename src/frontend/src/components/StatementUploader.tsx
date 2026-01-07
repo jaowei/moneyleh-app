@@ -1,8 +1,8 @@
-import { getBackendErrorResponse } from "../lib/error.ts";
+import {getBackendErrorResponse} from "../lib/error.ts";
 import EditableTransactionsTable from "./EditableTransactionsTable.tsx";
-import { type EditableTransaction, type Tag, uiRouteClient } from "../lib/backend-clients.ts";
-import { useState, type ChangeEventHandler } from "react";
-import { useAuth } from "../context/auth";
+import {type EditableTransaction, type Tag, uiRouteClient} from "../lib/backend-clients.ts";
+import {useState, type ChangeEventHandler} from "react";
+import {useAuth} from "../context/auth";
 
 interface StatementUploaderProps {
     tagData: Tag[]
@@ -10,8 +10,8 @@ interface StatementUploaderProps {
     onStatementUploadError?: () => void;
 }
 
-export const StatementUploader = ({ tagData, onStatementUploaded, onStatementUploadError }: StatementUploaderProps) => {
-    const { user } = useAuth()
+export const StatementUploader = ({tagData, onStatementUploaded, onStatementUploadError}: StatementUploaderProps) => {
+    const {user} = useAuth()
 
     const [transactions, setTransactions] = useState<EditableTransaction[]>([])
     const [uploadError, setUploadError] = useState('')
@@ -50,12 +50,12 @@ export const StatementUploader = ({ tagData, onStatementUploaded, onStatementUpl
     }
 
     return (
-        <div>
+        <div className="flex flex-col items-center gap-4">
             <fieldset className="fieldset">
                 <legend className="fieldset-legend">Upload a statement
                 </legend>
                 <input type='file' className='file-input' accept=".csv, .pdf, .xls, .xlsx"
-                    onChange={handleFileStatementUploadInput} />
+                       onChange={handleFileStatementUploadInput}/>
                 <p className="label">Upload your monthly bank/account statements</p>
                 {uploadError &&
                     <div className="alert alert-error">{uploadError}</div>
@@ -63,7 +63,7 @@ export const StatementUploader = ({ tagData, onStatementUploaded, onStatementUpl
             </fieldset>
             {transactions.length > 0 &&
                 <EditableTransactionsTable transactions={transactions} setTransactions={setTransactions}
-                    tagData={tagData} />
+                                           tagData={tagData}/>
             }
         </div>
     )
