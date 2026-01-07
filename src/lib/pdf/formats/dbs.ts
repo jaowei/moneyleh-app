@@ -224,6 +224,16 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
     return data
 }
 
+const parseAmountAccount = (line: MuPdfStructuredLine, isWithdrawal: boolean, blockIdx: number) => {
+    const cleanAmt = line.text.trim().replaceAll(",", "")
+    try {
+        return isWithdrawal ? -1 * parseFloat(cleanAmt) : parseFloat(cleanAmt)
+    } catch {
+        appLogger(`ERROR: Error parsing amount block ${blockIdx}`)
+        return undefined
+    }
+}
+
 const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
     let pageNum = 0
     const dataIdx = {
@@ -295,21 +305,28 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
                 }
 
                 // parse amount
-                const amountBlock = blocks[blockIdx + 1]
+                const potentialAmountOnSameBlock = block.lines[2]
+                const coordThresholdForWithdrawal = 445
                 let amount = 0
-                const amountLineToParse = amountBlock?.lines[0]
-                if (amountBlock && amountLineToParse) {
-                    const cleanAmt = amountLineToParse.text.trim().replaceAll(",", "")
-                    const isWithdrawal = amountBlock.bbox.x < 445
-                    try {
-                        amount = isWithdrawal ? -1 * parseFloat(cleanAmt) : parseFloat(cleanAmt)
-                    } catch {
-                        appLogger(`ERROR: Error parsing amount block ${blockIdx}`)
+                let description = ''
+
+                if (potentialAmountOnSameBlock) {
+                    const amountOnSameBlock = parseAmountAccount(potentialAmountOnSameBlock, potentialAmountOnSameBlock.bbox.x < coordThresholdForWithdrawal, blockIdx)
+                    if (amountOnSameBlock) {
+                        amount = amountOnSameBlock
+                        description = block.lines[1]?.text || ''
+                    } else {
+                        const nextBlock = blocks[blockIdx + 1]
+                        const amountLineOnNextBlock = nextBlock?.lines[0]
+                        if (nextBlock && amountLineOnNextBlock) {
+                            const amountOnNextBlock = parseAmountAccount(amountLineOnNextBlock, nextBlock.bbox.x < coordThresholdForWithdrawal, blockIdx + 1)
+                            if (amountOnNextBlock) {
+                                amount = amountOnNextBlock
+                            }
+                            description = block.lines.slice(1).map((l) => l.text).join(' ')
+                        }
                     }
                 }
-
-                // parse description
-                const description = block.lines.slice(1).map((l) => l.text).join(' ')
 
                 extractedData.accounts[currentAccount]?.transactions.push({
                     transactionDate,

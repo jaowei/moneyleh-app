@@ -41,6 +41,8 @@ describe("pdf: dbs formats", () => {
             if ("accounts" in data && !("ordinaryAccount" in data.accounts)) {
                 expect(data.accounts).toHaveProperty("My Account")
                 expect(data.accounts["My Account"]?.transactions).toBeArrayOfSize(33)
+                const hasBadAmount = data.accounts["My Account"]?.transactions.some((t) => isNaN(t.amount))
+                expect(hasBadAmount).toBeFalse()
                 expect(data.accounts["Supplementary Retirement Scheme Account"]?.transactions).toBeArrayOfSize(0)
             } else {
                 throw Error()
