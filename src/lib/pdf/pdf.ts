@@ -2,13 +2,15 @@ import * as mupdf from 'mupdf'
 import {
     type MuPdfStructuredTextPage, MuPdfStructuredTextPageZ
 } from "./pdf.type.ts";
-import {dbsCard, dbsAccount} from "./formats/dbs.ts";
-import {cpf} from "./formats/cpf.ts";
+import { dbsCard, dbsAccount } from "./formats/dbs.ts";
+import { cpf } from "./formats/cpf.ts";
+import { chocolate } from './formats/chocolate.ts';
 
 const pdfFormats = {
     dbsCard: dbsCard,
     dbsStatement: dbsAccount,
-    cpf: cpf
+    cpf: cpf,
+    chocolate: chocolate
 }
 
 const parseStatementPages = (document: mupdf.Document) => {
@@ -35,6 +37,8 @@ const determineFormat = (doc: mupdf.Document) => {
         return pdfFormats.dbsStatement.extractData
     } else if (firstPage.search(pdfFormats.cpf.searchString).length) {
         return pdfFormats.cpf.extractData
+    } else if (firstPage.search(pdfFormats.chocolate.searchString).length) {
+        return pdfFormats.chocolate.extractData
     } else {
         throw new Error('Unable to determine PDF statement format')
     }
