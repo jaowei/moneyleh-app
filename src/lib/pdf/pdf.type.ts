@@ -1,6 +1,6 @@
 import z from 'zod'
-import type {TransactionsInsertSchema} from "../../db/schema.ts";
-import {Page, type PDFPage} from "mupdf";
+import type { TransactionsInsertSchema } from "../../db/schema.ts";
+import { Page, type PDFPage } from "mupdf";
 
 // Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
 
@@ -66,13 +66,13 @@ export interface CardStatementData extends StatementDataBase {
     type: 'card';
     dueDate: string;
     creditLimit: number;
-    cards: Record<string, CardData>
+    cards: Record<string, CardData> // key is card name
     points: Record<string, PointsData>
 }
 
 export interface AccountStatementData extends StatementDataBase {
     type: 'account';
-    accounts: Record<string, AccountData>
+    accounts: Record<string, AccountData> // key is account name
 }
 
 

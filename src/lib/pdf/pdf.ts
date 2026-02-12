@@ -5,12 +5,15 @@ import {
 import { dbsCard, dbsAccount } from "./formats/dbs.ts";
 import { cpf } from "./formats/cpf.ts";
 import { chocolate } from './formats/chocolate.ts';
+import { uobAccount, uobCard } from './formats/uob.ts';
 
 const pdfFormats = {
     dbsCard: dbsCard,
     dbsStatement: dbsAccount,
     cpf: cpf,
-    chocolate: chocolate
+    chocolate: chocolate,
+    uobCard: uobCard,
+    uobAccount: uobAccount,
 }
 
 const parseStatementPages = (document: mupdf.Document) => {
@@ -39,7 +42,12 @@ const determineFormat = (doc: mupdf.Document) => {
         return pdfFormats.cpf.extractData
     } else if (firstPage.search(pdfFormats.chocolate.searchString).length) {
         return pdfFormats.chocolate.extractData
-    } else {
+    } else if (uobCard.searchFn?.(firstPage)) {
+        return pdfFormats.uobCard.extractData
+    } else if (uobAccount.searchFn?.(firstPage)) {
+        return pdfFormats.uobAccount.extractData
+    }
+    else {
         throw new Error('Unable to determine PDF statement format')
     }
 }

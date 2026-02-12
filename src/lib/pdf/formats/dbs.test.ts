@@ -1,14 +1,12 @@
-import {describe, expect, test} from "bun:test";
-import {pdfParser} from "../pdf.ts";
-import {testATransaction, testUser} from "../../test.utils.ts";
+import { describe, expect, test } from "bun:test";
+import { pdfParser } from "../pdf.ts";
+import { getFile, testATransaction, testUser } from "../../test.utils.ts";
 
 describe("pdf: dbs formats", () => {
     describe('dbs card', () => {
         test("use statement with re issued card and fx transactions", async () => {
-            const file = Bun.file('./test-files/dbsCard-fx-reissue.pdf')
-            const buf = await file.arrayBuffer()
-            const f = new File([buf], 'file')
-            const data = await pdfParser(f, testUser.id)
+            const file = await getFile('./test-files/dbsCard-fx-reissue.pdf')
+            const data = await pdfParser(file, testUser.id)
             if ("cards" in data) {
                 const cardsArr = Object.entries(data.cards)
                 expect(cardsArr.length).toBe(2)
@@ -34,10 +32,8 @@ describe("pdf: dbs formats", () => {
 
     describe("dbs statement", () => {
         test('extract consolidated statement', async () => {
-            const file = Bun.file('./test-files/dbsAccountStatement.pdf')
-            const buf = await file.arrayBuffer()
-            const f = new File([buf], 'file')
-            const data = await pdfParser(f, testUser.id)
+            const file = await getFile('./test-files/dbsAccountStatement.pdf')
+            const data = await pdfParser(file, testUser.id)
             if ("accounts" in data && !("ordinaryAccount" in data.accounts)) {
                 expect(data.accounts).toHaveProperty("My Account")
                 expect(data.accounts["My Account"]?.transactions).toBeArrayOfSize(33)
