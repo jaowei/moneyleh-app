@@ -6,15 +6,7 @@ import { dbsCard, dbsAccount } from "./formats/dbs.ts";
 import { cpf } from "./formats/cpf.ts";
 import { chocolate } from './formats/chocolate.ts';
 import { uobAccount, uobCard } from './formats/uob.ts';
-
-const pdfFormats = {
-    dbsCard: dbsCard,
-    dbsStatement: dbsAccount,
-    cpf: cpf,
-    chocolate: chocolate,
-    uobCard: uobCard,
-    uobAccount: uobAccount,
-}
+import { trustCard } from './formats/trust.ts';
 
 const parseStatementPages = (document: mupdf.Document) => {
     const dataToExtract: MuPdfStructuredTextPage[] = []
@@ -32,20 +24,22 @@ const parseStatementPages = (document: mupdf.Document) => {
     return dataToExtract
 }
 
-const determineFormat = (doc: mupdf.Document) => {
+const getDataExtractorForFormat = (doc: mupdf.Document) => {
     const firstPage = doc.loadPage(0)
-    if (firstPage.search(pdfFormats.dbsCard.searchString).length) {
-        return pdfFormats.dbsCard.extractData
+    if (firstPage.search(dbsCard.searchString).length) {
+        return dbsCard.extractData
     } else if (dbsAccount.searchFn?.(firstPage)) {
-        return pdfFormats.dbsStatement.extractData
-    } else if (firstPage.search(pdfFormats.cpf.searchString).length) {
-        return pdfFormats.cpf.extractData
-    } else if (firstPage.search(pdfFormats.chocolate.searchString).length) {
-        return pdfFormats.chocolate.extractData
+        return dbsAccount.extractData
+    } else if (firstPage.search(cpf.searchString).length) {
+        return cpf.extractData
+    } else if (firstPage.search(chocolate.searchString).length) {
+        return chocolate.extractData
     } else if (uobCard.searchFn?.(firstPage)) {
-        return pdfFormats.uobCard.extractData
+        return uobCard.extractData
     } else if (uobAccount.searchFn?.(firstPage)) {
-        return pdfFormats.uobAccount.extractData
+        return uobAccount.extractData
+    } else if (firstPage.search(trustCard.searchString)) {
+        return trustCard.extractData
     }
     else {
         throw new Error('Unable to determine PDF statement format')
@@ -58,7 +52,7 @@ export const pdfParser = async (file: File, userId: string) => {
         throw new Error(`Document does not have any pages!`)
     }
 
-    const extractor = determineFormat(doc)
+    const extractor = getDataExtractorForFormat(doc)
     if (extractor) {
         const dataToExtract = parseStatementPages(doc)
         return extractor(dataToExtract, userId)
