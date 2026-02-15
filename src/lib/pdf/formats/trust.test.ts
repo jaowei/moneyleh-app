@@ -25,7 +25,6 @@ describe('pdf: trust bank formats', () => {
             Object.values(data.cards).forEach((cardData) => {
                 expect(cardData.transactions.length).toBe(3)
                 cardData.transactions.forEach(testATransaction)
-                console.log(cardData.transactions)
             })
 
         } else {

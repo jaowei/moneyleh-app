@@ -7,6 +7,7 @@ import { cpf } from "./formats/cpf.ts";
 import { chocolate } from './formats/chocolate.ts';
 import { uobAccount, uobCard } from './formats/uob.ts';
 import { trustCard } from './formats/trust.ts';
+import { scbCard } from './formats/scb.ts';
 
 const parseStatementPages = (document: mupdf.Document) => {
     const dataToExtract: MuPdfStructuredTextPage[] = []
@@ -38,8 +39,10 @@ const getDataExtractorForFormat = (doc: mupdf.Document) => {
         return uobCard.extractData
     } else if (uobAccount.searchFn?.(firstPage)) {
         return uobAccount.extractData
-    } else if (firstPage.search(trustCard.searchString)) {
+    } else if (firstPage.search(trustCard.searchString).length) {
         return trustCard.extractData
+    } else if (firstPage.search(scbCard.searchString).length) {
+        return scbCard.extractData
     }
     else {
         throw new Error('Unable to determine PDF statement format')
