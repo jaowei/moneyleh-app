@@ -3,7 +3,7 @@ import { backendRouteClient, fetchTagData } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 
-export const Route = createFileRoute('/_authenticated/inventory/account/$accountId')({
+export const Route = createFileRoute('/_authenticated/inventory/card/$cardId')({
     component: InventoryAccountComponent,
     loader: async ({ context, params }) => {
         const { auth } = context
@@ -11,18 +11,18 @@ export const Route = createFileRoute('/_authenticated/inventory/account/$account
             throw new Error()
         }
 
-        let accountInfo
+        let cardInfo
 
         const res = await backendRouteClient.api.transaction[':userId']['$get']({
             param: { userId: auth.user.id },
             query: {
-                type: 'account',
-                accountId: params.accountId,
+                type: 'card',
+                cardId: params.cardId,
             }
         })
 
         if (res.ok) {
-            accountInfo = await res.json()
+            cardInfo = await res.json()
         } else {
             throw await getBackendErrorResponse(res)
         }
@@ -30,25 +30,25 @@ export const Route = createFileRoute('/_authenticated/inventory/account/$account
         const tagData = await fetchTagData()
 
         return {
-            accountInfo,
+            cardInfo,
             tagData,
-            crumb: accountInfo.displayName
+            crumb: cardInfo.displayName
         }
     }
 })
 
 function InventoryAccountComponent() {
-    const { accountInfo, tagData } = Route.useLoaderData()
-    const { accountId } = Route.useParams()
+    const { cardInfo, tagData } = Route.useLoaderData()
+    const { cardId } = Route.useParams()
     const router = useRouter()
 
     return (
         <div>
-            <div className="text-7xl">{accountInfo.displayName}</div>
-            <BulkUploadModal accountId={Number(accountId)} tagData={tagData} onAddSuccess={() => {
+            <div className="text-7xl">{cardInfo.displayName}</div>
+            <BulkUploadModal cardId={Number(cardId)} tagData={tagData} onAddSuccess={() => {
                 router.invalidate()
             }} />
-            {accountInfo.transactions.length > 0 && (
+            {cardInfo.transactions.length > 0 && (
                 <table className="table table-zebra table-xs">
                     <thead>
                         <tr>
@@ -60,7 +60,7 @@ function InventoryAccountComponent() {
                         </tr>
                     </thead>
                     <tbody>
-                        {accountInfo.transactions.map((t) => (
+                        {cardInfo.transactions.map((t) => (
                             <tr>
                                 <td>{t.transactionDate}</td>
                                 <td>{t.amount}</td>

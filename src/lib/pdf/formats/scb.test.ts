@@ -11,7 +11,6 @@ describe('pdf: scb formats', () => {
             Object.values(data.cards).forEach((card) => {
                 card.transactions.forEach(testATransaction)
                 expect(card.transactions.length).toBe(9)
-                console.log(card.transactions)
             })
         } else {
             throw new Error('Shoudl be card type')

@@ -1,24 +1,25 @@
-import {parentPort} from 'node:worker_threads'
-import {addDocuments, type DocumentToAdd, initClassifier, saveAndTrainClassifier} from "./descriptionTagger.ts";
+import { parentPort } from 'node:worker_threads'
+import { addDocuments, type DocumentToAdd, initClassifier, saveAndTrainClassifier } from "./descriptionTagger.ts";
+import { appLogger } from '../../index.ts';
 
 export type WorkerTaskObj = {
     documentsToAdd: DocumentToAdd[]
 }
 
 parentPort?.on('message', async (task: WorkerTaskObj) => {
-    console.log('initialising classifier')
+    appLogger('initialising classifier')
     const c = await initClassifier()
-    console.log('classifier initialised')
+    appLogger('classifier initialised')
 
-    console.log(`adding ${task.documentsToAdd.length} docs`)
+    appLogger(`adding ${task.documentsToAdd.length} docs`)
     for (const doc of task.documentsToAdd) {
         addDocuments(c, doc)
     }
-    console.log('docs added')
+    appLogger('docs added')
 
-    console.log('training...')
+    appLogger('training...')
     await saveAndTrainClassifier(c)
-    console.log('done training and saved')
+    appLogger('done training and saved')
 
     parentPort?.postMessage('training complete')
 })

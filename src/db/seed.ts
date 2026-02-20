@@ -1,8 +1,8 @@
-import {STARTING_COMPANIES} from "./company.seed";
-import {db} from "./db";
+import { STARTING_COMPANIES } from "./company.seed";
+import { db } from "./db";
 import * as schema from "./schema";
 import * as authSchema from "./auth-schema"
-import {testTag, testUser, testUserAccount} from "../lib/test.utils.ts";
+import { testTag, testUser, testUserAccount } from "../lib/test.utils.ts";
 
 console.log("===Seed companies: Start!")
 await db
@@ -134,6 +134,11 @@ await db
             accountType: 'cash'
         },
         {
+            name: 'stash',
+            companyId: companyIdMap.UOB,
+            accountType: 'cash'
+        },
+        {
             name: 'ordinary_account',
             companyId: companyIdMap.CPF,
             accountType: 'CPF'
@@ -145,6 +150,11 @@ await db
         },
         {
             name: 'special_account',
+            companyId: companyIdMap.CPF,
+            accountType: 'CPF'
+        },
+        {
+            name: 'investment_account',
             companyId: companyIdMap.CPF,
             accountType: 'CPF'
         },

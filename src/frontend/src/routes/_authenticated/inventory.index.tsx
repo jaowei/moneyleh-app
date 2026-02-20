@@ -8,7 +8,7 @@ import {
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import { type ChangeEventHandler, useRef, useState } from "react";
 import { AddButton } from "../../components/AddButton.tsx";
-import AddTransactionsModal from "../../components/AddTransactionsModal.tsx";
+import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 
 
 export const Route = createFileRoute('/_authenticated/inventory/')({
@@ -38,15 +38,14 @@ export const Route = createFileRoute('/_authenticated/inventory/')({
     }
 })
 
-type DataForAdding = { account?: AllAccounts[0]; card?: AllCards[0] }
 
-const AllInventoryList = ({ allAccounts, allCards }: { allAccounts: AllAccounts, allCards: AllCards }) => {
+const AllAccountsList = ({ allAccounts }: { allAccounts: AllAccounts }) => {
     const { auth } = Route.useRouteContext()
     const router = useRouter()
-    const addDialogRef = useRef<HTMLDialogElement>(null)
+
+    const accountsListDialogRef = useRef<HTMLDialogElement>(null)
+
     const [searchTerm, setSearchTerm] = useState('')
-    const [nameForAdding, setNameForAdding] = useState<string | undefined>(undefined)
-    const [dataForAdding, setDataForAdding] = useState<DataForAdding>({})
     const [addingError, setAddingError] = useState('')
 
     const filteredAccounts = allAccounts.filter((acc) => {
@@ -55,8 +54,83 @@ const AllInventoryList = ({ allAccounts, allCards }: { allAccounts: AllAccounts,
         const targetSearchName = `${acc.companies?.name.toLowerCase()} ${acc.accounts?.name.toLowerCase()}`
         const matchSearchTerm = searchTerm ? targetSearchName.includes(searchTerm) : true
         return (hasAccount && !isUserAccount) && matchSearchTerm
+    })
+
+    const handleAccountSearchInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+        setSearchTerm(e.target.value.toLowerCase())
     }
+    const handleAddAccountClick = async (account: AllAccounts[0]) => {
+        const userId = auth?.user?.id
+        if (!userId) throw new Error('No user id')
+
+        if (!account.accounts) return
+
+        const res = await uiRouteClient.assignTo[":userId"].$post({
+            param: { userId },
+            json: {
+                accountData: [{
+                    accountId: account.accounts.id,
+                    userId,
+                }]
+            }
+        })
+        if (res.ok) {
+            accountsListDialogRef.current?.close()
+            router.invalidate()
+        } else {
+            setAddingError(res.statusText)
+        }
+    }
+    const handleModalClose = () => {
+        accountsListDialogRef.current?.close()
+    }
+
+    return (
+        <>
+            <button className="btn btn-sm btn-accent" onClick={() => accountsListDialogRef.current?.showModal()}>Add accounts</button>
+            <dialog ref={accountsListDialogRef} className="modal">
+                <div className="modal-box">
+                    <input className="input" placeholder="search accounts" onChange={handleAccountSearchInputChange} />
+                    <table className="table">
+                        <thead><tr><th colSpan={3} align="center">Accounts</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Company name</th>
+                                <th>Account name</th>
+                                <th>Add</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredAccounts.map((acc) => (
+                                <tr>
+                                    <td>{acc.companies.name}</td>
+                                    <td>{acc.accounts?.name}</td>
+                                    <td>
+                                        <AddButton onClick={() => handleAddAccountClick(acc)} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {addingError && <div className="alert alert-error">{addingError}</div>}
+                    <div className="modal-action">
+                        <button className="btn" onClick={handleModalClose}>Close</button>
+                    </div>
+                </div>
+            </dialog>
+        </>
     )
+}
+
+const AllCardsList = ({ allCards }: { allCards: AllCards }) => {
+    const { auth } = Route.useRouteContext()
+    const router = useRouter()
+
+    const cardsListDialogRef = useRef<HTMLDialogElement>(null)
+
+    const [searchTerm, setSearchTerm] = useState('')
+    const [addingError, setAddingError] = useState('')
+
     const filteredCards = allCards.filter((card) => {
         const hasCard = card.cards
         const isUserCard = !!card.user_cards
@@ -65,120 +139,77 @@ const AllInventoryList = ({ allAccounts, allCards }: { allAccounts: AllAccounts,
         return (hasCard && !isUserCard) && matchSearchTerm
     })
 
-    const handleAccountSearchInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+    const handleCardSearchInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
         setSearchTerm(e.target.value.toLowerCase())
     }
 
-    const handleAddAccountOrCardClick = (data: DataForAdding) => {
-        addDialogRef.current?.showModal()
-        setDataForAdding(data)
-    }
-
-    const handleAddInModalClick = async () => {
+    const handleAddCardClick = async (card: AllCards[0]) => {
         const userId = auth?.user?.id
         if (!userId) throw new Error('No user id')
-        const { account, card } = dataForAdding
 
-        if (!account && !card) return
+        if (!card.cards) return
 
         const res = await uiRouteClient.assignTo[":userId"].$post({
             param: { userId },
             json: {
-                ...(account?.accounts && {
-                    accountData: [{
-                        accountId: account.accounts.id,
-                        ...(nameForAdding && { accountLabel: nameForAdding }),
-                        userId,
-                    }]
-                }),
-                ...(card?.cards && {
-                    cardData: [{
-                        cardId: card.cards.id,
-                        ...(nameForAdding && { cardLabel: nameForAdding }),
-                        userId
-                    }]
-                }),
+                cardData: [{
+                    cardId: card.cards.id,
+                    userId
+                }]
             }
         })
         if (res.ok) {
-            addDialogRef.current?.close()
+            cardsListDialogRef.current?.close()
             router.invalidate()
         } else {
             setAddingError(res.statusText)
         }
     }
 
-    const handleNameForAddingInputChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-        setNameForAdding(e.target.value)
-    }
-
     const handleAddModalClose = () => {
-        setDataForAdding({})
-        setNameForAdding('')
-        addDialogRef.current?.close()
+        cardsListDialogRef.current?.close()
     }
 
     return (
         <div className="flex flex-col gap-2">
-            <input className="input" placeholder="search accounts" onChange={handleAccountSearchInputChange} />
-            <div className="overflow-x-auto rounded-box border border-base-content/5 bg-base-100">
-                <table className="table">
-                    <thead><tr><th colSpan={3} align="center">Accounts</th></tr></thead>
-                    <thead>
-                        <tr>
-                            <th>Company name</th>
-                            <th>Account name</th>
-                            <th>Add</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredAccounts.map((acc) => (
+            <button className="btn btn-sm btn-accent" onClick={() => cardsListDialogRef.current?.showModal()}>Add cards</button>
+            <dialog ref={cardsListDialogRef} className="modal">
+                <div className="modal-box">
+                    <input className="input" placeholder="search cards" onChange={handleCardSearchInputChange} />
+                    <table className="table">
+                        <thead><tr><th colSpan={3} align="center">Cards</th></tr></thead>
+                        <thead>
                             <tr>
-                                <td>{acc.companies.name}</td>
-                                <td>{acc.accounts?.name}</td>
-                                <td>
-                                    <AddButton onClick={() => handleAddAccountOrCardClick({ account: acc })} />
-                                </td>
+                                <th>Company name</th>
+                                <th>Card name</th>
+                                <th>Add</th>
                             </tr>
-                        ))}
-                    </tbody>
-                    <thead><tr><th colSpan={3} align="center">Cards</th></tr></thead>
-                    <thead>
-                        <tr>
-                            <th>Company name</th>
-                            <th>Card name</th>
-                            <th>Add</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredCards.map((card) => (
-                            <tr>
-                                <td>{card.companies.name}</td>
-                                <td>{card.cards?.name}</td>
-                                <td>
-                                    <AddButton onClick={() => handleAddAccountOrCardClick({ card })} />
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                <dialog ref={addDialogRef} className="modal">
-                    <div className="modal-box">
-                        <fieldset className="fieldset">
-                            <input type="text" className="input"
-                                placeholder="Enter a name for your account"
-                                value={nameForAdding} onChange={handleNameForAddingInputChange} />
-                            <label className="label">Optional name to add, e.g. shopping account</label>
-                            {addingError && (<div className="alert alert-error">{addingError}</div>)}
-                        </fieldset>
-                        <div className="modal-action">
-                            <button className="btn" onClick={handleAddInModalClick}>Add</button>
-                            <button className="btn" onClick={handleAddModalClose}>Close</button>
-                        </div>
+                        </thead>
+                        <tbody>
+                            {filteredCards.map((card) => (
+                                <tr>
+                                    <td>{card.companies.name}</td>
+                                    <td>{card.cards?.name}</td>
+                                    <td>
+                                        <AddButton onClick={() => handleAddCardClick(card)} />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {addingError && (<div className="alert alert-error">{addingError}</div>)}
+                    <div className="modal-action">
+                        <button className="btn" onClick={handleAddModalClose}>Close</button>
                     </div>
-                </dialog>
-            </div>
+                </div>
+            </dialog>
         </div>
+    )
+}
+
+const TableRow = ({ children }: { children: any }) => {
+    return (
+        <td className="overflow-y-auto">{children}</td>
     )
 }
 
@@ -188,18 +219,18 @@ function InventoryComponent() {
     return (
         <div className="flex flex-col items-center p-4">
             <div className="w-4/5">
-                <div className="collapse collapse-arrow bg-base-200 mb-4">
-                    <input type="checkbox" />
-                    <div className="collapse-title">
-                        Add accounts/cards
-                    </div>
-                    <div className="collapse-content">
-                        <AllInventoryList allAccounts={inventory.allAccounts} allCards={inventory.allCards} />
-                    </div>
-                </div>
                 <div className="rounded-box border border-base-content/5 bg-base-100">
-                    <table className="table">
-                        <thead className="bg-base-200"><tr><th colSpan={4} align="center">Accounts</th></tr></thead>
+                    <table className="table table-fixed">
+                        <thead className="bg-base-200">
+                            <tr>
+                                <th colSpan={4} align="center">
+                                    <div className="flex flex-row justify-between items-center">
+                                        <h2 className="font-bold">Accounts</h2>
+                                        <AllAccountsList allAccounts={inventory.allAccounts} />
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
                         <thead>
                             <tr>
                                 <th>Company name</th>
@@ -211,19 +242,32 @@ function InventoryComponent() {
                         <tbody>
                             {inventory.userAccounts.map((acc) => (
                                 <tr>
-                                    <td>{acc.companies.name}</td>
-                                    <td>{acc.accounts?.name}</td>
-                                    <td >{acc.user_accounts?.accountLabel}</td>
-                                    <td>
-                                        {acc.accounts?.id && <Link to='/inventory/account/$accountId' params={{
-                                            accountId: `${acc.accounts.id}`
-                                        }}>Go to</Link>}
-                                        <AddTransactionsModal accountId={acc.accounts?.id} tagData={tagData} />
-                                    </td>
+                                    <TableRow>{acc.companies.name}</TableRow>
+                                    <TableRow>{acc.accounts?.name}</TableRow>
+                                    <TableRow>{acc.user_accounts?.accountLabel}</TableRow>
+                                    <TableRow>
+                                        <div className="flex flex-row gap-1">
+                                            {acc.accounts?.id && (
+                                                <button className="btn btn-xs btn-primary">
+                                                    <Link to='/inventory/account/$accountId' params={{
+                                                        accountId: `${acc.accounts.id}`
+                                                    }}>View</Link>
+                                                </button>
+                                            )}
+                                            <BulkUploadModal accountId={acc.accounts?.id} tagData={tagData} />
+                                        </div>
+                                    </TableRow>
                                 </tr>
                             ))}
                         </tbody>
-                        <thead className="bg-base-200"><tr><th colSpan={4} align="center">Cards</th></tr></thead>
+                    </table>
+                    <table className="table table-fixed">
+                        <thead className="bg-base-200"><tr><th colSpan={4} align="center">
+                            <div className="flex flex-row justify-between items-center">
+                                <h2 className="font-bold">Cards</h2>
+                                <AllCardsList allCards={inventory.allCards} />
+                            </div>
+                        </th></tr></thead>
                         <thead>
                             <tr>
                                 <th>Company name</th>
@@ -235,12 +279,21 @@ function InventoryComponent() {
                         <tbody>
                             {inventory.userCards.map((card) => (
                                 <tr>
-                                    <td>{card.companies.name}</td>
-                                    <td>{card.cards?.name}</td>
-                                    <td>{card.user_cards?.cardLabel}</td>
-                                    <td>
-                                        <AddTransactionsModal cardId={card.cards?.id} tagData={tagData} />
-                                    </td>
+                                    <TableRow>{card.companies.name}</TableRow>
+                                    <TableRow>{card.cards?.name}</TableRow>
+                                    <TableRow>{card.user_cards?.cardLabel}</TableRow>
+                                    <TableRow>
+                                        <div className="flex flex-row gap-1">
+                                            {card.cards?.id && (
+                                                <button className="btn btn-xs btn-primary">
+                                                    <Link to='/inventory/card/$cardId' params={{
+                                                        cardId: `${card.cards.id}`
+                                                    }}>View</Link>
+                                                </button>
+                                            )}
+                                            <BulkUploadModal cardId={card.cards?.id} tagData={tagData} />
+                                        </div>
+                                    </TableRow>
                                 </tr>
                             ))}
                         </tbody>

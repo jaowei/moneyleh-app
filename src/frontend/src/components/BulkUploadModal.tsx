@@ -1,22 +1,22 @@
 import { type ChangeEventHandler, useRef, useState } from "react";
-import { AddButton } from "./AddButton.tsx";
 import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
 import { useAuth } from "../context/auth.tsx";
 
-interface AddTransactionsModalProps {
+interface BulkUploadModalProps {
     accountId?: number;
     cardId?: number;
-    tagData: Tag[]
+    tagData: Tag[];
+    onAddSuccess?: () => void;
 }
 
-export default function AddTransactionsModal({ accountId, cardId }: AddTransactionsModalProps) {
+export default function BulkUploadModal({ accountId, cardId, onAddSuccess }: BulkUploadModalProps) {
     const { user } = useAuth()
 
     const dialogRef = useRef<HTMLDialogElement>(null)
 
     const [uploadError, setUploadError] = useState('')
 
-    const handleAddButtonClick = () => {
+    const handleModalTriggerClick = () => {
         dialogRef.current?.showModal()
     }
 
@@ -45,10 +45,13 @@ export default function AddTransactionsModal({ accountId, cardId }: AddTransacti
     const handleModalCloseClick = () => {
         setUploadError('')
         dialogRef.current?.close()
+        onAddSuccess?.()
     }
 
     return (<div>
-        <AddButton onClick={handleAddButtonClick} />
+        <button className="btn btn-xs btn-primary truncate" onClick={handleModalTriggerClick}>
+            Bulk Upload
+        </button>
         <dialog ref={dialogRef} className="modal">
             <div className="modal-box">
                 <fieldset className="fieldset">
