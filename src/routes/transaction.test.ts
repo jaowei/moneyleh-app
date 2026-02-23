@@ -1,12 +1,12 @@
-import {describe, expect, test, afterEach, afterAll, beforeAll} from "bun:test";
+import { describe, expect, test, afterEach, afterAll, beforeAll } from "bun:test";
 import app from "../index.ts";
-import {jsonHeader, testTag} from "../lib/test.utils.ts";
-import type {PostTransactionPayload} from "./transaction.ts";
-import {testClassifierPath} from "../lib/descriptionTagger/descriptionTagger.ts";
-import {testUser} from "../lib/test.utils.ts";
-import {transactions, type TransactionsUpdateSchema, transactionTags, userAccounts} from "../db/schema.ts";
-import {db} from "../db/db.ts";
-import {and, eq, inArray} from "drizzle-orm";
+import { jsonHeader, testTag } from "../lib/test.utils.ts";
+import type { PostTransactionPayload } from "./transaction.ts";
+import { testClassifierPath } from "../lib/descriptionTagger/descriptionTagger.ts";
+import { testUser } from "../lib/test.utils.ts";
+import { transactions, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
+import { db } from "../db/db.ts";
+import { and, eq, inArray } from "drizzle-orm";
 
 
 describe('/api/transaction', () => {
@@ -219,6 +219,27 @@ describe('/api/transaction', () => {
     });
 
     describe('get transactions', () => {
+        const accountId = 1
+        beforeAll(async () => {
+            const testTxn = {
+                id: 9999,
+                transactionDate: '2020-12-31T16:00:00.000Z',
+                amount: 100,
+                description: 'test-description',
+                currency: 'SGD',
+                userId: testUser.id,
+                accountId
+            }
+            await db.insert(transactions).values([testTxn, {
+                ...testTxn,
+                currency: 'USD',
+                id: 9998,
+                transactionDate: '2021-12-31T16:00:00.000Z',
+            }]).onConflictDoNothing()
+        })
+        afterAll(async () => {
+            await db.delete(transactions).where(eq(transactions.userId, testUser.id))
+        })
         test('get for an invalid user', async () => {
             const res = await app.request(`/api/transaction/invalidUserId?type=card&cardId=1`, {
                 method: 'GET'
@@ -227,7 +248,7 @@ describe('/api/transaction', () => {
         })
 
         test('get per user invalid query', async () => {
-            const res = await app.request(`/api/transaction/${testUser.id}?type=card&accountId=1`, {
+            const res = await app.request(`/api/transaction/${testUser.id}?type=card&accountId=${accountId}`, {
                 method: 'GET'
             })
             expect(res.status).toBe(400)
@@ -243,7 +264,7 @@ describe('/api/transaction', () => {
         })
 
         test('get per user missing type param', async () => {
-            const res = await app.request(`/api/transaction/${testUser.id}?accountId=1`, {
+            const res = await app.request(`/api/transaction/${testUser.id}?accountId=${accountId}`, {
                 method: 'GET'
             })
             expect(res.status).toBe(400)
@@ -257,6 +278,18 @@ describe('/api/transaction', () => {
             expect(res.status).toBe(200)
             const resData = await res.json() as any
             expect(resData.transactions).toBeArrayOfSize(0)
+        })
+
+        test('get per user: transactions', async () => {
+            const res = await app.request(`/api/transaction/${testUser.id}?type=account&accountId=${accountId}`, {
+                method: 'GET'
+            })
+            expect(res.status).toBe(200)
+            const resData = await res.json() as any
+            expect(resData.transactions).toBeArrayOfSize(2)
+            expect(resData.transactionCount).toBe(2)
+            expect(resData.valueByCurrency).toHaveProperty('SGD')
+            expect(resData.valueByCurrency).toHaveProperty('USD')
         })
     })
 

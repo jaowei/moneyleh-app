@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { backendRouteClient, fetchTagData } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
+import { AccountCardStats } from "../../components/AccountCardStats.tsx";
 
 export const Route = createFileRoute('/_authenticated/inventory/card/$cardId')({
     component: InventoryAccountComponent,
@@ -45,6 +46,11 @@ function InventoryAccountComponent() {
     return (
         <div>
             <div className="text-7xl">{cardInfo.displayName}</div>
+            <AccountCardStats
+                numTransactions={cardInfo.transactionCount}
+                currentBalance={cardInfo.valueByCurrency}
+                latestTransactionDate={cardInfo.transactions[0]?.transactionDate}
+            />
             <BulkUploadModal cardId={Number(cardId)} tagData={tagData} onAddSuccess={() => {
                 router.invalidate()
             }} />
