@@ -1,5 +1,5 @@
-import {describe, expect, test} from "bun:test";
-import {csvParserDirectUpload} from "./directUpload.ts";
+import { describe, expect, test } from "bun:test";
+import { csvParserDirectUpload } from "./directUpload.ts";
 
 describe('csv: migration via csv file', () => {
     test('parse', async () => {
@@ -7,6 +7,6 @@ describe('csv: migration via csv file', () => {
         const buf = await file.arrayBuffer()
         const f = new File([buf], 'file')
         const txns = await csvParserDirectUpload(f)
-        expect(txns.length).toBe(400)
+        expect(txns.length).toBe(65)
     })
 })

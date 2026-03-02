@@ -12,6 +12,7 @@ export const backendRouteClient = hc<AppType>('')
 export type Tag = InferResponseType<typeof backendRouteClient.api.tag[":tagId"]['$get']>
 export type TransactionsReq = InferRequestType<typeof backendRouteClient.api.transaction.$post>["json"]["transactions"]
 export type EditableTransaction = TransactionsReq[0] & TransactionsRes[0]
+export type GetTransactionDataRes = InferResponseType<typeof backendRouteClient.api.transaction[":userId"]["$get"]>
 
 export const fetchTagData = async () => {
     const tagDataRes = await backendRouteClient.api.tag.$get()

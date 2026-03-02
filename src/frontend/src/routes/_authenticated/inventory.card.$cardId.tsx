@@ -3,6 +3,7 @@ import { backendRouteClient, fetchTagData } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 import { AccountCardStats } from "../../components/AccountCardStats.tsx";
+import { AccountCardChart } from "../../components/AccountCardChart.tsx";
 
 export const Route = createFileRoute('/_authenticated/inventory/card/$cardId')({
     component: InventoryAccountComponent,
@@ -51,6 +52,7 @@ function InventoryAccountComponent() {
                 currentBalance={cardInfo.valueByCurrency}
                 latestTransactionDate={cardInfo.transactions[0]?.transactionDate}
             />
+            <AccountCardChart chartData={cardInfo.chartData} />
             <BulkUploadModal cardId={Number(cardId)} tagData={tagData} onAddSuccess={() => {
                 router.invalidate()
             }} />

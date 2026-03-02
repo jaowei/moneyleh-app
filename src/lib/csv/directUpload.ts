@@ -4,12 +4,12 @@ import { parseDateString } from "../dayjs.ts";
 import z from "zod";
 
 const parseDate = (dateString: string, rowIndex: number) => {
-    const formats = ['M/D/YY', 'M/D/YYYY', 'D/M/YYYY', 'D/M/YY', 'D-MMM-YY']
+    const formats = ['YYYY-MM-DD']
     const result = formats.map((format) => parseDateString(dateString, format)
     ).filter((date) => !!date)
     const parsedDate = result[0]
     if (!result.length || !parsedDate) {
-        throw new Error(`Unable to get date for row ${rowIndex}`)
+        throw new Error(`Unable to get date for row ${rowIndex}, please check format`)
     } else {
         return parsedDate
     }

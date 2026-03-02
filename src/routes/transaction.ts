@@ -326,9 +326,10 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             transactionCount = totalNumTxnsQuery[0].value
         }
 
+        const sumSql = sql<number>`sum(${transactionsDb.amount})`
         const totalValueQuery = await db.select({
             currency: transactionsDb.currency,
-            sum: sql < number >`sum(${transactionsDb.amount})`
+            sum: sumSql
         }).from(transactionsDb)
             .where(transactionFilter)
             .groupBy(transactionsDb.currency)
@@ -342,11 +343,43 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             }
         }
 
+        const yearMonthSql = sql<string>`strftime('%Y-%m', ${transactionsDb.transactionDate})`
+        const movementByYearMonth = await db.select({ currency: transactionsDb.currency, yearMonth: yearMonthSql, sum: sumSql })
+            .from(transactionsDb).where(transactionFilter)
+            .groupBy(yearMonthSql, transactionsDb.currency).orderBy(yearMonthSql)
+
+        type ChartValuesLabels = { labels: string[]; movementValues: number[]; balanceValues: number[] }
+        const chartData: Record<string, ChartValuesLabels> = {}
+
+        for (const movement of movementByYearMonth) {
+            const { yearMonth, sum } = movement
+            if (!chartData[movement.currency]) {
+                chartData[movement.currency] = { labels: [yearMonth], movementValues: [sum], balanceValues: [] }
+            } else {
+                chartData[movement.currency]?.movementValues.push(sum)
+                chartData[movement.currency]?.labels.push(yearMonth)
+            }
+        }
+
+        Object.entries(chartData).forEach(([currency, values]) => {
+            const valueByYearMonth = values.movementValues.reduce((prev, currentSum) => {
+                const prevSum = prev.at(-1)
+                if (prevSum === undefined) {
+                    prev.push(currentSum)
+                } else {
+                    prev.push(currentSum + prevSum)
+                }
+                return prev
+            }, [] as number[])
+            chartData[currency]?.balanceValues.push(...valueByYearMonth)
+        })
+
         return c.json({
             displayName,
             transactions: transactionsToReturn,
             transactionCount,
-            valueByCurrency
+            valueByCurrency,
+            chartData
         })
     }).patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
         const { transactions } = c.req.valid('json')

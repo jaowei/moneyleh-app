@@ -235,7 +235,11 @@ describe('/api/transaction', () => {
                 currency: 'USD',
                 id: 9998,
                 transactionDate: '2021-12-31T16:00:00.000Z',
-            }]).onConflictDoNothing()
+            }, {
+                    ...testTxn,
+                    id: 99997,
+                    transactionDate: '2021-01-31T16:00:00.000Z'
+                }]).onConflictDoNothing()
         })
         afterAll(async () => {
             await db.delete(transactions).where(eq(transactions.userId, testUser.id))
@@ -286,10 +290,24 @@ describe('/api/transaction', () => {
             })
             expect(res.status).toBe(200)
             const resData = await res.json() as any
-            expect(resData.transactions).toBeArrayOfSize(2)
-            expect(resData.transactionCount).toBe(2)
+            expect(resData.transactions).toBeArrayOfSize(3)
+            expect(resData.transactionCount).toBe(3)
             expect(resData.valueByCurrency).toHaveProperty('SGD')
             expect(resData.valueByCurrency).toHaveProperty('USD')
+            expect(resData.chartData)
+                .toMatchObject({
+                    SGD: {
+                        labels: ['2020-12', '2021-01'],
+                        movementValues: [100, 100],
+                        balanceValues: [100, 200]
+                    },
+                    USD: {
+                        labels: ['2021-12'],
+                        movementValues: [100],
+                        balanceValues: [100]
+                    }
+                })
+
         })
     })
 
