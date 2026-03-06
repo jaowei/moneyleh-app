@@ -27,7 +27,7 @@ const companyIdMap = companyIds.reduce(
 );
 
 console.log("===Seed cards: Start!")
-await db.insert(schema.cards).values([
+export const seedDataCards: schema.CardsInsertSchema[] = [
     {
         name: "altitude",
         companyId: companyIdMap.DBS,
@@ -100,14 +100,13 @@ await db.insert(schema.cards).values([
         cardType: "cashback",
         cardNetwork: "visa signature"
     },
-]).onConflictDoNothing();
+]
+await db.insert(schema.cards).values(seedDataCards).onConflictDoNothing();
 console.log("===Seed cards: Done!")
 
 
 console.log("===Seed accounts: Start!")
-await db
-    .insert(schema.accounts)
-    .values([
+export const seedDataAccounts: schema.AccountsInsertSchema[] = [
         {
             name: 'multiplier',
             companyId: companyIdMap.DBS,
@@ -178,7 +177,10 @@ await db
             companyId: companyIdMap.IFast,
             accountType: 'brokerage'
         },
-    ])
+    ] 
+await db
+    .insert(schema.accounts)
+    .values(seedDataAccounts)
     .onConflictDoNothing();
 console.log("===Seed accounts: Done!")
 

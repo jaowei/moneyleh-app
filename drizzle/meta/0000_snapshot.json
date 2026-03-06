@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5e0775ad-28be-4114-8880-75b473f84fb4",
+  "id": "9615a630-33f0-43d1-8a9f-1195ca9d5a5f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -58,7 +58,16 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "accounts_name_company_id_unique": {
+          "name": "accounts_name_company_id_unique",
+          "columns": [
+            "name",
+            "company_id"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "accounts_company_id_companies_id_fk": {
           "name": "accounts_company_id_companies_id_fk",
@@ -139,7 +148,16 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "cards_name_company_id_unique": {
+          "name": "cards_name_company_id_unique",
+          "columns": [
+            "name",
+            "company_id"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "cards_company_id_companies_id_fk": {
           "name": "cards_company_id_companies_id_fk",

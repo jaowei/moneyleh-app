@@ -1,5 +1,5 @@
 import {sql} from "drizzle-orm";
-import {sqliteTable, text, integer, real, primaryKey} from "drizzle-orm/sqlite-core";
+import {sqliteTable, text, integer, real, primaryKey, unique} from "drizzle-orm/sqlite-core";
 import {createInsertSchema, createSelectSchema, createUpdateSchema} from "drizzle-zod";
 import z from "zod";
 import {user} from "./auth-schema.ts";
@@ -32,7 +32,9 @@ export const accounts = sqliteTable("accounts", {
         enum: ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet"],
     }),
     ...timestamps,
-});
+}, (table) => [unique().on(table.name, table.companyId)]);
+export const accountsInsertSchemaZ = createInsertSchema(accounts)
+export type AccountsInsertSchema = z.infer<typeof accountsInsertSchemaZ>
 
 export const cards = sqliteTable("cards", {
     id: integer().primaryKey({autoIncrement: true}),
@@ -45,7 +47,9 @@ export const cards = sqliteTable("cards", {
         enum: ["visa signature", "world mastercard", "amex"]
     }),
     ...timestamps,
-});
+}, (table) => [unique().on(table.name, table.companyId)]);
+export const cardsInsertSchemaZ = createInsertSchema(cards)
+export type CardsInsertSchema = z.infer<typeof cardsInsertSchemaZ>
 
 export const securities = sqliteTable("securities", {
     id: integer().primaryKey({autoIncrement: true}),

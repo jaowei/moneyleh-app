@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import {Hono} from "hono";
 import z from "zod";
-import { zodValidator } from "../lib/middleware/zod-validator.ts";
-import { db } from "../db/db.ts";
+import {zodValidator} from "../lib/middleware/zod-validator.ts";
+import {db} from "../db/db.ts";
 import {
     tags as tagsDb,
     transactions as transactionsDb,
@@ -10,18 +10,18 @@ import {
     type TransactionsUpdateSchema,
     userCards, userAccounts, type TagSelectSchema, accounts, cards,
 } from "../db/schema.ts";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
-import { appLogger } from "../index.ts";
-import { HTTPException } from "hono/http-exception";
+import {and, count, desc, eq, inArray, sql} from "drizzle-orm";
+import {appLogger} from "../index.ts";
+import {HTTPException} from "hono/http-exception";
 import {
     initClassifier,
     saveAndTrainClassifier,
     addDocuments
 } from "../lib/descriptionTagger/descriptionTagger.ts";
-import { findUserOrThrow } from "./route.utils.ts";
-import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
+import {findUserOrThrow} from "./route.utils.ts";
+import {csvParserDirectUpload} from "../lib/csv/directUpload.ts";
 import WorkerPool from "../lib/descriptionTagger/classifier-trainer-worker-pool.ts";
-import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
+import {paginationZ, refineAccountOrCardId} from "./route.types.ts";
 
 const allowOnlyAccountOrCardIdErrMsg = 'An account id or card id is required, both cannot be empty and filled in the same transaction'
 
@@ -31,7 +31,7 @@ const transactionFromUIZ = transactionsInsertSchemaZ.extend({
         description: z.string().min(1)
     })).optional(),
     userId: z.string()
-}).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
+}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
 const transactionsFromUIZ = z.array(transactionFromUIZ).min(1)
 export type TransactionFromUI = z.infer<typeof transactionsFromUIZ>
 
@@ -45,7 +45,7 @@ const postTransactionCsvPayloadZ = z.object({
     accountId: z.coerce.number().optional(),
     cardId: z.coerce.number().optional(),
     file: z.file().mime(["text/csv"]).max(1000 * 1000) // max 1mb
-}).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
+}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
 
 const transactionsPatchPayloadZ = z.object({
     transactions: z.array(transactionsUpdateSchemaZ).min(1)
@@ -54,87 +54,88 @@ const transactionsPatchPayloadZ = z.object({
 const getUserTransactionsQueryZ = z.discriminatedUnion(
     "type",
     [
-        z.object({ type: z.literal("account"), accountId: z.coerce.number(), ...paginationZ.shape }),
-        z.object({ type: z.literal("card"), cardId: z.coerce.number(), ...paginationZ.shape }),
+        z.object({type: z.literal("account"), accountId: z.coerce.number(), ...paginationZ.shape}),
+        z.object({type: z.literal("card"), cardId: z.coerce.number(), ...paginationZ.shape}),
     ]
 )
 
-export const transactionRoute = new Hono().post('/', zodValidator('json', PostTransactionPayloadZ), async (c) => {
-    const { transactions } = c.req.valid('json')
+export const transactionRoute = new Hono()
+    .post('/', zodValidator('json', PostTransactionPayloadZ), async (c) => {
+        const {transactions} = c.req.valid('json')
 
-    const classifier = await initClassifier()
-    let shouldTrain = false;
-    try {
-        db.transaction((tx) => {
-            for (const t of transactions) {
-                const { tags, ...rest } = t
+        const classifier = await initClassifier()
+        let shouldTrain = false;
+        try {
+            db.transaction((tx) => {
+                for (const t of transactions) {
+                    const {tags, ...rest} = t
 
-                const findRes = tx.select().from(transactionsDb).where(and(
-                    eq(transactionsDb.description, t.description),
-                    eq(transactionsDb.amount, t.amount),
-                    eq(transactionsDb.transactionDate, t.transactionDate),
-                    eq(transactionsDb.userId, t.userId))
-                ).all()
+                    const findRes = tx.select().from(transactionsDb).where(and(
+                        eq(transactionsDb.description, t.description),
+                        eq(transactionsDb.amount, t.amount),
+                        eq(transactionsDb.transactionDate, t.transactionDate),
+                        eq(transactionsDb.userId, t.userId))
+                    ).all()
 
-                if (findRes.length) {
-                    appLogger(`Found ${findRes.length} similar transaction/s, skipping insert`)
-                    throw new Error('Found similar transaction')
-                }
+                    if (findRes.length) {
+                        appLogger(`Found ${findRes.length} similar transaction/s, skipping insert`)
+                        throw new Error('Found similar transaction')
+                    }
 
-                const txnId = tx.insert(transactionsDb).values(rest).returning({ id: transactionsDb.id }).all()
-                const insertedTxn = txnId[0]
-                if (!insertedTxn) {
-                    appLogger(`WARN: Could not add transaction ${t.description}`)
-                    throw new Error(`Could not add transaction ${t.description}`)
-                }
+                    const txnId = tx.insert(transactionsDb).values(rest).returning({id: transactionsDb.id}).all()
+                    const insertedTxn = txnId[0]
+                    if (!insertedTxn) {
+                        appLogger(`WARN: Could not add transaction ${t.description}`)
+                        throw new Error(`Could not add transaction ${t.description}`)
+                    }
 
-                if (!tags || !tags.length) continue
+                    if (!tags || !tags.length) continue
 
-                const tagIds = tags.map((tag) => tag.id)
-                const queryRes = tx.select({
-                    id: tagsDb.id,
-                    description: tagsDb.description
-                }).from(tagsDb).where(inArray(tagsDb.id, tagIds)).all()
+                    const tagIds = tags.map((tag) => tag.id)
+                    const queryRes = tx.select({
+                        id: tagsDb.id,
+                        description: tagsDb.description
+                    }).from(tagsDb).where(inArray(tagsDb.id, tagIds)).all()
 
-                if (queryRes.length !== tagIds.length) {
-                    appLogger(`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`)
-                    appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`)
-                    appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`)
-                    throw new Error('Tag does not exist!')
-                } else {
-                    shouldTrain = true
-                    const transactionTagsToInsert = queryRes.map((foundTag) => {
-                        addDocuments(classifier, { description: t.description, tag: foundTag.description })
-                        return {
-                            transactionId: insertedTxn.id,
-                            tagId: foundTag.id
-                        }
-                    })
-                    const ids = tx.insert(transactionTagsDb).values(transactionTagsToInsert).returning({ id: transactionTagsDb.tagId }).all()
-                    if (ids.length !== queryRes.length) {
-                        appLogger(`WARN: Not all tags inserted`)
-                        tx.rollback()
+                    if (queryRes.length !== tagIds.length) {
+                        appLogger(`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`)
+                        appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`)
+                        appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`)
+                        throw new Error('Tag does not exist!')
                     } else {
-                        appLogger(`Inserted ${ids.length} tags`)
+                        shouldTrain = true
+                        const transactionTagsToInsert = queryRes.map((foundTag) => {
+                            addDocuments(classifier, {description: t.description, tag: foundTag.description})
+                            return {
+                                transactionId: insertedTxn.id,
+                                tagId: foundTag.id
+                            }
+                        })
+                        const ids = tx.insert(transactionTagsDb).values(transactionTagsToInsert).returning({id: transactionTagsDb.tagId}).all()
+                        if (ids.length !== queryRes.length) {
+                            appLogger(`WARN: Not all tags inserted`)
+                            tx.rollback()
+                        } else {
+                            appLogger(`Inserted ${ids.length} tags`)
+                        }
                     }
                 }
-            }
-        })
-    } catch (e) {
-        const message = e instanceof Error ? e.message : JSON.stringify(e)
-        throw new HTTPException(400, {
-            message
-        })
-    }
+            })
+        } catch (e) {
+            const message = e instanceof Error ? e.message : JSON.stringify(e)
+            throw new HTTPException(400, {
+                message
+            })
+        }
 
-    if (shouldTrain) {
-        await saveAndTrainClassifier(classifier)
-    }
+        if (shouldTrain) {
+            await saveAndTrainClassifier(classifier)
+        }
 
-    return c.text('All inserted', 201)
-})
+        return c.text('All inserted', 201)
+    })
     .post('/csv', zodValidator('form', postTransactionCsvPayloadZ), async (c) => {
-        const { userId, accountId, cardId, file } = c.req.valid('form')
+        const {userId, accountId, cardId, file} = c.req.valid('form')
 
         await findUserOrThrow(userId)
 
@@ -263,7 +264,7 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
 
         const pool = new WorkerPool(1)
 
-        pool.runTask({ documentsToAdd }, async (err) => {
+        pool.runTask({documentsToAdd}, async (err) => {
             if (err) {
                 appLogger(`Training failed for user ${userId}, ${insertedTransactionIds.length} transactions to be trained, 
                 please look for json file in root, for transactions to train`)
@@ -275,8 +276,8 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
         return c.text('All inserted', 201)
     })
     .get('/:userId', zodValidator('query', getUserTransactionsQueryZ), async (c) => {
-        const { userId } = c.req.param()
-        const { limit, offset, ...targetId } = c.req.valid('query')
+        const {userId} = c.req.param()
+        const {limit, offset, ...targetId} = c.req.valid('query')
 
         const isAccount = targetId.type === 'account'
         const usersFilter = eq(transactionsDb.userId, userId)
@@ -318,7 +319,7 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             }
         })
 
-        const totalNumTxnsQuery = await db.select({ value: count(transactionsDb.id) }).from(transactionsDb)
+        const totalNumTxnsQuery = await db.select({value: count(transactionsDb.id)}).from(transactionsDb)
             .where(transactionFilter)
 
         let transactionCount = 0
@@ -326,7 +327,9 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             transactionCount = totalNumTxnsQuery[0].value
         }
 
-        const sumSql = sql<number>`sum(${transactionsDb.amount})`
+        const sumSql = sql<number>`sum(
+        ${transactionsDb.amount}
+        )`
         const totalValueQuery = await db.select({
             currency: transactionsDb.currency,
             sum: sumSql
@@ -343,8 +346,15 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             }
         }
 
-        const yearMonthSql = sql<string>`strftime('%Y-%m', ${transactionsDb.transactionDate})`
-        const movementByYearMonth = await db.select({ currency: transactionsDb.currency, yearMonth: yearMonthSql, sum: sumSql })
+        const yearMonthSql = sql<string>`strftime
+        ('%Y-%m',
+        ${transactionsDb.transactionDate}
+        )`
+        const movementByYearMonth = await db.select({
+            currency: transactionsDb.currency,
+            yearMonth: yearMonthSql,
+            sum: sumSql
+        })
             .from(transactionsDb).where(transactionFilter)
             .groupBy(yearMonthSql, transactionsDb.currency).orderBy(yearMonthSql)
 
@@ -352,9 +362,9 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
         const chartData: Record<string, ChartValuesLabels> = {}
 
         for (const movement of movementByYearMonth) {
-            const { yearMonth, sum } = movement
+            const {yearMonth, sum} = movement
             if (!chartData[movement.currency]) {
-                chartData[movement.currency] = { labels: [yearMonth], movementValues: [sum], balanceValues: [] }
+                chartData[movement.currency] = {labels: [yearMonth], movementValues: [sum], balanceValues: []}
             } else {
                 chartData[movement.currency]?.movementValues.push(sum)
                 chartData[movement.currency]?.labels.push(yearMonth)
@@ -381,8 +391,9 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
             valueByCurrency,
             chartData
         })
-    }).patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
-        const { transactions } = c.req.valid('json')
+    })
+    .patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
+        const {transactions} = c.req.valid('json')
         const failedUpdates: TransactionsUpdateSchema[] = []
         for (const t of transactions) {
             if (!t.id) {
@@ -393,7 +404,7 @@ export const transactionRoute = new Hono().post('/', zodValidator('json', PostTr
                 const updateRes = await db.update(transactionsDb).set({
                     ...t,
                     updated_at: new Date().toISOString()
-                }).where(eq(transactionsDb.id, t.id)).returning({ id: transactionsDb.id })
+                }).where(eq(transactionsDb.id, t.id)).returning({id: transactionsDb.id})
                 if (!updateRes.length) {
                     failedUpdates.push(t)
                 }

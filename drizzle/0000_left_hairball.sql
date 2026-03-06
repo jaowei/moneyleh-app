@@ -9,6 +9,7 @@ CREATE TABLE `accounts` (
 	FOREIGN KEY (`company_id`) REFERENCES `companies`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `accounts_name_company_id_unique` ON `accounts` (`name`,`company_id`);--> statement-breakpoint
 CREATE TABLE `cards` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
@@ -21,6 +22,7 @@ CREATE TABLE `cards` (
 	FOREIGN KEY (`company_id`) REFERENCES `companies`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `cards_name_company_id_unique` ON `cards` (`name`,`company_id`);--> statement-breakpoint
 CREATE TABLE `companies` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,

@@ -1,14 +1,16 @@
-import {Hono} from "hono";
-import {serveStatic} from "hono/bun";
-import {auth} from "./lib/auth";
-import {logger} from "hono/logger";
-import {companyRoute} from "./routes/company";
-import {HTTPException} from "hono/http-exception";
-import {alreadyExistsResponse} from "./errors";
-import {uiRoute} from "./routes/ui.ts";
-import {transactionRoute} from "./routes/transaction.ts";
-import {tagRoute} from "./routes/tag.ts";
+import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
+import { auth } from "./lib/auth";
+import { logger } from "hono/logger";
+import { companyRoute } from "./routes/company";
+import { HTTPException } from "hono/http-exception";
+import { alreadyExistsResponse } from "./errors";
+import { uiRoute } from "./routes/ui.ts";
+import { transactionRoute } from "./routes/transaction.ts";
+import { tagRoute } from "./routes/tag.ts";
 import dayjs from "dayjs";
+import { accountRoute } from "./routes/account.ts";
+import { cardRoute } from "./routes/card.ts";
 
 const app = new Hono();
 
@@ -22,7 +24,12 @@ app.use(logger(appLogger));
 app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
 // routes
-const routes = app.route("/api/company", companyRoute).route("/api/transaction", transactionRoute).route("/api/tag", tagRoute)
+const routes = app
+    .route("/api/company", companyRoute)
+    .route("/api/transaction", transactionRoute)
+    .route("/api/tag", tagRoute)
+    .route("/api/account", accountRoute)
+    .route("/api/card", cardRoute)
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute)
