@@ -16,9 +16,11 @@
     "@tanstack/react-router-devtools": "^1.163.2",
     "chart.js": "^4.5.1",
     "daisyui": "^5.5.19",
+    "final-form": "^5.0.0",
     "react": "^19.2.4",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.4",
+    "react-final-form": "^7.0.0",
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {

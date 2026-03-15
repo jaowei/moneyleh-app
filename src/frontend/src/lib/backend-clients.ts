@@ -13,6 +13,9 @@ export type Tag = InferResponseType<typeof backendRouteClient.api.tag[":tagId"][
 export type TransactionsReq = InferRequestType<typeof backendRouteClient.api.transaction.$post>["json"]["transactions"]
 export type EditableTransaction = TransactionsReq[0] & TransactionsRes[0]
 export type GetTransactionDataRes = InferResponseType<typeof backendRouteClient.api.transaction[":userId"]["$get"]>
+export type GetCompanyRes = InferResponseType<typeof backendRouteClient.api.company.$get>
+export type PostAccountReq = InferRequestType<typeof backendRouteClient.api.account[":userId"]["$post"]>["json"]
+export type PostCardReq = InferRequestType<typeof backendRouteClient.api.card[":userId"]["$post"]>["json"]
 
 export const fetchTagData = async () => {
     const tagDataRes = await backendRouteClient.api.tag.$get()
@@ -20,5 +23,14 @@ export const fetchTagData = async () => {
         return (await tagDataRes.json()).data
     } else {
         throw await getBackendErrorResponse(tagDataRes)
+    }
+}
+
+export const fetchCompanies = async () => {
+    const companyRes = await backendRouteClient.api.company.$get()
+    if (companyRes.ok) {
+        return (await companyRes.json()).data
+    } else {
+        throw await getBackendErrorResponse(companyRes)
     }
 }

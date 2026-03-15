@@ -1,8 +1,8 @@
-import {sql} from "drizzle-orm";
-import {sqliteTable, text, integer, real, primaryKey, unique} from "drizzle-orm/sqlite-core";
-import {createInsertSchema, createSelectSchema, createUpdateSchema} from "drizzle-zod";
+import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer, real, primaryKey, unique } from "drizzle-orm/sqlite-core";
+import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import z from "zod";
-import {user} from "./auth-schema.ts";
+import { user } from "./auth-schema.ts";
 
 const timestamps = {
     updated_at: text(),
@@ -13,7 +13,7 @@ const timestamps = {
 };
 
 export const companies = sqliteTable("companies", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull().unique(),
     ...timestamps,
 });
@@ -24,27 +24,30 @@ export const companiesUpdateSchema = createUpdateSchema(companies, {
     name: z.string().min(1),
 });
 
+export const accountTypes: [string, ...string[]] = ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet"]
 export const accounts = sqliteTable("accounts", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     companyId: integer("company_id").references(() => companies.id),
     accountType: text("account_type", {
-        enum: ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet"],
+        enum: accountTypes,
     }),
     ...timestamps,
 }, (table) => [unique().on(table.name, table.companyId)]);
 export const accountsInsertSchemaZ = createInsertSchema(accounts)
 export type AccountsInsertSchema = z.infer<typeof accountsInsertSchemaZ>
 
+export const cardTypes: [string, ...string[]] = ["miles", "rewards", "cashback"]
+export const cardNetworks: [string, ...string[]] = ["visa signature", "world mastercard", "amex"]
 export const cards = sqliteTable("cards", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     companyId: integer("company_id").references(() => companies.id),
     cardType: text("card_type", {
-        enum: ["miles", "rewards", "cashback"],
+        enum: cardTypes,
     }),
     cardNetwork: text("card_network", {
-        enum: ["visa signature", "world mastercard", "amex"]
+        enum: cardNetworks
     }),
     ...timestamps,
 }, (table) => [unique().on(table.name, table.companyId)]);
@@ -52,7 +55,7 @@ export const cardsInsertSchemaZ = createInsertSchema(cards)
 export type CardsInsertSchema = z.infer<typeof cardsInsertSchemaZ>
 
 export const securities = sqliteTable("securities", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     ticker: text(),
     securityType: text("security_type", {
@@ -62,7 +65,7 @@ export const securities = sqliteTable("securities", {
 });
 
 export const insurancePolicies = sqliteTable("insurance_policies", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     name: text().notNull(),
     policyType: text("policy_type", {
         enum: [
@@ -78,7 +81,7 @@ export const insurancePolicies = sqliteTable("insurance_policies", {
 });
 
 export const tags = sqliteTable("tags", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     description: text().notNull().unique(),
     ...timestamps,
 });
@@ -92,7 +95,7 @@ export const tagUpdateSchemaZ = createUpdateSchema(tags)
 export type TagUpdateSchema = z.infer<typeof tagUpdateSchemaZ>
 
 export const transactions = sqliteTable("transactions", {
-    id: integer().primaryKey({autoIncrement: true}),
+    id: integer().primaryKey({ autoIncrement: true }),
     transactionDate: text("transaction_date").notNull(),
     description: text().notNull(),
     currency: text().notNull(),
@@ -113,7 +116,7 @@ export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").notNull().references(() => transactions.id),
     tagId: integer("tag_id").notNull().references(() => tags.id),
     ...timestamps,
-}, (table) => [primaryKey({columns: [table.transactionId, table.tagId]})])
+}, (table) => [primaryKey({ columns: [table.transactionId, table.tagId] })])
 export const transactionTagsInsertSchemaZ = createInsertSchema(transactionTags)
 export type TransactionTagsInsertSchema = z.infer<typeof transactionTagsInsertSchemaZ>
 
@@ -121,14 +124,14 @@ export const userCompanies = sqliteTable("user_companies", {
     companyId: integer("company_id").references(() => companies.id),
     userId: text("user_id").references(() => user.id),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.companyId, table.userId]})])
+}, (table) => [primaryKey({ columns: [table.companyId, table.userId] })])
 
 export const userAccounts = sqliteTable("user_accounts", {
     accountId: integer("account_id").references(() => accounts.id).notNull(),
     userId: text("user_id").references(() => user.id).notNull(),
     accountLabel: text("account_label"),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.accountId, table.userId]})])
+}, (table) => [primaryKey({ columns: [table.accountId, table.userId] })])
 export const userAccountInsertSchemaZ = createInsertSchema(userAccounts)
 export type UserAccountsInsertSchema = z.infer<typeof userAccountInsertSchemaZ>
 
@@ -137,7 +140,7 @@ export const userCards = sqliteTable("user_cards", {
     userId: text("user_id").references(() => user.id).notNull(),
     cardLabel: text("card_label"),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.cardId, table.userId]})])
+}, (table) => [primaryKey({ columns: [table.cardId, table.userId] })])
 export const userCardInsertSchemaZ = createInsertSchema(userCards)
 export type UserCardInsertSchema = z.infer<typeof userCardInsertSchemaZ>
 
@@ -145,10 +148,10 @@ export const userInsurancePolicies = sqliteTable("user_insurance_policies", {
     insurancePolicyId: integer("insurance_policy_id").references(() => insurancePolicies.id),
     userId: text("user_id").references(() => user.id),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.insurancePolicyId, table.userId]})])
+}, (table) => [primaryKey({ columns: [table.insurancePolicyId, table.userId] })])
 
 export const userSecurities = sqliteTable("user_securities", {
     securityId: integer("security_id").references(() => securities.id),
     userId: text("user_id").references(() => user.id),
     ...timestamps
-}, (table) => [primaryKey({columns: [table.securityId, table.userId]})])
+}, (table) => [primaryKey({ columns: [table.securityId, table.userId] })])

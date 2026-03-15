@@ -2,13 +2,17 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
     type AllAccounts,
     type AllCards,
+    fetchCompanies,
     fetchTagData,
+    type GetCompanyRes,
     uiRouteClient
 } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import { type ChangeEventHandler, useRef, useState } from "react";
 import { AddButton } from "../../components/AddButton.tsx";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
+import { AddAccountForm, AddCardForm } from "../../components/AddAccountCardForm.tsx";
+import { ModalCloseButton } from "../../components/ModalCloseButton.tsx";
 
 
 export const Route = createFileRoute('/_authenticated/inventory/')({
@@ -30,17 +34,29 @@ export const Route = createFileRoute('/_authenticated/inventory/')({
         }
 
         const tagData = await fetchTagData()
+        const companyData = await fetchCompanies()
 
         return {
             inventory,
             tagData,
+            companyData
         }
     }
 })
 
+const AllListModalBox = ({ children }: { children: React.ReactNode }) => {
+    return (
+        <div className="modal-box max-w-[80vw]">
+            {children}
+        </div>
+    )
+}
 
-const AllAccountsList = ({ allAccounts }: { allAccounts: AllAccounts }) => {
+const AllAccountsList = ({ allAccounts, companyData }: { allAccounts: AllAccounts; companyData: GetCompanyRes["data"] }) => {
     const { auth } = Route.useRouteContext()
+    const userId = auth?.user?.id
+    if (!userId) throw new Error('No user id')
+
     const router = useRouter()
 
     const accountsListDialogRef = useRef<HTMLDialogElement>(null)
@@ -60,9 +76,6 @@ const AllAccountsList = ({ allAccounts }: { allAccounts: AllAccounts }) => {
         setSearchTerm(e.target.value.toLowerCase())
     }
     const handleAddAccountClick = async (account: AllAccounts[0]) => {
-        const userId = auth?.user?.id
-        if (!userId) throw new Error('No user id')
-
         if (!account.accounts) return
 
         const res = await uiRouteClient.assignTo[":userId"].$post({
@@ -84,13 +97,18 @@ const AllAccountsList = ({ allAccounts }: { allAccounts: AllAccounts }) => {
     const handleModalClose = () => {
         accountsListDialogRef.current?.close()
     }
+    const handleFormSuccess = () => {
+        router.invalidate()
+    }
 
     return (
         <>
             <button className="btn btn-sm btn-accent" onClick={() => accountsListDialogRef.current?.showModal()}>Add accounts</button>
             <dialog ref={accountsListDialogRef} className="modal">
-                <div className="modal-box">
+                <AllListModalBox>
+                    <ModalCloseButton />
                     <input className="input" placeholder="search accounts" onChange={handleAccountSearchInputChange} />
+                    <AddAccountForm companies={companyData} userId={userId} onFormSubmitSucess={handleFormSuccess} />
                     <table className="table">
                         <thead><tr><th colSpan={3} align="center">Accounts</th></tr></thead>
                         <thead>
@@ -116,15 +134,18 @@ const AllAccountsList = ({ allAccounts }: { allAccounts: AllAccounts }) => {
                     <div className="modal-action">
                         <button className="btn" onClick={handleModalClose}>Close</button>
                     </div>
-                </div>
+                </AllListModalBox>
             </dialog>
         </>
     )
 }
 
-const AllCardsList = ({ allCards }: { allCards: AllCards }) => {
+const AllCardsList = ({ allCards, companyData }: { allCards: AllCards; companyData: GetCompanyRes["data"] }) => {
     const { auth } = Route.useRouteContext()
     const router = useRouter()
+
+    const userId = auth?.user?.id
+    if (!userId) throw new Error('No user id')
 
     const cardsListDialogRef = useRef<HTMLDialogElement>(null)
 
@@ -144,9 +165,6 @@ const AllCardsList = ({ allCards }: { allCards: AllCards }) => {
     }
 
     const handleAddCardClick = async (card: AllCards[0]) => {
-        const userId = auth?.user?.id
-        if (!userId) throw new Error('No user id')
-
         if (!card.cards) return
 
         const res = await uiRouteClient.assignTo[":userId"].$post({
@@ -169,13 +187,19 @@ const AllCardsList = ({ allCards }: { allCards: AllCards }) => {
     const handleAddModalClose = () => {
         cardsListDialogRef.current?.close()
     }
+    const handleFormSuccess = () => {
+        router.invalidate()
+    }
+
 
     return (
         <div className="flex flex-col gap-2">
             <button className="btn btn-sm btn-accent" onClick={() => cardsListDialogRef.current?.showModal()}>Add cards</button>
             <dialog ref={cardsListDialogRef} className="modal">
-                <div className="modal-box">
+                <AllListModalBox>
+                    <ModalCloseButton />
                     <input className="input" placeholder="search cards" onChange={handleCardSearchInputChange} />
+                    <AddCardForm companies={companyData} userId={userId} onFormSubmitSucess={handleFormSuccess} />
                     <table className="table">
                         <thead><tr><th colSpan={3} align="center">Cards</th></tr></thead>
                         <thead>
@@ -201,7 +225,7 @@ const AllCardsList = ({ allCards }: { allCards: AllCards }) => {
                     <div className="modal-action">
                         <button className="btn" onClick={handleAddModalClose}>Close</button>
                     </div>
-                </div>
+                </AllListModalBox>
             </dialog>
         </div>
     )
@@ -214,7 +238,7 @@ const TableRow = ({ children }: { children: any }) => {
 }
 
 function InventoryComponent() {
-    const { inventory, tagData } = Route.useLoaderData()
+    const { inventory, tagData, companyData } = Route.useLoaderData()
 
     return (
         <div className="flex flex-col items-center p-4">
@@ -226,7 +250,7 @@ function InventoryComponent() {
                                 <th colSpan={4} align="center">
                                     <div className="flex flex-row justify-between items-center">
                                         <h2 className="font-bold">Accounts</h2>
-                                        <AllAccountsList allAccounts={inventory.allAccounts} />
+                                        <AllAccountsList allAccounts={inventory.allAccounts} companyData={companyData} />
                                     </div>
                                 </th>
                             </tr>
@@ -265,7 +289,7 @@ function InventoryComponent() {
                         <thead className="bg-base-200"><tr><th colSpan={4} align="center">
                             <div className="flex flex-row justify-between items-center">
                                 <h2 className="font-bold">Cards</h2>
-                                <AllCardsList allCards={inventory.allCards} />
+                                <AllCardsList allCards={inventory.allCards} companyData={companyData} />
                             </div>
                         </th></tr></thead>
                         <thead>
