@@ -1,4 +1,4 @@
-import {describe, test, expect, afterEach, spyOn} from "bun:test";
+import { describe, test, expect, afterEach, spyOn } from "bun:test";
 import {
     initClassifier,
     saveAndTrainClassifier,
@@ -6,9 +6,9 @@ import {
     testClassifierPath,
     addDocuments
 } from "./descriptionTagger.ts";
-import type {TransactionsInsertSchema} from "../../db/schema.ts";
-import {LogisticRegressionClassifier} from "natural";
-import {testTag, testUser} from "../test.utils.ts";
+import type { TransactionsInsertSchema } from "../../db/schema.ts";
+import { BayesClassifier, LogisticRegressionClassifier } from "natural";
+import { testTag, testUser } from "../test.utils.ts";
 
 afterEach(async () => {
     const file = Bun.file(testClassifierPath)
@@ -30,7 +30,7 @@ describe('description tagger', () => {
     })
 
     test('add documents and save', async () => {
-        const restoreSpy = spyOn(LogisticRegressionClassifier, 'restore')
+        const restoreSpy = spyOn(BayesClassifier, 'restore')
         const c = await initClassifier()
         expect(restoreSpy).not.toBeCalled()
         addDocuments(c, {
@@ -41,7 +41,7 @@ describe('description tagger', () => {
         await saveAndTrainClassifier(c)
 
         const c2 = await initClassifier()
-        expect(c2).toBeInstanceOf(LogisticRegressionClassifier)
+        expect(c2).toBeInstanceOf(BayesClassifier)
         expect(restoreSpy).toBeCalled()
 
         const tagged = await tagTransactions(c, transactions)

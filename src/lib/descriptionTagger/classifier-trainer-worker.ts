@@ -3,23 +3,25 @@ import { addDocuments, type DocumentToAdd, initClassifier, saveAndTrainClassifie
 import { appLogger } from '../../index.ts';
 
 export type WorkerTaskObj = {
+    workerIdx?: number;
     documentsToAdd: DocumentToAdd[]
 }
 
 parentPort?.on('message', async (task: WorkerTaskObj) => {
-    appLogger('initialising classifier')
+    const { workerIdx = 1 } = task
+    appLogger(`${workerIdx}-initialising classifier`)
     const c = await initClassifier()
-    appLogger('classifier initialised')
+    appLogger(`${workerIdx}-classifier initialised`)
 
-    appLogger(`adding ${task.documentsToAdd.length} docs`)
+    appLogger(`${workerIdx}-adding ${task.documentsToAdd.length} docs`)
     for (const doc of task.documentsToAdd) {
         addDocuments(c, doc)
     }
-    appLogger('docs added')
+    appLogger(`${workerIdx}-docs added`)
 
-    appLogger('training...')
+    appLogger(`${workerIdx}-training...`)
     await saveAndTrainClassifier(c)
-    appLogger('done training and saved')
+    appLogger(`${workerIdx}-done training and saved`)
 
     parentPort?.postMessage('training complete')
 })

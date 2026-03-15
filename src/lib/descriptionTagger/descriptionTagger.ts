@@ -1,8 +1,8 @@
-import {WordTokenizer, LogisticRegressionClassifier} from "natural";
-import {db} from "../../db/db.ts";
-import {tags, type TransactionsInsertSchema} from "../../db/schema.ts";
-import {like} from "drizzle-orm";
-import {appLogger} from "../../index.ts";
+import { WordTokenizer, BayesClassifier } from "natural";
+import { db } from "../../db/db.ts";
+import { tags, type TransactionsInsertSchema } from "../../db/schema.ts";
+import { like } from "drizzle-orm";
+import { appLogger } from "../../index.ts";
 
 export type DocumentToAdd = {
     description: string,
@@ -14,24 +14,24 @@ const classifierDataFilePath = process.env.NODE_ENV === 'production' ? 'classifi
 export const initClassifier = async (initialDataPath = classifierDataFilePath) => {
     const initData = Bun.file(initialDataPath)
     if (!(await initData.exists())) {
-        const c = new LogisticRegressionClassifier()
+        const c = new BayesClassifier()
         await Bun.write(initialDataPath, JSON.stringify(c))
         return c
     } else {
         const data = await initData.json()
-        return LogisticRegressionClassifier.restore(data)
+        return BayesClassifier.restore(data)
     }
 }
 
-export const addDocuments = (classifier: LogisticRegressionClassifier, targetDoc: DocumentToAdd) => {
+export const addDocuments = (classifier: BayesClassifier, targetDoc: DocumentToAdd) => {
     const res = tokeniseWord(targetDoc.description)
     classifier.addDocument(res, targetDoc.tag)
 }
 
-export const saveAndTrainClassifier = async (classifier: LogisticRegressionClassifier, filePath = classifierDataFilePath) => {
+export const saveAndTrainClassifier = (classifier: BayesClassifier, filePath = classifierDataFilePath) => {
     classifier.train()
     const serialised = JSON.stringify(classifier)
-    await Bun.write(filePath, serialised)
+    Bun.write(filePath, serialised)
 }
 
 const tokeniseWord = (word: string) => {
@@ -46,7 +46,7 @@ export interface TaggedTransaction extends TransactionsInsertSchema {
     }[]
 }
 
-export const tagTransactions = async (classifier: LogisticRegressionClassifier | undefined, transactions: TransactionsInsertSchema[]) => {
+export const tagTransactions = async (classifier: BayesClassifier | undefined, transactions: TransactionsInsertSchema[]) => {
     const c = classifier || await initClassifier()
     const classificationThreshold = 0.75
 

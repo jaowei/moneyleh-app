@@ -1,13 +1,14 @@
 // Copied and modified
 // from https://nodejs.org/api/async_context.html#using-asyncresource-for-a-worker-thread-pool
 
-import {AsyncResource} from 'node:async_hooks';
-import {EventEmitter} from 'node:events';
-import {Worker} from 'node:worker_threads';
-import type {WorkerTaskObj} from "./classifier-trainer-worker.ts";
+import { AsyncResource } from 'node:async_hooks';
+import { EventEmitter } from 'node:events';
+import { Worker } from 'node:worker_threads';
+import type { WorkerTaskObj } from "./classifier-trainer-worker.ts";
 
 const kTaskInfo = Symbol('kTaskInfo');
 const kWorkerFreedEvent = Symbol('kWorkerFreedEvent');
+export const kPoolFreeEvent = Symbol('kPoolFreeEvent');
 
 type ExtendedWorker = Worker & {
     [kTaskInfo]?: WorkerPoolTaskInfo
@@ -53,6 +54,8 @@ export default class WorkerPool extends EventEmitter {
                 if (!taskData) return
 
                 this.runTask(taskData.task, taskData.callback);
+            } else if (this.workers.length === this.freeWorkers.length && this.tasks.length === 0) {
+                this.emit(kPoolFreeEvent)
             }
         });
     }
@@ -91,7 +94,7 @@ export default class WorkerPool extends EventEmitter {
     runTask(task: WorkerTaskObj, callback: WorkerCallback) {
         if (this.freeWorkers.length === 0) {
             // No free threads, wait until a worker thread becomes free.
-            this.tasks.push({task, callback});
+            this.tasks.push({ task, callback });
             return;
         }
 
@@ -104,6 +107,7 @@ export default class WorkerPool extends EventEmitter {
     }
 
     close() {
+        console.log('closing pool....')
         for (const worker of this.workers) worker.terminate();
     }
 }
