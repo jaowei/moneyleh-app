@@ -6,3 +6,4 @@ node_modules/
 test-files/
 *-test.json
 .DS_Store
+*.tar.gz

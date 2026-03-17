@@ -8,6 +8,13 @@
       "when": 1772783703635,
       "tag": "0000_left_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773755399797,
+      "tag": "0001_noisy_expediter",
+      "breakpoints": true
     }
   ]
 }

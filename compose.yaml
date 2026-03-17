@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports: 
+      - "9000:9000"
+    volumes:
+      - moneyleh-app-data:/data
+    environment:
+      - BETTER_AUTH_SECRET
+
+volumes:
+  moneyleh-app-data:

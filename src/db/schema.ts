@@ -13,7 +13,7 @@ const timestamps = {
 };
 
 export const companies = sqliteTable("companies", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     name: text().notNull().unique(),
     ...timestamps,
 });
@@ -26,7 +26,7 @@ export const companiesUpdateSchema = createUpdateSchema(companies, {
 
 export const accountTypes: [string, ...string[]] = ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet"]
 export const accounts = sqliteTable("accounts", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     name: text().notNull(),
     companyId: integer("company_id").references(() => companies.id),
     accountType: text("account_type", {
@@ -40,7 +40,7 @@ export type AccountsInsertSchema = z.infer<typeof accountsInsertSchemaZ>
 export const cardTypes: [string, ...string[]] = ["miles", "rewards", "cashback"]
 export const cardNetworks: [string, ...string[]] = ["visa signature", "world mastercard", "amex"]
 export const cards = sqliteTable("cards", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     name: text().notNull(),
     companyId: integer("company_id").references(() => companies.id),
     cardType: text("card_type", {
@@ -55,7 +55,7 @@ export const cardsInsertSchemaZ = createInsertSchema(cards)
 export type CardsInsertSchema = z.infer<typeof cardsInsertSchemaZ>
 
 export const securities = sqliteTable("securities", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     name: text().notNull(),
     ticker: text(),
     securityType: text("security_type", {
@@ -65,7 +65,7 @@ export const securities = sqliteTable("securities", {
 });
 
 export const insurancePolicies = sqliteTable("insurance_policies", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     name: text().notNull(),
     policyType: text("policy_type", {
         enum: [
@@ -81,7 +81,7 @@ export const insurancePolicies = sqliteTable("insurance_policies", {
 });
 
 export const tags = sqliteTable("tags", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     description: text().notNull().unique(),
     ...timestamps,
 });
@@ -95,7 +95,7 @@ export const tagUpdateSchemaZ = createUpdateSchema(tags)
 export type TagUpdateSchema = z.infer<typeof tagUpdateSchemaZ>
 
 export const transactions = sqliteTable("transactions", {
-    id: integer().primaryKey({ autoIncrement: true }),
+    id: integer().primaryKey(),
     transactionDate: text("transaction_date").notNull(),
     description: text().notNull(),
     currency: text().notNull(),

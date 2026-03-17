@@ -10,7 +10,8 @@
         "generate:migrations": "bun drizzle-kit generate",
         "migrate:db": "bun run ./src/db/migrate.ts",
         "seed:db": "bun run ./src/db/seed.ts",
-        "build:fe-dev": "cd src/frontend && bun run build:dev"
+        "build:fe-dev": "cd src/frontend && bun run build:dev",
+        "docker:start": "bun run migrate:db && bun run seed:db && bun run start"
     },
     "dependencies": {
         "@hono/zod-validator": "^0.7.6",
