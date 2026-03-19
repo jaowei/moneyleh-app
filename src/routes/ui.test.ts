@@ -1,25 +1,25 @@
-import {describe, test, expect, spyOn, afterAll, beforeAll, afterEach, jest} from "bun:test";
+import { describe, test, expect, spyOn, afterAll, beforeAll, afterEach, jest } from "bun:test";
 import app from "../index.ts";
-import {jsonHeader, testUser} from "../lib/test.utils.ts";
-import {userAccounts, type UserAccountsInsertSchema, type UserCardInsertSchema, userCards} from "../db/schema.ts";
-import {db} from "../db/db.ts";
-import {eq} from "drizzle-orm";
+import { jsonHeader, testUser } from "../lib/test.utils.ts";
+import { statements, userAccounts, type UserAccountsInsertSchema, type UserCardInsertSchema, userCards } from "../db/schema.ts";
+import { db } from "../db/db.ts";
+import { eq } from "drizzle-orm";
 
 
 describe('/api/ui', () => {
     afterEach(async () => {
         await db.delete(userCards).where(eq(userCards.userId, testUser.id))
         await db.delete(userAccounts).where(eq(userAccounts.userId, testUser.id))
+        await db.delete(statements).where(eq(statements.userId, testUser.id))
     })
     describe('upload and handle files', () => {
         beforeAll(async () => {
-            const deleted = await db.delete(userCards).where(eq(userCards.userId, testUser.id)).returning()
+            await db.delete(userCards).where(eq(userCards.userId, testUser.id))
         })
         afterEach(() => {
             jest.restoreAllMocks()
         })
         test('file upload: parse transactions card', async () => {
-            const dbSpy = spyOn(db, 'insert')
             const formData = new FormData()
             const testFile = Bun.file('./test-files/dbsCard.pdf')
             formData.append('file', testFile)
@@ -32,14 +32,13 @@ describe('/api/ui', () => {
             const result = await res.json() as { taggedTransactions: any[] }
             expect(result).toHaveProperty('taggedTransactions')
             expect(result.taggedTransactions.length).toBe(43)
-            expect(dbSpy).toBeCalledTimes(2)
 
             const res2 = await app.request("/api/ui/fileUpload", {
                 method: "POST",
                 body: formData
             });
-            expect(res2.status).toBe(200)
-            expect(dbSpy).toHaveBeenCalledTimes(2)
+            expect(res2.status).toBe(400)
+            await expect(res2.text()).resolves.toInclude('already added')
         })
         test('file upload: no user id', async () => {
             const formData = new FormData()
@@ -55,7 +54,6 @@ describe('/api/ui', () => {
             expect(result).toInclude('userId')
         })
         test('file upload: parse transactions account', async () => {
-            const dbSpy = spyOn(db, 'insert')
             const formData = new FormData()
             const testFile = Bun.file('./test-files/dbsAccountStatement.pdf')
             formData.append('file', testFile)
@@ -67,7 +65,18 @@ describe('/api/ui', () => {
             expect(res.status).toBe(200);
             const result = await res.json() as { taggedTransactions: any[] }
             expect(result.taggedTransactions).toBeArrayOfSize(33)
-            expect(dbSpy).toBeCalledTimes(2)
+        })
+        test('file upload: unknown statement', async () => {
+            const formData = new FormData()
+            const testFile = Bun.file('./test-files/sample.pdf')
+            formData.append('file', testFile)
+            formData.append('userId', testUser.id)
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(500);
+            expect(res.statusText).toInclude('Unable to determine');
         })
     })
     describe('assign to', () => {
@@ -126,7 +135,7 @@ describe('/api/ui', () => {
                 method: 'POST',
                 body: JSON.stringify({
                     accountData: [accountData],
-                    cardData: [...cardData, {cardId: 1000, cardNumber: 'abcd', userId: testUser.id}]
+                    cardData: [...cardData, { cardId: 1000, cardNumber: 'abcd', userId: testUser.id }]
                 }),
                 ...jsonHeader
             })

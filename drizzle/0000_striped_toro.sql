@@ -1,5 +1,5 @@
 CREATE TABLE `accounts` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`company_id` integer,
 	`account_type` text,
@@ -11,7 +11,7 @@ CREATE TABLE `accounts` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `accounts_name_company_id_unique` ON `accounts` (`name`,`company_id`);--> statement-breakpoint
 CREATE TABLE `cards` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`company_id` integer,
 	`card_type` text,
@@ -24,7 +24,7 @@ CREATE TABLE `cards` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `cards_name_company_id_unique` ON `cards` (`name`,`company_id`);--> statement-breakpoint
 CREATE TABLE `companies` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE `companies` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `companies_name_unique` ON `companies` (`name`);--> statement-breakpoint
 CREATE TABLE `insurance_policies` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`policy_type` text,
 	`company_id` integer,
@@ -41,7 +41,7 @@ CREATE TABLE `insurance_policies` (
 );
 --> statement-breakpoint
 CREATE TABLE `securities` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`ticker` text,
 	`security_type` text,
@@ -49,8 +49,27 @@ CREATE TABLE `securities` (
 	FOREIGN KEY (`broker_id`) REFERENCES `companies`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `statement_ownerships` (
+	`statement_id` integer NOT NULL,
+	`account_id` integer,
+	`card_id` integer,
+	FOREIGN KEY (`statement_id`) REFERENCES `statements`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `statements` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`statement_date` text NOT NULL,
+	`user_id` text NOT NULL,
+	`updated_at` text,
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+	`deleted_at` text,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `tags` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`description` text NOT NULL,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
@@ -70,7 +89,7 @@ CREATE TABLE `transaction_tags` (
 );
 --> statement-breakpoint
 CREATE TABLE `transactions` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`transaction_date` text NOT NULL,
 	`description` text NOT NULL,
 	`currency` text NOT NULL,

@@ -53,14 +53,16 @@ app
     );
 
 app.onError((err) => {
-    appLogger(`${err} | ${JSON.stringify(err)}`)
+    const errMsg = `${err} | ${JSON.stringify(err)}`
+    appLogger(`At global exception handler, message is: ${errMsg}`)
     if (err.message.includes("UNIQUE constraint failed")) {
         return alreadyExistsResponse;
     } else if (err instanceof HTTPException) {
         return err.getResponse();
     }
     return new Response('Error', {
-        status: 500
+        status: 500,
+        statusText: errMsg
     });
 });
 

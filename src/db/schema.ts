@@ -24,7 +24,7 @@ export const companiesUpdateSchema = createUpdateSchema(companies, {
     name: z.string().min(1),
 });
 
-export const accountTypes: [string, ...string[]] = ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet"]
+export const accountTypes: [string, ...string[]] = ["brokerage", "cash", "fixedDeposit", "CPF", "insurance", "wallet", "joint"]
 export const accounts = sqliteTable("accounts", {
     id: integer().primaryKey(),
     name: text().notNull(),
@@ -35,7 +35,9 @@ export const accounts = sqliteTable("accounts", {
     ...timestamps,
 }, (table) => [unique().on(table.name, table.companyId)]);
 export const accountsInsertSchemaZ = createInsertSchema(accounts)
+export const accountsSelectSchemaZ = createSelectSchema(accounts)
 export type AccountsInsertSchema = z.infer<typeof accountsInsertSchemaZ>
+export type accountsSelectSchema = z.infer<typeof accountsSelectSchemaZ>
 
 export const cardTypes: [string, ...string[]] = ["miles", "rewards", "cashback"]
 export const cardNetworks: [string, ...string[]] = ["visa signature", "world mastercard", "amex"]
@@ -52,7 +54,9 @@ export const cards = sqliteTable("cards", {
     ...timestamps,
 }, (table) => [unique().on(table.name, table.companyId)]);
 export const cardsInsertSchemaZ = createInsertSchema(cards)
+const cardsSelectSchemaZ = createSelectSchema(cards)
 export type CardsInsertSchema = z.infer<typeof cardsInsertSchemaZ>
+export type CardsSelectSchema = z.infer<typeof cardsSelectSchemaZ>
 
 export const securities = sqliteTable("securities", {
     id: integer().primaryKey(),
@@ -111,6 +115,19 @@ export const transactionsUpdateSchemaZ = createUpdateSchema(transactions)
 export type TransactionsUpdateSchema = z.infer<typeof transactionsUpdateSchemaZ>
 export const transactionsSelectSchemaZ = createSelectSchema(transactions)
 export type TransactionsSelectSchema = z.infer<typeof transactionsSelectSchemaZ>
+
+export const statements = sqliteTable("statements", {
+    id: integer().primaryKey(),
+    statementDate: text("statement_date").notNull(),
+    userId: text("user_id").references(() => user.id).notNull(),
+    ...timestamps
+})
+
+export const statementOwnerships = sqliteTable("statement_ownerships", {
+    statementId: integer("statement_id").notNull().references(() => statements.id, { onDelete: "cascade" }),
+    accountId: integer("account_id").references(() => accounts.id),
+    cardId: integer("card_id").references(() => cards.id),
+})
 
 export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").notNull().references(() => transactions.id),
