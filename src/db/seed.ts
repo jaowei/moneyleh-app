@@ -2,7 +2,8 @@ import { STARTING_COMPANIES } from "./company.seed";
 import { db } from "./db";
 import * as schema from "./schema";
 import * as authSchema from "./auth-schema"
-import { testTag, testUser, testUserAccount } from "../lib/test.utils.ts";
+import { testTag, testUser } from "../lib/test.utils.ts";
+import { auth } from "../lib/auth.ts";
 
 console.log("===Seed companies: Start!")
 await db
@@ -107,77 +108,77 @@ console.log("===Seed cards: Done!")
 
 console.log("===Seed accounts: Start!")
 export const seedDataAccounts: schema.AccountsInsertSchema[] = [
-        {
-            name: 'multiplier',
-            companyId: companyIdMap.DBS,
-            accountType: 'cash'
-        },
-        {
-            name: 'my_account',
-            companyId: companyIdMap.DBS,
-            accountType: 'cash'
-        },
-        {
-            name: 'supplementary_retirement_scheme_account',
-            companyId: companyIdMap.DBS,
-            accountType: 'cash'
-        },
-        {
-            name: 'esavings',
-            companyId: companyIdMap.DBS,
-            accountType: 'cash'
-        },
-        {
-            name: 'one',
-            companyId: companyIdMap.UOB,
-            accountType: 'cash'
-        },
-        {
-            name: 'stash',
-            companyId: companyIdMap.UOB,
-            accountType: 'cash'
-        },
-        {
-            name: 'ordinary_account',
-            companyId: companyIdMap.CPF,
-            accountType: 'CPF'
-        },
-        {
-            name: 'medisave_account',
-            companyId: companyIdMap.CPF,
-            accountType: 'CPF'
-        },
-        {
-            name: 'special_account',
-            companyId: companyIdMap.CPF,
-            accountType: 'CPF'
-        },
-        {
-            name: 'investment_account',
-            companyId: companyIdMap.CPF,
-            accountType: 'CPF'
-        },
-        {
-            name: 'cash',
-            companyId: companyIdMap.Interactive_Brokers,
-            accountType: 'brokerage'
-        },
-        {
-            name: 'cash',
-            companyId: companyIdMap.Moo_Moo,
-            accountType: 'brokerage'
-        },
-        {
-            name: 'cash',
-            companyId: companyIdMap.Tiger_Brokers,
-            accountType: 'brokerage'
-        },
-        {
-            name: 'cash',
-            companyId: companyIdMap.IFast,
-            accountType: 'brokerage'
-        },
-    ] 
+    {
+        name: 'multiplier',
+        companyId: companyIdMap.DBS,
+        accountType: 'cash'
+    },
+    {
+        name: 'my_account',
+        companyId: companyIdMap.DBS,
+        accountType: 'cash'
+    },
+    {
+        name: 'supplementary_retirement_scheme_account',
+        companyId: companyIdMap.DBS,
+        accountType: 'cash'
+    },
+    {
+        name: 'esavings',
+        companyId: companyIdMap.DBS,
+        accountType: 'cash'
+    },
+    {
+        name: 'one',
+        companyId: companyIdMap.UOB,
+        accountType: 'cash'
+    },
+    {
+        name: 'stash',
+        companyId: companyIdMap.UOB,
+        accountType: 'cash'
+    },
+    {
+        name: 'ordinary_account',
+        companyId: companyIdMap.CPF,
+        accountType: 'CPF'
+    },
+    {
+        name: 'medisave_account',
+        companyId: companyIdMap.CPF,
+        accountType: 'CPF'
+    },
+    {
+        name: 'special_account',
+        companyId: companyIdMap.CPF,
+        accountType: 'CPF'
+    },
+    {
+        name: 'investment_account',
+        companyId: companyIdMap.CPF,
+        accountType: 'CPF'
+    },
+    {
+        name: 'cash',
+        companyId: companyIdMap.Interactive_Brokers,
+        accountType: 'brokerage'
+    },
+    {
+        name: 'cash',
+        companyId: companyIdMap.Moo_Moo,
+        accountType: 'brokerage'
+    },
+    {
+        name: 'cash',
+        companyId: companyIdMap.Tiger_Brokers,
+        accountType: 'brokerage'
+    },
+    {
+        name: 'cash',
+        companyId: companyIdMap.IFast,
+        accountType: 'brokerage'
+    },
+]
 await db
     .insert(schema.accounts)
     .values(seedDataAccounts)
@@ -185,12 +186,17 @@ await db
 console.log("===Seed accounts: Done!")
 
 console.log("===Seed test user: Start!")
+// add test user for UI
+try {
+    await auth.api.signUpEmail({
+        body: testUser
+    })
+} catch (e) {
+    console.log(e)
+}
+// add test user for backend tests
 await db.insert(authSchema.user).values(testUser).onConflictDoNothing()
 console.log("===Seed test user: Done!")
-
-console.log("===Seed test user account: Start!")
-await db.insert(authSchema.auth_account).values(testUserAccount).onConflictDoNothing()
-console.log("===Seed test user account: Done!")
 
 console.log("===Seed test tag: Start!")
 await db.insert(schema.tags).values({

@@ -17,17 +17,7 @@ export const testATransaction = (t: TransactionsInsertSchema) => {
 export const testUser = {
     id: 'testUser1Id',
     name: 'testUser1',
-    email: 'testUser1@test.com'
-}
-
-// a test user alone is not enough
-// when accessing frontend we need a user account
-// based on betterAuth auth backend
-export const testUserAccount = {
-    id: 'testUser1AccountId',
-    accountId: 'testUser1AccountId',
-    providerId: 'testProvider1Id',
-    userId: testUser.id,
+    email: 'testUser1@test.com',
     password: 'testUser1pw',
 }
 
