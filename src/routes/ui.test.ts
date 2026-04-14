@@ -31,14 +31,9 @@ describe('/api/ui', () => {
             expect(res.status).toBe(200);
             const result = await res.json() as { taggedTransactions: any[] }
             expect(result).toHaveProperty('taggedTransactions')
-            expect(result.taggedTransactions.length).toBe(43)
-
-            const res2 = await app.request("/api/ui/fileUpload", {
-                method: "POST",
-                body: formData
-            });
-            expect(res2.status).toBe(400)
-            await expect(res2.text()).resolves.toInclude('already added')
+            expect(result.taggedTransactions.length).toBe(2)
+            expect(result.taggedTransactions[0].length).toBe(23)
+            expect(result.taggedTransactions[1].length).toBe(20)
         })
         test('file upload: no user id', async () => {
             const formData = new FormData()
@@ -64,7 +59,10 @@ describe('/api/ui', () => {
             });
             expect(res.status).toBe(200);
             const result = await res.json() as { taggedTransactions: any[] }
-            expect(result.taggedTransactions).toBeArrayOfSize(33)
+            expect(result.taggedTransactions).toBeArrayOfSize(2)
+            expect(result.taggedTransactions[0].length).toBe(33)
+            expect(result.taggedTransactions[1].length).toBe(0)
+
         })
         test('file upload: unknown statement', async () => {
             const formData = new FormData()

@@ -2,9 +2,8 @@ import { describe, expect, test, afterEach, afterAll, beforeAll } from "bun:test
 import app from "../index.ts";
 import { jsonHeader, testTag } from "../lib/test.utils.ts";
 import type { PostTransactionPayload } from "./transaction.ts";
-import { testClassifierPath } from "../lib/descriptionTagger/descriptionTagger.ts";
 import { testUser } from "../lib/test.utils.ts";
-import { transactions, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
+import { statementOwnerships, statements, transactions, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
 import { db } from "../db/db.ts";
 import { and, eq, inArray } from "drizzle-orm";
 
@@ -26,12 +25,6 @@ describe('/api/transaction', () => {
 
     const transactionCleanup = async () => {
         try {
-            const testFilePath = Bun.file(testClassifierPath)
-            await testFilePath.delete()
-        } catch {
-            // passthrough
-        }
-        try {
             const txnToDelete = await db.select().from(transactions).where(eq(transactions.transactionDate, fixedDate))
             if (txnToDelete.length) {
                 for (const target of txnToDelete) {
@@ -46,9 +39,17 @@ describe('/api/transaction', () => {
         }
     }
 
+    const statementCleanup = async () => {
+        const results = await db.select().from(statements).where(eq(statements.userId, testUser.id))
+        const statementIds = results.map((r) => r.id)
+        await db.delete(statementOwnerships).where(inArray(statementOwnerships.statementId, statementIds))
+        await db.delete(statements).where(inArray(statements.id, statementIds))
+    }
+
     describe('create', () => {
         afterEach(async () => {
             await transactionCleanup()
+            await statementCleanup()
         })
 
         test('does not insert into db: no transactions', async () => {
@@ -66,7 +67,9 @@ describe('/api/transaction', () => {
             const testTransactions: PostTransactionPayload = {
                 transactions: [{
                     ...testTransaction,
-                }]
+                }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                accountInfo: { accountId: 1, accountName: 'test-account' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",
@@ -84,7 +87,9 @@ describe('/api/transaction', () => {
                         id: 1,
                         description: ''
                     }]
-                }]
+                }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                accountInfo: { accountId: 1, accountName: 'test-account' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",
@@ -103,7 +108,9 @@ describe('/api/transaction', () => {
                         id: 100000,
                         description: 'some-random-tag'
                     }]
-                }]
+                }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                accountInfo: { accountId: 1, accountName: 'test-account' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",
@@ -120,7 +127,9 @@ describe('/api/transaction', () => {
                     ...testTransaction,
                     transactionDate: fixedDate,
                     tags: []
-                }]
+                }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                accountInfo: { accountId: 1, accountName: 'test-account' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",
@@ -140,7 +149,9 @@ describe('/api/transaction', () => {
                     transactions: [
                         txnNotAdded,
                         ...testTransactions.transactions,
-                    ]
+                    ],
+                    statementInfo: { statementDate: new Date().toISOString() },
+                    accountInfo: { accountId: 1, accountName: 'test-account' }
                 }),
                 ...jsonHeader,
             });
@@ -161,7 +172,9 @@ describe('/api/transaction', () => {
                     ...testTransaction,
                     tags: [],
                     cardId: 1
-                }]
+                }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                cardInfo: { cardId: 1, cardName: 'test-card' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",
@@ -174,7 +187,10 @@ describe('/api/transaction', () => {
     })
 
     describe('create then get', () => {
-        afterAll(async () => await transactionCleanup())
+        afterAll(async () => {
+            await transactionCleanup()
+            await statementCleanup()
+        })
 
         test('inserts into db', async () => {
             const testTransactions: PostTransactionPayload = {
@@ -185,7 +201,9 @@ describe('/api/transaction', () => {
                         accountId: undefined,
                         amount: 1234,
                         cardId: 1
-                    }]
+                    }],
+                statementInfo: { statementDate: new Date().toISOString() },
+                cardInfo: { cardId: 1, cardName: 'test-card' }
             }
             const res = await app.request("/api/transaction", {
                 method: "POST",

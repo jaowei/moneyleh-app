@@ -109,5 +109,6 @@ export default class WorkerPool extends EventEmitter {
     close() {
         console.log('closing pool....')
         for (const worker of this.workers) worker.terminate();
+        console.log('pool closed!')
     }
 }

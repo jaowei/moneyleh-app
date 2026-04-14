@@ -4,14 +4,13 @@ import type { AppType } from "../../../index.ts";
 import { getBackendErrorResponse } from "./error.ts";
 
 export const uiRouteClient = hc<UiRouteType>('/api/ui')
-type TransactionsRes = InferResponseType<typeof uiRouteClient.fileUpload.$post>['taggedTransactions']
+export type FileUploadRes = InferResponseType<typeof uiRouteClient.fileUpload.$post>
 export type AllAccounts = InferResponseType<typeof uiRouteClient.availableInventory[':userId']['$get']>['allAccounts']
 export type AllCards = InferResponseType<typeof uiRouteClient.availableInventory[':userId']['$get']>['allCards']
 
 export const backendRouteClient = hc<AppType>('')
 export type Tag = InferResponseType<typeof backendRouteClient.api.tag[":tagId"]['$get']>
 export type TransactionsReq = InferRequestType<typeof backendRouteClient.api.transaction.$post>["json"]["transactions"]
-export type EditableTransaction = TransactionsReq[0] & TransactionsRes[0]
 export type GetTransactionDataRes = InferResponseType<typeof backendRouteClient.api.transaction[":userId"]["$get"]>
 export type GetCompanyRes = InferResponseType<typeof backendRouteClient.api.company.$get>
 export type PostAccountReq = InferRequestType<typeof backendRouteClient.api.account[":userId"]["$post"]>["json"]

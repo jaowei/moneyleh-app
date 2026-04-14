@@ -64,7 +64,6 @@ export const AddAccountForm = ({ companies, userId, onFormSubmitSucess }: FormPr
         const { accountType, name, companyId } = values
 
         if (!accountType || !name || !companyId) {
-            console.log(values)
             setError('Please fill in all fields')
             return
         }

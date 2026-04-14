@@ -2,6 +2,7 @@ import { parse } from 'csv-parse/sync'
 import { directUploadRecordsZ } from "./csv.type.ts";
 import { parseDateString } from "../dayjs.ts";
 import z from "zod";
+import { HTTPException } from 'hono/http-exception';
 
 const parseDate = (dateString: string, rowIndex: number) => {
     const formats = ['YYYY-MM-DD']
@@ -9,7 +10,9 @@ const parseDate = (dateString: string, rowIndex: number) => {
     ).filter((date) => !!date)
     const parsedDate = result[0]
     if (!result.length || !parsedDate) {
-        throw new Error(`Unable to get date for row ${rowIndex}, please check format`)
+        throw new HTTPException(400, {
+            message: `Unexpected format, row: "${rowIndex}", date given: "${dateString}", expected format "YYYY-MM-DD"`
+        })
     } else {
         return parsedDate
     }

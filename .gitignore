@@ -7,3 +7,4 @@ test-files/
 *-test.json
 .DS_Store
 *.tar.gz
+*.csv

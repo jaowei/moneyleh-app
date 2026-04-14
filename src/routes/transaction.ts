@@ -1,7 +1,7 @@
-import {Hono} from "hono";
+import { Hono } from "hono";
 import z from "zod";
-import {zodValidator} from "../lib/middleware/zod-validator.ts";
-import {db} from "../db/db.ts";
+import { zodValidator } from "../lib/middleware/zod-validator.ts";
+import { db } from "../db/db.ts";
 import {
     tags as tagsDb,
     transactions as transactionsDb,
@@ -9,19 +9,18 @@ import {
     tagSelectSchemaZ, transactionTags as transactionTagsDb, transactionsUpdateSchemaZ,
     type TransactionsUpdateSchema,
     userCards, userAccounts, type TagSelectSchema, accounts, cards,
+    statementOwnerships,
+    statements,
+    type TransactionsSelectSchema,
 } from "../db/schema.ts";
-import {and, count, desc, eq, inArray, sql} from "drizzle-orm";
-import {appLogger} from "../index.ts";
-import {HTTPException} from "hono/http-exception";
-import {
-    initClassifier,
-    saveAndTrainClassifier,
-    addDocuments
-} from "../lib/descriptionTagger/descriptionTagger.ts";
-import {findUserOrThrow} from "./route.utils.ts";
-import {csvParserDirectUpload} from "../lib/csv/directUpload.ts";
-import WorkerPool from "../lib/descriptionTagger/classifier-trainer-worker-pool.ts";
-import {paginationZ, refineAccountOrCardId} from "./route.types.ts";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { appLogger } from "../index.ts";
+import { HTTPException } from "hono/http-exception";
+import { findUserOrThrow } from "./route.utils.ts";
+import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
+import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
+import type { DocumentToAdd } from "../lib/descriptionTagger/base-classifier.ts";
+import { runTrainer } from "./transaction.utils.ts";
 
 const allowOnlyAccountOrCardIdErrMsg = 'An account id or card id is required, both cannot be empty and filled in the same transaction'
 
@@ -31,12 +30,27 @@ const transactionFromUIZ = transactionsInsertSchemaZ.extend({
         description: z.string().min(1)
     })).optional(),
     userId: z.string()
-}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
+}).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
 const transactionsFromUIZ = z.array(transactionFromUIZ).min(1)
 export type TransactionFromUI = z.infer<typeof transactionsFromUIZ>
 
+const cardInfoPayloadZ = z.object({
+    cardId: z.coerce.number(),
+    cardName: z.string()
+}).optional()
+type CardInfoPayload = z.infer<typeof cardInfoPayloadZ>
+const accountInfoPayloadZ = z.object({
+    accountId: z.coerce.number(),
+    accountName: z.string()
+}).optional()
+type AccountInfoPayload = z.infer<typeof accountInfoPayloadZ>
 const PostTransactionPayloadZ = z.object({
-    transactions: transactionsFromUIZ
+    transactions: transactionsFromUIZ,
+    statementInfo: z.object({
+        statementDate: z.string()
+    }),
+    cardInfo: cardInfoPayloadZ,
+    accountInfo: accountInfoPayloadZ
 })
 export type PostTransactionPayload = z.infer<typeof PostTransactionPayloadZ>
 
@@ -45,7 +59,7 @@ const postTransactionCsvPayloadZ = z.object({
     accountId: z.coerce.number().optional(),
     cardId: z.coerce.number().optional(),
     file: z.file().mime(["text/csv"]).max(1000 * 1000) // max 1mb
-}).refine((data) => refineAccountOrCardId(data), {error: allowOnlyAccountOrCardIdErrMsg})
+}).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
 
 const transactionsPatchPayloadZ = z.object({
     transactions: z.array(transactionsUpdateSchemaZ).min(1)
@@ -54,21 +68,73 @@ const transactionsPatchPayloadZ = z.object({
 const getUserTransactionsQueryZ = z.discriminatedUnion(
     "type",
     [
-        z.object({type: z.literal("account"), accountId: z.coerce.number(), ...paginationZ.shape}),
-        z.object({type: z.literal("card"), cardId: z.coerce.number(), ...paginationZ.shape}),
+        z.object({ type: z.literal("account"), accountId: z.coerce.number(), ...paginationZ.shape }),
+        z.object({ type: z.literal("card"), cardId: z.coerce.number(), ...paginationZ.shape }),
     ]
 )
 
 export const transactionRoute = new Hono()
     .post('/', zodValidator('json', PostTransactionPayloadZ), async (c) => {
-        const {transactions} = c.req.valid('json')
+        const { transactions, statementInfo, cardInfo, accountInfo } = c.req.valid('json')
 
-        const classifier = await initClassifier()
+        const addStatementOrThrow = async (statementDate: string, cardInfo: CardInfoPayload, accountInfo: AccountInfoPayload) => {
+            let queryFilter
+            let logMsg
+            if (cardInfo) {
+                queryFilter = eq(statementOwnerships.cardId, cardInfo.cardId)
+                logMsg = `Card: ${cardInfo.cardName}`
+            } else if (accountInfo) {
+                queryFilter = eq(statementOwnerships.accountId, accountInfo.accountId)
+                logMsg = `Account: ${accountInfo.accountName}`
+            } else {
+                throw new HTTPException(400, { message: 'Error checking statement info' })
+            }
+
+            const existingStatementQuery = await db.select().from(statements)
+                .leftJoin(statementOwnerships, eq(statements.id, statementOwnerships.statementId))
+                .where(and(
+                    eq(statements.statementDate, statementDate),
+                    queryFilter
+                ))
+
+            if (existingStatementQuery.length > 0) {
+                throw new HTTPException(400, { message: `${logMsg} | statement date: ${statementDate} already added` })
+            }
+            return logMsg
+        }
+
+        const statementLog = await addStatementOrThrow(statementInfo.statementDate, cardInfo, accountInfo)
+
         let shouldTrain = false;
+        const documentsToAdd: DocumentToAdd[] = []
+        const insertedTransactionIds: number[] = []
+        const userId = transactions[0]?.userId || '' // user id always exists
         try {
             db.transaction((tx) => {
+                appLogger('Checking statement details...')
+                const insertedStatement = tx.insert(statements).values({
+                    statementDate: statementInfo.statementDate,
+                    userId
+                }).onConflictDoNothing().returning().all()
+                if (!insertedStatement[0]) {
+                    tx.rollback()
+                    throw new Error(`Error persisting statement for user ${userId}, ${statementLog}`)
+                }
+                const insertedOwnership = tx.insert(statementOwnerships).values({
+                    statementId: insertedStatement[0].id,
+                    ...(cardInfo && { cardId: cardInfo.cardId }),
+                    ...(accountInfo && { accountId: accountInfo.accountId }),
+                }).returning().all()
+
+                if (!insertedOwnership[0]) {
+                    tx.rollback()
+                    throw new Error(`Error persisting statement ownership for user ${userId}, ${statementLog}`)
+                }
+                appLogger(`Inserted statement and statment ownership for user ${userId}, ${statementLog}`)
+
+                appLogger('Processing transactions...')
                 for (const t of transactions) {
-                    const {tags, ...rest} = t
+                    const { tags, ...rest } = t
 
                     const findRes = tx.select().from(transactionsDb).where(and(
                         eq(transactionsDb.description, t.description),
@@ -82,7 +148,7 @@ export const transactionRoute = new Hono()
                         throw new Error('Found similar transaction')
                     }
 
-                    const txnId = tx.insert(transactionsDb).values(rest).returning({id: transactionsDb.id}).all()
+                    const txnId = tx.insert(transactionsDb).values(rest).returning({ id: transactionsDb.id }).all()
                     const insertedTxn = txnId[0]
                     if (!insertedTxn) {
                         appLogger(`WARN: Could not add transaction ${t.description}`)
@@ -92,6 +158,7 @@ export const transactionRoute = new Hono()
                     if (!tags || !tags.length) continue
 
                     const tagIds = tags.map((tag) => tag.id)
+                    insertedTransactionIds.push(...txnId.map((txn) => txn.id))
                     const queryRes = tx.select({
                         id: tagsDb.id,
                         description: tagsDb.description
@@ -103,20 +170,20 @@ export const transactionRoute = new Hono()
                         appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`)
                         throw new Error('Tag does not exist!')
                     } else {
-                        shouldTrain = true
                         const transactionTagsToInsert = queryRes.map((foundTag) => {
-                            addDocuments(classifier, {description: t.description, tag: foundTag.description})
+                            documentsToAdd.push({ description: t.description, tag: foundTag.description })
                             return {
                                 transactionId: insertedTxn.id,
                                 tagId: foundTag.id
                             }
                         })
-                        const ids = tx.insert(transactionTagsDb).values(transactionTagsToInsert).returning({id: transactionTagsDb.tagId}).all()
+                        const ids = tx.insert(transactionTagsDb).values(transactionTagsToInsert).returning({ id: transactionTagsDb.tagId }).all()
                         if (ids.length !== queryRes.length) {
                             appLogger(`WARN: Not all tags inserted`)
                             tx.rollback()
                         } else {
                             appLogger(`Inserted ${ids.length} tags`)
+                            shouldTrain = true
                         }
                     }
                 }
@@ -128,14 +195,17 @@ export const transactionRoute = new Hono()
             })
         }
 
-        if (shouldTrain) {
-            await saveAndTrainClassifier(classifier)
+        if (shouldTrain && documentsToAdd.length) {
+            runTrainer(documentsToAdd, insertedTransactionIds, {
+                userId,
+                transactionsInserted: insertedTransactionIds.length
+            })
         }
 
         return c.text('All inserted', 201)
     })
     .post('/csv', zodValidator('form', postTransactionCsvPayloadZ), async (c) => {
-        const {userId, accountId, cardId, file} = c.req.valid('form')
+        const { userId, accountId, cardId, file } = c.req.valid('form')
 
         await findUserOrThrow(userId)
 
@@ -164,7 +234,7 @@ export const transactionRoute = new Hono()
 
         const parsedTransactions = await csvParserDirectUpload(file)
 
-        const documentsToAdd: { description: string, tag: string }[] = []
+        const documentsToAdd: DocumentToAdd[] = []
 
         const insertedTransactionIds: number[] = []
 
@@ -257,27 +327,22 @@ export const transactionRoute = new Hono()
             })
         } catch (e) {
             const message = e instanceof Error ? e.message : JSON.stringify(e)
+            console.log(e)
             throw new HTTPException(400, {
                 message
             })
         }
 
-        const pool = new WorkerPool(1)
-
-        pool.runTask({documentsToAdd}, async (err) => {
-            if (err) {
-                appLogger(`Training failed for user ${userId}, ${insertedTransactionIds.length} transactions to be trained, 
-                please look for json file in root, for transactions to train`)
-                await Bun.write(`./${new Date().toISOString()}_${userId}_failed_training.json`, JSON.stringify(insertedTransactionIds))
-            }
-            pool.close()
+        runTrainer(documentsToAdd, insertedTransactionIds, {
+            userId,
+            transactionsInserted: insertedTransactionIds.length
         })
 
         return c.text('All inserted', 201)
     })
     .get('/:userId', zodValidator('query', getUserTransactionsQueryZ), async (c) => {
-        const {userId} = c.req.param()
-        const {limit, offset, ...targetId} = c.req.valid('query')
+        const { userId } = c.req.param()
+        const { limit, offset, ...targetId } = c.req.valid('query')
 
         const isAccount = targetId.type === 'account'
         const usersFilter = eq(transactionsDb.userId, userId)
@@ -308,7 +373,7 @@ export const transactionRoute = new Hono()
             .limit(limit)
             .offset(offset)
 
-        const transactionsToReturn = queryRes.map((row) => {
+        const processedTransactions = queryRes.map((row) => {
             const txn = row.transactions
             const tag = row.tags
             return {
@@ -319,7 +384,20 @@ export const transactionRoute = new Hono()
             }
         })
 
-        const totalNumTxnsQuery = await db.select({value: count(transactionsDb.id)}).from(transactionsDb)
+        const uniqueTransactionsMap = new Map<number,
+            TransactionsSelectSchema & { tags: TagSelectSchema[]; accountName?: string; cardName?: string }
+        >()
+        processedTransactions.forEach((t) => {
+            const transaction = uniqueTransactionsMap.get(t.id)
+            if (transaction) {
+                transaction.tags.push(...t.tags)
+            } else {
+                uniqueTransactionsMap.set(t.id, t)
+            }
+        })
+        const transactionsToReturn = Array.from(uniqueTransactionsMap.values())
+
+        const totalNumTxnsQuery = await db.select({ value: count(transactionsDb.id) }).from(transactionsDb)
             .where(transactionFilter)
 
         let transactionCount = 0
@@ -362,9 +440,9 @@ export const transactionRoute = new Hono()
         const chartData: Record<string, ChartValuesLabels> = {}
 
         for (const movement of movementByYearMonth) {
-            const {yearMonth, sum} = movement
+            const { yearMonth, sum } = movement
             if (!chartData[movement.currency]) {
-                chartData[movement.currency] = {labels: [yearMonth], movementValues: [sum], balanceValues: []}
+                chartData[movement.currency] = { labels: [yearMonth], movementValues: [sum], balanceValues: [] }
             } else {
                 chartData[movement.currency]?.movementValues.push(sum)
                 chartData[movement.currency]?.labels.push(yearMonth)
@@ -393,7 +471,7 @@ export const transactionRoute = new Hono()
         })
     })
     .patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
-        const {transactions} = c.req.valid('json')
+        const { transactions } = c.req.valid('json')
         const failedUpdates: TransactionsUpdateSchema[] = []
         for (const t of transactions) {
             if (!t.id) {
@@ -404,7 +482,7 @@ export const transactionRoute = new Hono()
                 const updateRes = await db.update(transactionsDb).set({
                     ...t,
                     updated_at: new Date().toISOString()
-                }).where(eq(transactionsDb.id, t.id)).returning({id: transactionsDb.id})
+                }).where(eq(transactionsDb.id, t.id)).returning({ id: transactionsDb.id })
                 if (!updateRes.length) {
                     failedUpdates.push(t)
                 }

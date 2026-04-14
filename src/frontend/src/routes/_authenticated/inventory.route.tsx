@@ -13,7 +13,7 @@ function InventoryLayoutComponent() {
 
     return (
         <div className="flex flex-row h-full">
-            <ul className="menu h-full bg-base-200 rounded-box w-56">
+            <ul className="menu h-full bg-base-200 rounded-box min-w-40">
                 <li><Link to="/inventory">Summary</Link></li>
                 <li><Link to="/inventory/upload">Upload</Link></li>
             </ul>

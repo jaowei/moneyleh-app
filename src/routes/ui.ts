@@ -3,13 +3,11 @@ import z from "zod";
 import { db } from "../db/db.ts";
 import {
     accounts,
-    cards, companies, statementOwnerships, statements, userAccountInsertSchemaZ,
+    cards, companies, userAccountInsertSchemaZ,
     userAccounts,
     userCardInsertSchemaZ,
     userCards,
     userCompanies,
-    type accountsSelectSchema,
-    type CardsSelectSchema
 } from "../db/schema.ts";
 import { and, eq, inArray, like } from "drizzle-orm";
 import { appLogger } from "../index.ts";
@@ -127,60 +125,14 @@ export const uiRoute = new Hono()
                 })
         }
 
-        const addStatementOrThrow = async (statementDate: string, userId: string, cardInfo?: CardsSelectSchema, accountInfo?: accountsSelectSchema) => {
-            let queryFilter
-            let logMsg
-            if (cardInfo) {
-                queryFilter = eq(statementOwnerships.cardId, cardInfo.id)
-                logMsg = `Card: ${cardInfo.name}`
-            } else if (accountInfo) {
-                queryFilter = eq(statementOwnerships.accountId, accountInfo.id)
-                logMsg = `Account: ${accountInfo.name}`
-            } else {
-                throw new HTTPException(400, { message: 'Error checking statement info' })
-            }
 
-            const existingStatementQuery = await db.select().from(statements)
-                .leftJoin(statementOwnerships, eq(statements.id, statementOwnerships.statementId))
-                .where(and(
-                    eq(statements.statementDate, statementData.statementDate),
-                    queryFilter
-                ))
-
-            if (existingStatementQuery.length > 0) {
-                throw new HTTPException(400, { message: `${logMsg} | statement date: ${statementDate} already added` })
-            }
-
-            db.transaction((tx) => {
-                const insertedStatement = tx.insert(statements).values({
-                    statementDate,
-                    userId
-                }).onConflictDoNothing().returning().all()
-                if (!insertedStatement[0]) {
-                    tx.rollback()
-                    throw new Error(`Error persisting statement for user ${userId}, ${logMsg}`)
-                }
-                appLogger(`Inserted statment for user ${userId}, ${logMsg}`)
-
-                const insertedOwnership = tx.insert(statementOwnerships).values({
-                    statementId: insertedStatement[0].id,
-                    ...(cardInfo && { cardId: cardInfo.id }),
-                    ...(accountInfo && { accountId: accountInfo.id }),
-                }).returning().all()
-
-                if (!insertedOwnership[0]) {
-                    tx.rollback()
-                    throw new Error(`Error persisting statement ownership for user ${userId}, ${logMsg}`)
-                }
-                appLogger(`Inserted statment ownership for user ${userId}, ${logMsg}`)
-            })
-        }
-
-        const taggedTransactions: Array<TaggedTransaction & {
+        const taggedTransactions: Array<Array<TaggedTransaction & {
             accountName: string;
             cardId?: number | null;
             accountId?: number | null;
-        }> = []
+        }>> = []
+        let cardInfo = []
+        let accountInfo = []
         switch (statementData.type) {
             case "card":
                 for (const [cardName, data] of Object.entries(statementData.cards)) {
@@ -200,12 +152,14 @@ export const uiRoute = new Hono()
                     if (!targetCard) {
                         throw new HTTPException()
                     }
+                    cardInfo.push({
+                        cardId: targetCard.id,
+                        cardName: targetCard.name
+                    })
 
-                    await addStatementOrThrow(statementData.statementDate, userId, targetCard)
-
-                    const taggedTxns = await tagTransactions(undefined, data.transactions)
+                    const taggedTxns = await tagTransactions(data.transactions)
                     const txnWithCardName = taggedTxns.map((t) => ({ ...t, accountName: cardName, cardId: targetCard.id }))
-                    taggedTransactions.push(...txnWithCardName)
+                    taggedTransactions.push(txnWithCardName)
                 }
                 break;
             case "account":
@@ -226,12 +180,14 @@ export const uiRoute = new Hono()
                     if (!targetAccount) {
                         throw new HTTPException()
                     }
+                    accountInfo.push({
+                        accountId: targetAccount.id,
+                        accountName: targetAccount.name
+                    })
 
-                    await addStatementOrThrow(statementData.statementDate, userId, undefined, targetAccount)
-
-                    const taggedTxns = await tagTransactions(undefined, data.transactions)
+                    const taggedTxns = await tagTransactions(data.transactions)
                     const txnWithAccountName = taggedTxns.map((t) => ({ ...t, accountName, accountId: targetAccount.id }))
-                    taggedTransactions.push(...txnWithAccountName)
+                    taggedTransactions.push(txnWithAccountName)
                 }
                 break;
             case "cpf":
@@ -244,7 +200,11 @@ export const uiRoute = new Hono()
 
         return c.json({
             taggedTransactions,
-            statementData
+            statementInfo: {
+                statementDate: statementData.statementDate
+            },
+            cardInfo,
+            accountInfo
         })
     })
     .get('/availableInventory/:userId', async (c) => {

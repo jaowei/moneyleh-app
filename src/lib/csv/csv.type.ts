@@ -4,16 +4,18 @@ const directUploadFormatZ = z.object({
     date: z.string(),
     tags: z.string().transform((val) => !val ? [] : val.toLowerCase().split('_')),
     currency: z.string().length(3),
-    amount: z.string().transform((val, ctx) => {
+    amount: z.string().pipe(
+        z.preprocess((val, ctx) => {
             try {
                 let sign = 1
                 if (val.includes("(")) {
                     sign = -1
                 }
-                const cleanStr = val.replaceAll("(", "")
+                const cleanStr = val.trim().replaceAll("(", "")
                     .replaceAll("(", "")
                     .replaceAll("$", "")
                     .replaceAll(",", "")
+                    .replace(/^-$/, "0")
                 return parseFloat(cleanStr) * sign
             } catch (e) {
                 ctx.issues.push({
@@ -23,7 +25,7 @@ const directUploadFormatZ = z.object({
                 })
                 return z.NEVER
             }
-        }
+        }, z.number())
     ),
     description: z.string().default(''),
     // TODO: remove these once all migrated

@@ -1,19 +1,12 @@
-import { describe, test, expect, afterEach, spyOn } from "bun:test";
+import { describe, test, expect, spyOn, beforeAll, afterAll } from "bun:test";
 import {
-    initClassifier,
-    saveAndTrainClassifier,
     tagTransactions,
-    testClassifierPath,
-    addDocuments
 } from "./descriptionTagger.ts";
-import type { TransactionsInsertSchema } from "../../db/schema.ts";
-import { BayesClassifier, LogisticRegressionClassifier } from "natural";
-import { testTag, testUser } from "../test.utils.ts";
-
-afterEach(async () => {
-    const file = Bun.file(testClassifierPath)
-    await file.delete()
-})
+import { tags, type TransactionsInsertSchema } from "../../db/schema.ts";
+import { testUser } from "../test.utils.ts";
+import { BaseClassifier } from "./base-classifier.ts";
+import { db } from "../../db/db.ts";
+import { eq } from "drizzle-orm";
 
 describe('description tagger', () => {
     const transactions: TransactionsInsertSchema[] = [{
@@ -23,45 +16,22 @@ describe('description tagger', () => {
         amount: 123,
         userId: testUser.id
     }]
+    const testLabelName = 'test-label-description-tagger'
+    beforeAll(async () => {
+        await db.insert(tags).values({ description: testLabelName })
+    })
+    afterAll(async () => {
+        await db.delete(tags).where(eq(tags.description, testLabelName))
+    })
     test('tag a transaction', async () => {
-        const tagged = await tagTransactions(undefined, transactions)
-        expect(tagged.length).toBe(transactions.length)
-        expect(tagged[0]).not.toHaveProperty('tags')
-    })
-
-    test('add documents and save', async () => {
-        const restoreSpy = spyOn(BayesClassifier, 'restore')
-        const c = await initClassifier()
-        expect(restoreSpy).not.toBeCalled()
-        addDocuments(c, {
-            description: 'test-description',
-            tag: testTag.description
-        })
-
-        await saveAndTrainClassifier(c)
-
-        const c2 = await initClassifier()
-        expect(c2).toBeInstanceOf(BayesClassifier)
-        expect(restoreSpy).toBeCalled()
-
-        const tagged = await tagTransactions(c, transactions)
-        expect(tagged.length).toBe(transactions.length)
-        expect(tagged[0]).toHaveProperty('tags')
-    })
-
-    // used to perform load test
-    // 800 documents takes about 8s
-    test.skip('load test add documents and train', async () => {
-        const trainingLoad = 800
-        const c = await initClassifier()
-
-        for (let i = 0; i < trainingLoad; i++) {
-            addDocuments(c, {
-                description: 'test-description',
-                tag: `${testTag.description}-${i}`
-            })
+        const tagToInsert = {
+            label: testLabelName,
+            value: 1
         }
-
-        await saveAndTrainClassifier(c)
+        spyOn(BaseClassifier.prototype, 'isValid').mockReturnValueOnce(true)
+        spyOn(BaseClassifier.prototype, 'predict').mockResolvedValueOnce([tagToInsert])
+        const tagged = await tagTransactions(transactions)
+        expect(tagged.length).toBe(transactions.length)
+        expect(tagged?.[0]?.tags?.[0]?.description).toBe(testLabelName)
     })
 })

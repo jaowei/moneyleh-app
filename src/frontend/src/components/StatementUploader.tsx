@@ -1,8 +1,8 @@
-import {getBackendErrorResponse} from "../lib/error.ts";
-import EditableTransactionsTable from "./EditableTransactionsTable.tsx";
-import {type EditableTransaction, type Tag, uiRouteClient} from "../lib/backend-clients.ts";
-import {useState, type ChangeEventHandler} from "react";
-import {useAuth} from "../context/auth";
+import { getBackendErrorResponse } from "../lib/error.ts";
+import TransactionsViewer from "./TransactionsViewer.tsx";
+import { type FileUploadRes, type Tag, uiRouteClient } from "../lib/backend-clients.ts";
+import { useState, type ChangeEventHandler } from "react";
+import { useAuth } from "../context/auth";
 
 interface StatementUploaderProps {
     tagData: Tag[]
@@ -10,11 +10,15 @@ interface StatementUploaderProps {
     onStatementUploadError?: () => void;
 }
 
-export const StatementUploader = ({tagData, onStatementUploaded, onStatementUploadError}: StatementUploaderProps) => {
-    const {user} = useAuth()
+export const StatementUploader = ({ tagData, onStatementUploaded, onStatementUploadError }: StatementUploaderProps) => {
+    const { user } = useAuth()
 
-    const [transactions, setTransactions] = useState<EditableTransaction[]>([])
+    const [uploadInfo, setUploadInfo] = useState<FileUploadRes | undefined>()
     const [uploadError, setUploadError] = useState('')
+
+    const handleClearClick = () => {
+        setUploadInfo(undefined)
+    }
 
     const handleFileStatementUploadInput: ChangeEventHandler<HTMLInputElement> = async (e) => {
         setUploadError('')
@@ -34,7 +38,7 @@ export const StatementUploader = ({tagData, onStatementUploaded, onStatementUplo
             })
             if (res.ok) {
                 const resData = await res.json()
-                setTransactions(resData.taggedTransactions)
+                setUploadInfo(resData)
                 onStatementUploaded?.()
             } else {
                 throw await getBackendErrorResponse(res)
@@ -51,19 +55,26 @@ export const StatementUploader = ({tagData, onStatementUploaded, onStatementUplo
 
     return (
         <div className="flex flex-col items-center gap-4">
-            <fieldset className="fieldset">
-                <legend className="fieldset-legend">Upload a statement
-                </legend>
-                <input type='file' className='file-input' accept=".csv, .pdf, .xls, .xlsx"
-                       onChange={handleFileStatementUploadInput}/>
-                <p className="label">Upload your monthly bank/account statements</p>
-                {uploadError &&
-                    <div className="alert alert-error">{uploadError}</div>
-                }
-            </fieldset>
-            {transactions.length > 0 &&
-                <EditableTransactionsTable transactions={transactions} setTransactions={setTransactions}
-                                           tagData={tagData}/>
+            <div className="flex flex-row items-center gap-4 content-center">
+                <fieldset className="fieldset">
+                    <legend className="fieldset-legend">Upload a statement
+                    </legend>
+                    <input type='file' className='file-input' accept=".csv, .pdf, .xls, .xlsx"
+                        onChange={handleFileStatementUploadInput} />
+                    <p className="label">Upload your monthly bank/account statements</p>
+                    {uploadError &&
+                        <div className="alert alert-error">{uploadError}</div>
+                    }
+                </fieldset>
+                <button className="btn" onClick={handleClearClick}>Clear data</button>
+            </div>
+            {uploadInfo && uploadInfo.taggedTransactions?.length > 0 && (
+                <div>
+                    <h2 className="text-2xl">Statement Date: {uploadInfo.statementInfo.statementDate}</h2>
+                    <TransactionsViewer fileUploadRes={uploadInfo}
+                        tagData={tagData} />
+                </div>
+            )
             }
         </div>
     )
