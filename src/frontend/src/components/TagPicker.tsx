@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router";
 import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
 import { type ReactNode, useRef, useState } from "react";
 
@@ -6,8 +7,8 @@ export type UiTag = Pick<Tag, 'id' | 'description'>
 interface TagInputProps {
     onTagChange: (selectedTags: UiTag[]) => void;
     canEdit: boolean;
-    tags?: UiTag[];
-    availableTags?: UiTag[]
+    selectedTags: UiTag[];
+    availableTags: UiTag[]
 }
 
 interface TagActionButtonProps {
@@ -73,12 +74,13 @@ const TagActionButton = ({ onClick, tagDescription, actionType }: TagActionButto
     )
 }
 
-export const TagPicker = ({ tags, availableTags, canEdit, onTagChange }: TagInputProps) => {
+export const TagPicker = ({ selectedTags, availableTags, canEdit, onTagChange }: TagInputProps) => {
     const tagModalRef = useRef<null | HTMLDialogElement>(null)
-    const [selectedTags, setSelectedTags] = useState(tags || [])
-    const [remainingTags, setRemainingTags] = useState(availableTags || [])
+    const remainingTags = availableTags.filter((tag) => !selectedTags.find((t) => t.id === tag.id))
     const [newTagName, setNewTagName] = useState('')
     const [tagCreationError, setTagCreationError] = useState('')
+
+    const router = useRouter()
 
     const handleCreateTagClick = async () => {
         const res = await backendRouteClient.api.tag.$post({
@@ -86,12 +88,10 @@ export const TagPicker = ({ tags, availableTags, canEdit, onTagChange }: TagInpu
         })
         if (res.ok) {
             const createdTag = (await res.json()).created
-            setSelectedTags((existing) => {
-                const newTags = [...existing, createdTag[0]]
+                const newTags = [...selectedTags, createdTag[0]]
                 onTagChange(newTags)
-                return newTags
-            })
             setNewTagName('')
+            router.invalidate()
         } else {
             setTagCreationError(res.statusText)
         }
@@ -99,25 +99,17 @@ export const TagPicker = ({ tags, availableTags, canEdit, onTagChange }: TagInpu
 
     const handleTagAddition = (tag: UiTag) => {
         return () => {
-            setSelectedTags((existing) => {
-                const newTags = [...existing, tag]
+                const newTags = [...selectedTags, tag]
                 onTagChange(newTags)
-                return newTags
-            })
-            setRemainingTags((existing) => existing.filter((existingTag) => tag.id !== existingTag.id))
         }
     }
 
     const handleTagRemoval = (tag: UiTag) => {
         return () => {
-            setRemainingTags((existing) => [...existing, tag])
-            setSelectedTags((existing) => {
-                const newTags = existing.filter((existingTag) => tag.id !== existingTag.id)
+                const newTags = selectedTags.filter((existingTag) => tag.id !== existingTag.id)
                 onTagChange(newTags)
-                return newTags
-            })
+            }
         }
-    }
 
     return (
         <div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">

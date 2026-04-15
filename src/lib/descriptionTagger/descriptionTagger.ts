@@ -5,7 +5,7 @@ import { appLogger } from "../../index.ts";
 import { BaseClassifier } from "./base-classifier.ts";
 
 export interface TaggedTransaction extends TransactionsInsertSchema {
-    tags?: {
+    tags: {
         id: number;
         description: string;
     }[]
@@ -17,12 +17,16 @@ export const tagTransactions = async (transactions: TransactionsInsertSchema[]) 
 
     const tagged: TaggedTransaction[] = []
     for (const t of transactions) {
+        const emptyTransaction = {
+            ...t,
+            tags: []
+        }
         if (t.description && c.isValid()) {
             try {
                 const classificationRes = await c.predict(t.description)
 
                 if (!classificationRes.length) {
-                    tagged.push(t)
+                    tagged.push(emptyTransaction)
                 }
 
                 const sortedRes = classificationRes.sort((a, b) => {
@@ -37,7 +41,7 @@ export const tagTransactions = async (transactions: TransactionsInsertSchema[]) 
                         description: tags.description
                     }).from(tags).where(like(tags.description, prediction.label))
                     if (!queryRes[0]) {
-                        tagged.push(t)
+                        tagged.push(emptyTransaction)
                         continue
                     } else {
                         foundTags.push(queryRes[0])
@@ -53,10 +57,10 @@ export const tagTransactions = async (transactions: TransactionsInsertSchema[]) 
                 }
             } catch (e) {
                 appLogger(`WARN: There was an error tagging for description: ${t.description} - ${e}`)
-                tagged.push(t)
+                tagged.push(emptyTransaction)
             }
         } else {
-            tagged.push(t)
+            tagged.push(emptyTransaction)
         }
     }
     return tagged

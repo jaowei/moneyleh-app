@@ -14,14 +14,14 @@ interface TransactionsTableProps {
     accountInfo?: FileUploadRes['accountInfo'][0];
     cardInfo?: FileUploadRes['cardInfo'][0]
     onSaveSuccess?: () => void;
-    tagData?: Tag[];
+    tagData: Tag[];
 }
 
 interface TransactionRowProps {
     transaction: FileUploadRes['taggedTransactions'][0][0];
     transactionIndex: number;
     canEdit: boolean;
-    tagData?: Tag[]
+    tagData: Tag[]
     setTransactions: Dispatch<SetStateAction<FileUploadRes['taggedTransactions'][0]>>
 }
 
@@ -46,7 +46,7 @@ const TransactionRow = ({ transaction, tagData, setTransactions, transactionInde
             <td>{transaction.description}</td>
             <td>{transaction.currency}</td>
             <td>{transaction.amount}</td>
-            <td><TagPicker availableTags={tagData} tags={transaction.tags} onTagChange={handleTagChange} canEdit={canEdit} /></td>
+            <td><TagPicker availableTags={tagData} selectedTags={transaction.tags} onTagChange={handleTagChange} canEdit={canEdit} /></td>
         </tr>
     )
 }
