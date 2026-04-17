@@ -3,18 +3,26 @@ import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
 import { useAuth } from "../context/auth.tsx";
 
 interface BulkUploadModalProps {
+    accountName?: string;
     accountId?: number;
+    cardName?: string;
     cardId?: number;
     tagData: Tag[];
-    onAddSuccess?: () => void;
+    onAddSuccess?: (name?: string) => void;
 }
 
-export default function BulkUploadModal({ accountId, cardId, onAddSuccess }: BulkUploadModalProps) {
+export default function BulkUploadModal({ accountId, accountName, cardName, cardId, onAddSuccess }: BulkUploadModalProps) {
     const { user } = useAuth()
+    const userId = user?.id
 
     const dialogRef = useRef<HTMLDialogElement>(null)
 
     const [uploadError, setUploadError] = useState('')
+    const [targetFile, setTargetFile] = useState<File | undefined>()
+
+    if (!userId) {
+        return <div>Please sign in!</div>
+    }
 
     const handleModalTriggerClick = () => {
         dialogRef.current?.showModal()
@@ -24,28 +32,39 @@ export default function BulkUploadModal({ accountId, cardId, onAddSuccess }: Bul
         setUploadError('')
         const files = e.target.files
 
-        if (!user?.id || !files || !files[0]) return
+        if (!files || !files[0]) {
+            setUploadError('No file detected!')
+            return
+        }
+
+        setTargetFile(files[0])
+    }
+
+    const handleUploadConfirmClick = async () => {
+        if (!targetFile) {
+            setUploadError('No file detected!')
+            return
+        }
 
         const res = await backendRouteClient.api.transaction.csv.$post({
             form: {
-                userId: user.id,
+                userId,
                 ...(cardId && { cardId: `${cardId}` }),
                 ...(accountId && { accountId: `${accountId}` }),
-                file: files[0]
+                file: targetFile
             }
         })
         if (res.ok) {
+            onAddSuccess?.(accountName || cardName)
             dialogRef.current?.close()
         } else {
             setUploadError(await res.text())
         }
     }
 
-
     const handleModalCloseClick = () => {
         setUploadError('')
         dialogRef.current?.close()
-        onAddSuccess?.()
     }
 
     return (<div>
@@ -55,7 +74,7 @@ export default function BulkUploadModal({ accountId, cardId, onAddSuccess }: Bul
         <dialog ref={dialogRef} className="modal">
             <div className="modal-box">
                 <fieldset className="fieldset">
-                    <legend className="fieldset-legend">Bulk Upload (only CSV)</legend>
+                    <legend className="fieldset-legend">Bulk Upload (only CSV) for {accountName || cardName}</legend>
                     <input type='file' className='file-input' accept="text/csv"
                         onChange={handleFileBulkUploadInput} />
                     <p className="label">CSV must be in the correct format</p>
@@ -64,6 +83,7 @@ export default function BulkUploadModal({ accountId, cardId, onAddSuccess }: Bul
                     }
                 </fieldset>
                 <div className="modal-action">
+                    {targetFile && <button className="btn btn-active" onClick={handleUploadConfirmClick}>Confirm upload</button>}
                     <button className="btn" onClick={handleModalCloseClick}>Close</button>
                 </div>
             </div>

@@ -13,6 +13,7 @@ import { AddButton } from "../../components/AddButton.tsx";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 import { AddAccountForm, AddCardForm } from "../../components/AddAccountCardForm.tsx";
 import { ModalCloseButton } from "../../components/ModalCloseButton.tsx";
+import { DismissableAlert } from "../../components/DismissableAlert.tsx";
 
 
 export const Route = createFileRoute('/_authenticated/inventory/')({
@@ -239,10 +240,26 @@ const TableRow = ({ children }: { children: any }) => {
 
 function InventoryComponent() {
     const { inventory, tagData, companyData } = Route.useLoaderData()
+    const [bulkUploadAlert, setBulkUploadAlert] = useState<string | undefined>()
+
+    const handleBulkUploadSuccess = (name?: string) => {
+        if (name) {
+            setBulkUploadAlert(`Upload success for ${name}`)
+        }
+    }
+
+    const handleAlertDismiss = () => {
+        setBulkUploadAlert(undefined)
+    }
 
     return (
         <div className="flex flex-col items-center p-4">
             <div className="w-4/5">
+                {bulkUploadAlert && (
+                    <div className="p-2">
+                        <DismissableAlert message={bulkUploadAlert} onDismiss={handleAlertDismiss} type="success" />
+                    </div>
+                )}
                 <div className="rounded-box border border-base-content/5 bg-base-100">
                     <table className="table table-fixed">
                         <thead className="bg-base-200">
@@ -278,7 +295,12 @@ function InventoryComponent() {
                                                     }}>View</Link>
                                                 </button>
                                             )}
-                                            <BulkUploadModal accountId={acc.accounts?.id} tagData={tagData} />
+                                            <BulkUploadModal
+                                                accountName={acc.accounts?.name}
+                                                accountId={acc.accounts?.id}
+                                                tagData={tagData}
+                                                onAddSuccess={handleBulkUploadSuccess}
+                                            />
                                         </div>
                                     </TableRow>
                                 </tr>
@@ -315,7 +337,12 @@ function InventoryComponent() {
                                                     }}>View</Link>
                                                 </button>
                                             )}
-                                            <BulkUploadModal cardId={card.cards?.id} tagData={tagData} />
+                                            <BulkUploadModal
+                                                cardName={card.cards?.name}
+                                                cardId={card.cards?.id}
+                                                tagData={tagData}
+                                                onAddSuccess={handleBulkUploadSuccess}
+                                            />
                                         </div>
                                     </TableRow>
                                 </tr>

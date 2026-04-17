@@ -53,7 +53,7 @@ function InventoryAccountComponent() {
                 latestTransactionDate={accountInfo.transactions[0]?.transactionDate}
             />
             <AccountCardChart chartData={accountInfo.chartData} />
-            <BulkUploadModal accountId={Number(accountId)} tagData={tagData} onAddSuccess={() => {
+            <BulkUploadModal accountName={accountInfo.displayName} accountId={Number(accountId)} tagData={tagData} onAddSuccess={() => {
                 router.invalidate()
             }} />
             {accountInfo.transactions.length > 0 && (
