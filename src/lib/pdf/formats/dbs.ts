@@ -4,9 +4,9 @@ import type {
     MuPdfStructuredTextBlock,
     PdfFormat, PdfFormatExtractor,
 } from "../pdf.type.ts";
-import {parseDateString} from "../../dayjs.ts";
-import {appLogger} from "../../../index.ts";
-import {parseTxnDate} from "../pdf.utils.ts";
+import { parseDateString } from "../../dayjs.ts";
+import { appLogger } from "../../../index.ts";
+import { parseTxnDate } from "../pdf.utils.ts";
 
 const extractStatementMetadataCard = (block: MuPdfStructuredTextBlock) => {
     const data = {
@@ -104,7 +104,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
     let inCardTxn = false
     let currency: string = ''
     dataToExtract.forEach((pageData) => {
-        const {blocks} = pageData
+        const { blocks } = pageData
         blocks.forEach((block, blockIdx) => {
             if (block.type === 'image') {
                 appLogger(`WARN: Image detected, ignoring...`)
@@ -149,7 +149,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
             }
 
             if (dataIdx.statementDate === blockIdx) {
-                const {statementDate, creditLimit, dueDate} = extractStatementMetadataCard(block)
+                const { statementDate, creditLimit, dueDate } = extractStatementMetadataCard(block)
                 data.statementDate = statementDate
                 data.creditLimit = creditLimit
                 data.dueDate = dueDate
@@ -163,8 +163,8 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
                     dataIdx.pointsSummary = -1
                     return
                 }
-                const {cardNum, ...rest} = extractPointsDataCard(block)
-                data.points[cardNum] = {...rest}
+                const { cardNum, ...rest } = extractPointsDataCard(block)
+                data.points[cardNum] = { ...rest }
             }
 
             if (inCardTxn) {
@@ -249,7 +249,7 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
     let currentAccount: string | undefined = undefined
     for (const data of dataToExtract) {
         pageNum++
-        const {blocks} = data
+        const { blocks } = data
         blocks.forEach((block, blockIdx) => {
             const firstLineOfBlock = block.lines[0]
 
@@ -306,12 +306,13 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
 
                 // parse amount
                 const potentialAmountOnSameBlock = block.lines[2]
-                const coordThresholdForWithdrawal = 445
+                const coordThresholdForWithdrawal = 437
                 let amount = 0
                 let description = ''
 
                 if (potentialAmountOnSameBlock) {
-                    const amountOnSameBlock = parseAmountAccount(potentialAmountOnSameBlock, potentialAmountOnSameBlock.bbox.x < coordThresholdForWithdrawal, blockIdx)
+                    const isWithdrawal = potentialAmountOnSameBlock.bbox.x < coordThresholdForWithdrawal
+                    const amountOnSameBlock = parseAmountAccount(potentialAmountOnSameBlock, isWithdrawal, blockIdx)
                     if (amountOnSameBlock) {
                         amount = amountOnSameBlock
                         description = block.lines[1]?.text || ''
@@ -319,7 +320,8 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
                         const nextBlock = blocks[blockIdx + 1]
                         const amountLineOnNextBlock = nextBlock?.lines[0]
                         if (nextBlock && amountLineOnNextBlock) {
-                            const amountOnNextBlock = parseAmountAccount(amountLineOnNextBlock, nextBlock.bbox.x < coordThresholdForWithdrawal, blockIdx + 1)
+                            const isWithdrawal = nextBlock.bbox.x < coordThresholdForWithdrawal
+                            const amountOnNextBlock = parseAmountAccount(amountLineOnNextBlock, isWithdrawal, blockIdx + 1)
                             if (amountOnNextBlock) {
                                 amount = amountOnNextBlock
                             }
