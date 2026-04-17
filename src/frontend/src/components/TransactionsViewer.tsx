@@ -2,6 +2,7 @@ import { backendRouteClient, type Tag, type FileUploadRes } from "../lib/backend
 import { TagPicker, type UiTag } from "./TagPicker.tsx";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { useAuth } from "../context/auth.tsx";
+import { TagTableViewer } from "./TagTableViewer.tsx";
 
 interface TransactionViewerProps {
     fileUploadRes: FileUploadRes;
@@ -41,12 +42,12 @@ const TransactionRow = ({ transaction, tagData, setTransactions, transactionInde
     }
     return (
         <tr>
-            <td>{transaction.accountName}</td>
             <td>{date.toLocaleDateString()}</td>
             <td>{transaction.description}</td>
             <td>{transaction.currency}</td>
             <td>{transaction.amount}</td>
-            <td><TagPicker availableTags={tagData} selectedTags={transaction.tags} onTagChange={handleTagChange} canEdit={canEdit} /></td>
+            <td><TagTableViewer selectedTags={transaction.tags} canEdit={canEdit} onTagChange={handleTagChange} /></td>
+            <td><TagPicker availableTags={tagData} selectedTags={transaction.tags} onTagChange={handleTagChange} /></td>
         </tr>
     )
 }
@@ -59,7 +60,7 @@ export const EditableTransactionsTable = ({
     const [saved, setSaved] = useState(false)
     const [saveError, setSaveError] = useState('')
     const userId = user?.id
-    const name = accountInfo?.accountName || cardInfo?.cardName
+    const name = transactions[0].accountName
     const handleSaveTransactionsClick = async () => {
         setSaveError('')
         try {
@@ -89,7 +90,7 @@ export const EditableTransactionsTable = ({
         return <div>Please sign in again</div>
     }
     return (
-        <div className="flex flex-col w-full h-full items-center justify-center">
+        <div className="flex flex-col w-full h-full items-center justify-center gap-4">
             <button className="btn btn-primary" disabled={saved}
                 onClick={handleSaveTransactionsClick}>Save transactions for {name}
             </button>
@@ -101,12 +102,12 @@ export const EditableTransactionsTable = ({
             <table className="table table-zebra table-xs">
                 <thead>
                     <tr>
-                        <th>Account</th>
                         <th>Transaction Date</th>
                         <th>Description</th>
                         <th>Currency</th>
                         <th>Amount</th>
                         <th>Tag</th>
+                        <th>Edit Tags</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -125,12 +126,12 @@ export default function TransactionsViewer({ fileUploadRes, tagData }: Transacti
         <div className="tabs tabs-border">
             {fileUploadRes.taggedTransactions.map((transactionsPerAccount, idx) => {
                 const { statementInfo, accountInfo, cardInfo } = fileUploadRes
-                const name = accountInfo[idx]?.accountName || cardInfo[idx]?.cardName
+                const name = transactionsPerAccount[0].accountName
                 return (
                     <>
                         <input type="radio" name="transactions-tabs"
                             className="tab" aria-label={`${name}`} defaultChecked={idx === 0} />
-                        <div className="tab-content border-base-300 bg-base-100 p-10">
+                        <div className="tab-content border-base-300 bg-base-100 p-10 max-h-[55vh] overflow-auto">
                             <EditableTransactionsTable
                                 transactions={transactionsPerAccount}
                                 statementInfo={statementInfo}

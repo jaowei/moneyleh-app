@@ -1,86 +1,33 @@
 import { useRouter } from "@tanstack/react-router";
 import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
-import { type ReactNode, useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 
 export type UiTag = Pick<Tag, 'id' | 'description'>
 
 interface TagInputProps {
     onTagChange: (selectedTags: UiTag[]) => void;
-    canEdit: boolean;
     selectedTags: UiTag[];
     availableTags: UiTag[]
 }
 
-interface TagActionButtonProps {
-    onClick: () => void;
-    tagDescription: string;
-    actionType: 'delete' | 'add' | 'preview' | 'readonly'
-}
-
-const TagsContainer = ({ title, children }: { title: string; children: ReactNode }) => {
-    return (
-        <div className="flex flex-col items-center">
-            <h2>{title}</h2>
-            <div className="card bg-base-300 rounded-box flex flex-row w-[90%] flex-wrap gap-2 p-2">
-                {children}
-            </div>
-        </div>
-    )
-}
-
-const TagTooltipWrapper = ({ tagDescription, children }: {
-    tagDescription: string;
-    children: ReactNode;
-}) => {
-    return (
-        <div className="tooltip" data-tip={tagDescription}>
-            {children}
-        </div>
-    )
-}
-
-const TagActionButton = ({ onClick, tagDescription, actionType }: TagActionButtonProps) => {
-    const getStyleTag = () => {
-        switch (actionType) {
-            case "delete":
-                return 'btn-error'
-            case "add":
-                return 'btn-accent'
-            case "preview":
-                return 'btn-warning btn-xs'
-            case "readonly":
-                return ''
-        }
+const tagFilter = (searchQuery: string) => {
+    return (tag: UiTag) => {
+        const cleanStr = tag.description.toLowerCase().trim()
+        return cleanStr.includes(searchQuery)
     }
-    const getIconElement = () => {
-        switch (actionType) {
-            case "delete":
-                return <span className="icon-[iwwa--delete]"></span>
-            case "add":
-                return <span className="icon-[material-symbols--add-2-rounded]"></span>
-            case "preview":
-                return <span className="icon-[iwwa--delete]"></span>
-            case "readonly":
-                return
-        }
-    }
-    return (
-        <button className={`btn btn-soft ${getStyleTag()}`} onClick={onClick} disabled={actionType === 'readonly'}>
-            <div className="truncate max-w-24">
-                {tagDescription}
-            </div>
-            {getIconElement()}
-        </button>
-    )
 }
 
-export const TagPicker = ({ selectedTags, availableTags, canEdit, onTagChange }: TagInputProps) => {
+export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInputProps) => {
     const tagModalRef = useRef<null | HTMLDialogElement>(null)
     const remainingTags = availableTags.filter((tag) => !selectedTags.find((t) => t.id === tag.id))
     const [newTagName, setNewTagName] = useState('')
+    const [tagSearchQuery, setTagSearchQuery] = useState('')
     const [tagCreationError, setTagCreationError] = useState('')
 
     const router = useRouter()
+
+    const filteredSelectedTags = tagSearchQuery ? selectedTags.filter(tagFilter(tagSearchQuery)) : selectedTags
+    const filteredRemainingTags = tagSearchQuery ? remainingTags.filter(tagFilter(tagSearchQuery)) : remainingTags
 
     const handleCreateTagClick = async () => {
         const res = await backendRouteClient.api.tag.$post({
@@ -88,8 +35,8 @@ export const TagPicker = ({ selectedTags, availableTags, canEdit, onTagChange }:
         })
         if (res.ok) {
             const createdTag = (await res.json()).created
-                const newTags = [...selectedTags, createdTag[0]]
-                onTagChange(newTags)
+            const newTags = [...selectedTags, createdTag[0]]
+            onTagChange(newTags)
             setNewTagName('')
             router.invalidate()
         } else {
@@ -97,65 +44,80 @@ export const TagPicker = ({ selectedTags, availableTags, canEdit, onTagChange }:
         }
     }
 
-    const handleTagAddition = (tag: UiTag) => {
-        return () => {
-                const newTags = [...selectedTags, tag]
-                onTagChange(newTags)
-        }
-    }
-
-    const handleTagRemoval = (tag: UiTag) => {
-        return () => {
+    const handleCheckboxSelect = (tag: UiTag) => {
+        return (e: ChangeEvent<HTMLInputElement>) => {
+            console.log(e.target.checked)
+            if (!e.target.checked) {
+                // unchecking, remove tag
                 const newTags = selectedTags.filter((existingTag) => tag.id !== existingTag.id)
+                onTagChange(newTags)
+            } else {
+                // checking, add tag
+                const newTags = [...selectedTags, tag]
                 onTagChange(newTags)
             }
         }
+    }
+
+    const handleNewTagNameInput = (e: ChangeEvent<HTMLInputElement>) => {
+        setNewTagName(e.target.value)
+    }
+
+    const handleSearchInput = (e: ChangeEvent<HTMLInputElement>) => {
+        setTagSearchQuery(e.target.value)
+    }
 
     return (
         <div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">
-            {selectedTags?.map((t) => (
-                <TagTooltipWrapper key={t.id} tagDescription={t.description}>
-                    <TagActionButton actionType={canEdit ? "preview" : "readonly"} tagDescription={t.description} onClick={handleTagRemoval(t)} />
-                </TagTooltipWrapper>
-            ))}
             <button className="btn btn-xs btn-accent" onClick={() => tagModalRef.current?.showModal()}>
                 <span className="icon-[fluent--tag-48-regular]"></span>
             </button>
             <dialog ref={tagModalRef} className="modal">
-                <div className="modal-box max-w-[75vw] max-h-[95vh]">
-                    <div className="flex w-full max-h-[75vh] flex-col gap-4 overflow-auto">
-                        <div className="flex flex-col items-center">
+                <div className="modal-box max-w-[75vw] min-h-[90vh]">
+                    <div className="flex w-full flex-col gap-4">
+                        <div className="flex flex-row items-center gap-4">
                             <fieldset className="fieldset">
                                 <div className="join">
                                     <input type="text" className="input join-item" placeholder="Add new tags"
                                         value={newTagName}
-                                        onChange={(e) => setNewTagName(e.target.value)} />
+                                        onChange={handleNewTagNameInput} />
                                     <button className="btn join-item" disabled={!newTagName}
                                         onClick={handleCreateTagClick}>Add tag
                                     </button>
                                 </div>
                                 {tagCreationError && <p>{tagCreationError}</p>}
                             </fieldset>
+                            <fieldset>
+                                <input type="text" className="input join-item" placeholder="Search tags below"
+                                    value={tagSearchQuery}
+                                    onChange={handleSearchInput} />
+                            </fieldset>
                         </div>
-                        <div className="divider"></div>
-                        <TagsContainer title="Selected Tags">
-                            {!selectedTags ?
-                                <h3>No tags selected yet, pick some from below</h3> : selectedTags?.map((t) => (
-                                    <TagTooltipWrapper key={t.id} tagDescription={t.description}>
-                                        <TagActionButton actionType={canEdit ? "delete" : "readonly"} tagDescription={t.description}
-                                            onClick={handleTagRemoval(t)} />
-                                    </TagTooltipWrapper>
-                                ))}
-                        </TagsContainer>
-                        <div className="divider"></div>
-                        <TagsContainer title="Available Tags">
-                            {!remainingTags ?
-                                <h3>No tags available, start adding some below</h3> : remainingTags.map((t) => (
-                                    <TagTooltipWrapper key={t.id} tagDescription={t.description}>
-                                        <TagActionButton actionType={canEdit ? "add" : "readonly"} tagDescription={t.description} onClick={handleTagAddition(t)} />
-                                    </TagTooltipWrapper>
-                                ))}
-                        </TagsContainer>
+                        <div className="max-h-[70vh] overflow-auto">
+                            <table className="table table-zebra table-xs">
+                                <thead>
+                                    <tr>
+                                        <th>Tag Name</th>
+                                        <th>Selected</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredSelectedTags.map((tag) => (
+                                        <tr key={tag.id}>
+                                            <td>{tag.description}</td>
+                                            <td><input className="checkbox checkbox-success" type="checkbox"
+                                                defaultChecked onChange={handleCheckboxSelect(tag)} /></td>
+                                        </tr>
+                                    ))}
+                                    {filteredRemainingTags.map((tag) => (
+                                        <tr key={tag.id}>
+                                            <td>{tag.description}</td>
+                                            <td><input className="checkbox" type="checkbox" onChange={handleCheckboxSelect(tag)} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div className="modal-action">
                         <form method="dialog">

@@ -69,8 +69,8 @@ export const StatementUploader = ({ tagData, onStatementUploaded, onStatementUpl
                 <button className="btn" onClick={handleClearClick}>Clear data</button>
             </div>
             {uploadInfo && uploadInfo.taggedTransactions?.length > 0 && (
-                <div>
-                    <h2 className="text-2xl">Statement Date: {uploadInfo.statementInfo.statementDate}</h2>
+                <div className="p-3">
+                    <h2 className="text-2xl font-bold">Statement Date: {uploadInfo.statementInfo.statementDate}</h2>
                     <TransactionsViewer fileUploadRes={uploadInfo}
                         tagData={tagData} />
                 </div>
