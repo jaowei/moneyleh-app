@@ -8,3 +8,4 @@ test-files/
 .DS_Store
 *.tar.gz
 *.csv
+*failed_training.json

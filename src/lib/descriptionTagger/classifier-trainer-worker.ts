@@ -21,8 +21,8 @@ parentPort?.on('message', async (task: WorkerTaskObj) => {
 
     appLogger(`${logMsgTemplate}-adding ${task.documentsToAdd.length} docs`)
     for (const doc of task.documentsToAdd) {
-        defaultBayesC.addDocument(doc)
-        naturalBayesC.addDocument(doc)
+        await defaultBayesC.addDocument(doc)
+        await naturalBayesC.addDocument(doc)
         await knnC.addDocument(doc)
     }
     appLogger(`${logMsgTemplate}-docs added`)
