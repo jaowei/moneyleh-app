@@ -60,7 +60,7 @@ export const EditableTransactionsTable = ({
     const [saved, setSaved] = useState(false)
     const [saveError, setSaveError] = useState('')
     const userId = user?.id
-    const name = transactions[0].accountName
+    const name = transactions[0]?.accountName || accountInfo?.accountName || cardInfo?.cardName
     const handleSaveTransactionsClick = async () => {
         setSaveError('')
         try {
@@ -91,7 +91,7 @@ export const EditableTransactionsTable = ({
     }
     return (
         <div className="flex flex-col w-full h-full items-center justify-center gap-4">
-            <button className="btn btn-primary" disabled={saved}
+            <button className="btn btn-primary" disabled={saved || !editableTransactions.length}
                 onClick={handleSaveTransactionsClick}>Save transactions for {name}
             </button>
             {saveError &&
@@ -126,7 +126,7 @@ export default function TransactionsViewer({ fileUploadRes, tagData }: Transacti
         <div className="tabs tabs-border">
             {fileUploadRes.taggedTransactions.map((transactionsPerAccount, idx) => {
                 const { statementInfo, accountInfo, cardInfo } = fileUploadRes
-                const name = transactionsPerAccount[0].accountName
+                const name = transactionsPerAccount[0]?.accountName || accountInfo[idx]?.accountName || cardInfo[idx]?.cardName
                 return (
                     <>
                         <input type="radio" name="transactions-tabs"
