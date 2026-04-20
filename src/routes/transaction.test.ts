@@ -3,7 +3,7 @@ import app from "../index.ts";
 import { jsonHeader, testTag } from "../lib/test.utils.ts";
 import type { PostTransactionPayload } from "./transaction.ts";
 import { testUser } from "../lib/test.utils.ts";
-import { statementOwnerships, statements, transactions, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
+import { statementOwnerships, statements, transactions, type TransactionsSelectSchema, transactionStatements, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
 import { db } from "../db/db.ts";
 import { and, eq, inArray } from "drizzle-orm";
 
@@ -30,6 +30,7 @@ describe('/api/transaction', () => {
                 for (const target of txnToDelete) {
                     console.log('----- Deleting transaction!')
                     await db.delete(transactionTags).where(eq(transactionTags.transactionId, target.id))
+                    await db.delete(transactionStatements).where(eq(transactionStatements.transactionId, target.id))
                 }
                 await db.delete(transactions).where(eq(transactions.transactionDate, fixedDate))
             }
@@ -52,11 +53,27 @@ describe('/api/transaction', () => {
             await statementCleanup()
         })
 
+        test('inserts when transactions are similar in the same statement', async () => {
+            const testPayload: PostTransactionPayload = {
+                transactions: [testTransaction, testTransaction],
+                statementInfo: { statementDate: new Date().toISOString() },
+                accountInfo: { accountId: 1, accountName: 'test-account' }
+            }
+            const res = await app.request("/api/transaction", {
+                method: "POST",
+                body: JSON.stringify(testPayload),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(201)
+        })
+
         test('does not insert into db: no transactions', async () => {
             const res = await app.request("/api/transaction", {
                 method: "POST",
                 body: JSON.stringify({
-                    transactions: []
+                    transactions: [],
+                    statementInfo: { statementDate: new Date().toISOString() },
+                    accountInfo: { accountId: 1, accountName: 'test-account' }
                 }),
                 ...jsonHeader,
             });
@@ -330,22 +347,23 @@ describe('/api/transaction', () => {
     })
 
     describe('update transactions', () => {
-        beforeAll(async () => {
-            await db.insert(transactions).values({
-                id: 1,
-                transactionDate: 'test-date',
+        const testDate = 'test-date'
+        afterEach(async () => {
+            await db.delete(transactions).where(eq(transactions.transactionDate, testDate))
+        })
+        test('update a transaction', async () => {
+            const testTransaction = await db.insert(transactions).values({
+                transactionDate: testDate,
                 amount: 0,
                 description: 'test-description',
                 currency: 'SGD',
                 userId: testUser.id
-            }).onConflictDoNothing()
-        })
-        const transactionUpdatePayload: TransactionsUpdateSchema = {
-            id: 1,
-            amount: 999,
-            description: 'I was updated!'
-        }
-        test('update a transaction', async () => {
+            }).returning()
+            const transactionUpdatePayload: TransactionsUpdateSchema = {
+                id: testTransaction[0]?.id,
+                amount: 999,
+                description: 'I was updated!'
+            }
             const res = await app.request("/api/transaction/", {
                 method: "PATCH",
                 body: JSON.stringify({
@@ -358,6 +376,18 @@ describe('/api/transaction', () => {
             expect(resData.failed).toHaveLength(0)
         })
         test('update an invalid transaction', async () => {
+            const testTransaction = await db.insert(transactions).values({
+                transactionDate: testDate,
+                amount: 0,
+                description: 'test-description',
+                currency: 'SGD',
+                userId: testUser.id
+            }).returning()
+            const transactionUpdatePayload: TransactionsUpdateSchema = {
+                id: NaN,
+                amount: 999,
+                description: 'I was updated!'
+            }
             const res = await app.request("/api/transaction/", {
                 method: "PATCH",
                 body: JSON.stringify({
@@ -451,6 +481,7 @@ describe('/api/transaction', () => {
                 const testTxns = await db.select().from(transactions).where(eq(transactions.userId, testUser.id))
                 const testTxnIds = testTxns.map((t) => t.id)
                 await db.delete(transactionTags).where(inArray(transactionTags.transactionId, testTxnIds))
+                await db.delete(transactionStatements).where(inArray(transactionStatements.transactionId, testTxnIds))
                 await db.delete(transactions).where(eq(transactions.userId, testUser.id))
                 await db.delete(userAccounts).where(eq(userAccounts.userId, testUser.id))
             })

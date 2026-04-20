@@ -8,6 +8,13 @@
       "when": 1773931245706,
       "tag": "0000_striped_toro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776678311791,
+      "tag": "0001_ancient_blob",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,11 @@
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 import updateLocale from 'dayjs/plugin/updateLocale'
+import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(customParseFormat)
 dayjs.extend(updateLocale)
+dayjs.extend(utc)
 
 export const extendedDayjs = dayjs
 

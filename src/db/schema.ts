@@ -129,6 +129,12 @@ export const statementOwnerships = sqliteTable("statement_ownerships", {
     cardId: integer("card_id").references(() => cards.id),
 })
 
+export const transactionStatements = sqliteTable("transaction_statements", {
+    transactionId: integer("transaction_id").notNull().references(() => transactions.id),
+    statementId: integer("statement_id").notNull().references(() => statements.id),
+    ...timestamps,
+}, (table) => [primaryKey({ columns: [table.transactionId, table.statementId] })])
+
 export const transactionTags = sqliteTable("transaction_tags", {
     transactionId: integer("transaction_id").notNull().references(() => transactions.id),
     tagId: integer("tag_id").notNull().references(() => tags.id),

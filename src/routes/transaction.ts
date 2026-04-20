@@ -12,8 +12,9 @@ import {
     statementOwnerships,
     statements,
     type TransactionsSelectSchema,
+    transactionStatements,
 } from "../db/schema.ts";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { appLogger } from "../index.ts";
 import { HTTPException } from "hono/http-exception";
 import { findUserOrThrow } from "./route.utils.ts";
@@ -136,16 +137,20 @@ export const transactionRoute = new Hono()
                 for (const t of transactions) {
                     const { tags, ...rest } = t
 
-                    const findRes = tx.select().from(transactionsDb).where(and(
-                        eq(transactionsDb.description, t.description),
-                        eq(transactionsDb.amount, t.amount),
-                        eq(transactionsDb.transactionDate, t.transactionDate),
-                        eq(transactionsDb.userId, t.userId))
-                    ).all()
+                    const findRes = tx.select().from(transactionsDb)
+                        .leftJoin(transactionStatements, eq(transactionStatements.transactionId, transactionsDb.id))
+                        .where(and(
+                            eq(transactionsDb.description, t.description),
+                            eq(transactionsDb.amount, t.amount),
+                            eq(transactionsDb.transactionDate, t.transactionDate),
+                            eq(transactionsDb.userId, t.userId),
+                            ne(transactionStatements.statementId, insertedStatement[0].id)
+                        )).all()
 
                     if (findRes.length) {
                         appLogger(`Found ${findRes.length} similar transaction/s, skipping insert`)
-                        throw new Error('Found similar transaction')
+                        appLogger(`Similar transaction ids: ${JSON.stringify(findRes)}`)
+                        throw new Error(`Found ${findRes.length} similar transaction`)
                     }
 
                     const txnId = tx.insert(transactionsDb).values(rest).returning({ id: transactionsDb.id }).all()
@@ -153,6 +158,14 @@ export const transactionRoute = new Hono()
                     if (!insertedTxn) {
                         appLogger(`WARN: Could not add transaction ${t.description}`)
                         throw new Error(`Could not add transaction ${t.description}`)
+                    }
+
+                    const insertedTxnStm = tx.insert(transactionStatements).values({
+                        transactionId: insertedTxn.id, statementId: insertedStatement[0].id
+                    }).returning().all()
+
+                    if (!insertedTxnStm[0]) {
+                        throw new Error(`Could not add statement to transaction ${t.description}`)
                     }
 
                     if (!tags || !tags.length) continue
