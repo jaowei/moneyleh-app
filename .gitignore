@@ -1,6 +1,6 @@
 # deps
 node_modules/
-.env
+.env*
 *.db
 .idea
 test-files/
@@ -9,3 +9,4 @@ test-files/
 *.tar.gz
 *.csv
 *failed_training.json
+*failed-transactions-*

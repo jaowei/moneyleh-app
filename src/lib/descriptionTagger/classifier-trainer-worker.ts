@@ -20,11 +20,9 @@ parentPort?.on('message', async (task: WorkerTaskObj) => {
     appLogger(`${logMsgTemplate}-classifier initialised`)
 
     appLogger(`${logMsgTemplate}-adding ${task.documentsToAdd.length} docs`)
-    for (const doc of task.documentsToAdd) {
-        await defaultBayesC.addDocument(doc)
-        await naturalBayesC.addDocument(doc)
-        await knnC.addDocument(doc)
-    }
+    await defaultBayesC.addDocuments(task.documentsToAdd)
+    await naturalBayesC.addDocuments(task.documentsToAdd)
+    await knnC.addDocuments(task.documentsToAdd)
     appLogger(`${logMsgTemplate}-docs added`)
 
     appLogger(`${logMsgTemplate}-training...`)

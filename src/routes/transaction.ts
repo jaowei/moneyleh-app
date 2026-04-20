@@ -171,7 +171,10 @@ export const transactionRoute = new Hono()
                         throw new Error('Tag does not exist!')
                     } else {
                         const transactionTagsToInsert = queryRes.map((foundTag) => {
-                            documentsToAdd.push({ description: t.description, tag: foundTag.description })
+                            documentsToAdd.push({
+                                description: t.description, tag: foundTag.description,
+                                transactionId: insertedTxn.id
+                            })
                             return {
                                 transactionId: insertedTxn.id,
                                 tagId: foundTag.id
@@ -303,14 +306,15 @@ export const transactionRoute = new Hono()
                     const matcherKey = `${inserted.transactionDate}${inserted.description}${inserted.amount}`
                     if (txnMap[matcherKey]) {
                         for (const tag of txnMap[matcherKey]) {
-                            documentsToAdd.push({
-                                description: inserted.description,
-                                tag
-                            })
                             const foundTag = existingTagsQuery.concat(insertedTags).find((tagDb) => tagDb.description === tag)
                             if (!foundTag) {
                                 throw new Error(`Cannot find tag ${tag} in db`)
                             }
+                            documentsToAdd.push({
+                                description: inserted.description,
+                                tag,
+                                transactionId: inserted.id
+                            })
                             tagsFound.push({
                                 transactionId: inserted.id,
                                 tagId: foundTag.id

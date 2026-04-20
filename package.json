@@ -2,7 +2,7 @@
   "name": "moneyleh-app",
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "NODE_ENV=development bun run --hot src/index.ts",
     "dev:fe": "cd src/frontend && bun run dev",
     "start": "bun run src/index.ts",
     "generate:better-auth": "bunx --bun @better-auth/cli generate --output src/db/auth-schema.ts",

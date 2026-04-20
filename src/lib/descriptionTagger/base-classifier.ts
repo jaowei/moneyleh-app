@@ -1,10 +1,12 @@
 import { BayesClassifier, WordTokenizer } from "natural";
 import { NaiveBayesClassifier } from "./naive-bayes-classifier";
 import { KnnClassifier } from "./knn-classifier";
+import { appLogger } from "../..";
 
 export type DocumentToAdd = {
     description: string;
-    tag: string
+    tag: string;
+    transactionId: number;
 }
 type NaturalBayesClassifier = {
     type: 'natural-bayes';
@@ -24,7 +26,7 @@ export class BaseClassifier {
     public classifierInstance: Classifier
     public classifierDataPath: string
 
-    constructor(classifierType: Classifier['type'] = 'default-bayes', testFileName = 'test') {
+    constructor(classifierType: Classifier['type'] = 'default-bayes', testFileName = process.env.CLASSIFIER_DATA_NAME || 'test') {
         switch (classifierType) {
             case "natural-bayes":
                 this.classifierInstance = {
@@ -105,6 +107,26 @@ export class BaseClassifier {
                 await this.classifierInstance.classifier.addDocument(doc)
                 break;
             }
+        }
+    }
+
+    public async addDocuments(docs: DocumentToAdd[]) {
+        const failedDocs = []
+        for (const doc of docs) {
+            try {
+                if (doc.description === '') {
+                    await this.addDocument({ ...doc, description: ' ' })
+                } else {
+                    await this.addDocument(doc)
+                }
+            } catch (e) {
+                appLogger(`${this.classifierInstance.type}-Error adding document ${JSON.stringify(doc)}`)
+                failedDocs.push(doc)
+            }
+        }
+        if (failedDocs.length > 0) {
+            const failedIds = failedDocs.map((failed) => failed.transactionId)
+            await Bun.write(`${this.classifierInstance.type}-failed-transactions-${new Date().toISOString()}.json`, JSON.stringify(failedIds))
         }
     }
 
