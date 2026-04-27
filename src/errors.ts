@@ -7,6 +7,8 @@ export const ParsingErrors = {
     dueDate: new Error('Format error: Unable to parse due date'),
     page: new Error('Unknown format: Page not found'),
     transactionDate: new Error('Format error: Unable to parse transaction date'),
-    cardDetails: new Error('Format error: Unable to detect card names and numbers')
-
+    cardDetails: new Error('Format error: Unable to detect card names and numbers'),
+    creditLimit: new Error('Format error: Unable to get credit limit'),
+    transactionAmt: new Error('Format error: Unable to parse transaction amount'),
+    points: new Error('Format error: Unable to parse points')
 }
