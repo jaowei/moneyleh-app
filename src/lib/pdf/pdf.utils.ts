@@ -1,26 +1,33 @@
-import {extendedDayjs, parseDateString} from "../dayjs.ts";
-import {appLogger} from "../../index.ts";
+import { extendedDayjs, parseDateString } from "../dayjs.ts";
 
+/**
+ * @param dateStr we expect transaction dates to only contain day and month
+ * @param statementDate a statement date in ISO format
+ * @returns either a date in ISO string format or undefined if unable to parse
+ */
 export const parseTxnDate = (dateStr: string, statementDate: string) => {
-    // trying to match "02 MAY"
-    // 1st group will be 02
-    // 2nd group will be MAY
-    const matches = dateStr.match(/(\d{2}) ([A-Z]{3})/)
-    if (matches && matches[1] && matches[2]) {
-        const month = matches[2].charAt(0) + matches[2].slice(1).toLowerCase()
-        const statementDateDayjs = extendedDayjs(statementDate)
-        let year = statementDateDayjs.year()
-        if (statementDateDayjs.month() === 0 && month.toLowerCase() === 'dec') {
-            year = statementDateDayjs.year() - 1
+    const statementDateDayjs = extendedDayjs(statementDate)
+    let txnYear = statementDateDayjs.year()
+    const isJanStatement = statementDateDayjs.month() === 0
+
+    // match "02 MAY", 1st group will be 02, 2nd group will be MAY
+    const allCapDateMatch = dateStr.match(/(\d{1,2}) ([A-Z]{3})/)
+    if (allCapDateMatch && allCapDateMatch[1] && allCapDateMatch[2]) {
+        const txnMonth = allCapDateMatch[2].charAt(0) + allCapDateMatch[2].slice(1).toLowerCase()
+        if (isJanStatement && txnMonth.toLowerCase() === 'dec') {
+            txnYear -= 1
         }
-        const date = `${matches[1]} ${month} ${year}`
-        const parsed = parseDateString(date, 'DD MMM YYYY')
-        if (parsed) {
-            return parsed
-        } else {
-            appLogger(`WARN: Could not parse date`)
-        }
+        const date = `${allCapDateMatch[1]} ${txnMonth} ${txnYear}`
+        const parsed = parseDateString(date, ['DD MMM YYYY', 'D MMM YYYY'])
+        return parsed
     } else {
-        appLogger(`WARN: No date to add`)
+        const txnDate = extendedDayjs(dateStr, ['D MMM', 'DD MMM'])
+        if (txnDate.isValid()) {
+            if (isJanStatement && txnDate.month() === 11) {
+                txnYear -= 1
+            }
+            return txnDate.year(txnYear).toISOString()
+        }
     }
+
 }

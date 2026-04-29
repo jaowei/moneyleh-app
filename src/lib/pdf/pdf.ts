@@ -9,6 +9,7 @@ import { uobAccount, uobCard } from './formats/uob.ts';
 import { trustCard } from './formats/trust.ts';
 import { scbCard } from './formats/scb.ts';
 import { citiCard } from './formats/citi.ts';
+import { gxsAccount } from './formats/gxs.ts';
 
 const parseStatementPages = (document: mupdf.Document) => {
     const dataToExtract: MuPdfStructuredTextPage[] = []
@@ -46,6 +47,8 @@ const getDataExtractorForFormat = (doc: mupdf.Document) => {
         return scbCard.extractData
     } else if (firstPage.search(citiCard.searchString).length) {
         return citiCard.extractData
+    } else if (firstPage.search(gxsAccount.searchString).length) {
+        return gxsAccount.extractData
     }
     else {
         throw new Error('Unable to determine PDF statement format')

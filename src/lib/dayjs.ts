@@ -9,7 +9,7 @@ dayjs.extend(utc)
 
 export const extendedDayjs = dayjs
 
-export const parseDateString = (dateToParse: string, format: string) => {
+export const parseDateString = (dateToParse: string, format: string | string[]) => {
     const date = extendedDayjs(dateToParse, format, true)
     if (date.isValid()) {
         return date.toISOString()
