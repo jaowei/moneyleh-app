@@ -306,7 +306,7 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
 
                 // parse amount
                 const potentialAmountOnSameBlock = block.lines[2]
-                const coordThresholdForWithdrawal = 437
+                const coordThresholdForWithdrawal = 420
                 let amount = 0
                 let description = ''
 
