@@ -162,6 +162,7 @@ export const uiRoute = new Hono()
                     taggedTransactions.push(txnWithCardName)
                 }
                 break;
+            case "cpf":
             case "account":
                 for (const [accountName, data] of Object.entries(statementData.accounts)) {
                     let targetAccount
@@ -189,9 +190,6 @@ export const uiRoute = new Hono()
                     const txnWithAccountName = taggedTxns.map((t) => ({ ...t, accountName, accountId: targetAccount.id }))
                     taggedTransactions.push(txnWithAccountName)
                 }
-                break;
-            case "cpf":
-                appLogger('NOT IMPLEMENTED')
                 break;
             default:
                 appLogger('NOT IMPLEMENTED')
