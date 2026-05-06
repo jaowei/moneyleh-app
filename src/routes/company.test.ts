@@ -1,9 +1,16 @@
-import {describe, expect, test} from "bun:test";
+import {afterAll, beforeAll, describe, expect, test} from "bun:test";
 import app from "..";
 import {jsonHeader} from "../lib/test.utils.ts";
+import { db } from "../db/db.ts";
+import { companies } from "../db/schema.ts";
+import { eq } from "drizzle-orm";
 
 describe("/api/company", () => {
     describe("create", () => {
+        const companyName =`test-company-${Date.now()}` 
+        afterAll(async () => {
+            await db.delete(companies).where(eq(companies.name, companyName))
+        })
         test("Fails to create: already exists", async () => {
             const res = await app.request("/api/company", {
                 method: "POST",
@@ -31,7 +38,7 @@ describe("/api/company", () => {
             const res = await app.request("/api/company", {
                 method: "POST",
                 body: JSON.stringify({
-                    name: `test-company-${Date.now()}`,
+                    name: companyName,
                 }),
                 ...jsonHeader,
             });
@@ -71,6 +78,17 @@ describe("/api/company", () => {
     });
 
     describe("update", () => {
+        let companyId = 1000
+        const companyName = 'test-company'
+        beforeAll(async () => {
+            const res = await db.insert(companies).values({name: companyName}).returning()
+            if (res[0]) {
+                companyId = res[0].id
+            }
+        })
+        afterAll(async () => {
+            await db.delete(companies).where(eq(companies.name, companyName))
+        })
         test("Fails to upate: invalid payload", async () => {
             const res = await app.request("/api/company/1", {
                 method: "PUT",
@@ -108,11 +126,11 @@ describe("/api/company", () => {
             const errorText = await res.text();
             expect(errorText).toInclude("Could not find company id");
         })
-        test("Updates: invalid company id", async () => {
-            const res = await app.request("/api/company/18", {
+        test("Updates: company id", async () => {
+            const res = await app.request(`/api/company/${companyId}`, {
                 method: "PUT",
                 body: JSON.stringify({
-                    name: "helloNewName",
+                    name: companyName,
                 }),
                 ...jsonHeader,
             });
