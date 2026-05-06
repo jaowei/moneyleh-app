@@ -1,6 +1,6 @@
 # deps
 node_modules/
-.env*
+.env
 *.db
 .idea
 test-files/
