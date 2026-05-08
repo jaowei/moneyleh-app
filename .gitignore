@@ -4,7 +4,7 @@ node_modules/
 *.db
 .idea
 test-files/
-*-test.json
+*classifier*.json
 .DS_Store
 *.tar.gz
 *.csv
