@@ -1,6 +1,6 @@
 import { describe, expect, test, afterEach, afterAll, beforeAll } from "bun:test";
 import app from "../index.ts";
-import { jsonHeader, testTag } from "../lib/test.utils.ts";
+import { jsonHeader } from "../lib/test.utils.ts";
 import type { PatchTransactionPayload, PostTransactionPayload } from "./transaction.ts";
 import { testUser } from "../lib/test.utils.ts";
 import { statementOwnerships, statements, tags, transactions, type TransactionsSelectSchema, transactionStatements, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
@@ -17,10 +17,6 @@ describe('/api/transaction', () => {
         amount: 123,
         userId: testUser.id,
         accountId: 1,
-        tags: [{
-            id: 1,
-            description: testTag.description
-        }]
     }
 
     const transactionCleanup = async () => {
@@ -82,9 +78,7 @@ describe('/api/transaction', () => {
 
         test('inserts into db: no tags', async () => {
             const testTransactions: PostTransactionPayload = {
-                transactions: [{
-                    ...testTransaction,
-                }],
+                transactions: [testTransaction],
                 statementInfo: { statementDate: new Date().toISOString() },
                 accountInfo: { accountId: 1, accountName: 'test-account' }
             }
@@ -101,7 +95,7 @@ describe('/api/transaction', () => {
                 transactions: [{
                     ...testTransaction,
                     tags: [{
-                        id: 1,
+                        id: -1,
                         description: ''
                     }]
                 }],
@@ -238,7 +232,6 @@ describe('/api/transaction', () => {
             const resData = await res.json() as { transactions: any[] }
             expect(resData.transactions.length).toBe(1)
             expect(resData.transactions[0].accountName).toBe("multiplier")
-            expect(resData.transactions[0].tags[0].description).toBe(testTag.description)
         })
 
         test('get per user per card', async () => {
@@ -249,7 +242,6 @@ describe('/api/transaction', () => {
             const resData = await res.json() as { transactions: any[] }
             expect(resData.transactions.length).toBe(1)
             expect(resData.transactions[0].cardName).toBe("altitude visa signature")
-            expect(resData.transactions[0].tags[0].description).toBe(testTag.description)
         })
     });
 

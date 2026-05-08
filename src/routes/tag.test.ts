@@ -1,13 +1,18 @@
 import {afterAll, describe, expect, test} from "bun:test";
 import app from '..'
-import {jsonHeader, testTag} from "../lib/test.utils.ts";
-import type {TagInsertSchema, TagSelectSchema} from "../db/schema.ts";
+import {jsonHeader} from "../lib/test.utils.ts";
+import {tags, type TagInsertSchema, type TagSelectSchema} from "../db/schema.ts";
+import { db } from "../db/db.ts";
+import { eq } from "drizzle-orm";
 
 describe('/api/tag', () => {
     describe('create', () => {
         const tagPayload: TagInsertSchema = {
             description: `test-tag-${new Date()}`
         }
+        afterAll(async () => {
+            await db.delete(tags).where(eq(tags.description, tagPayload.description))
+        })
         test('Fails to create: invalid payload', async () => {
             const res = await app.request('/api/tag', {
                 method: 'POST',
@@ -56,6 +61,10 @@ describe('/api/tag', () => {
     })
 
     describe('get', () => {
+        const tagDesc = 'tag-api-test'
+        afterAll(async () => {
+            await db.delete(tags).where(eq(tags.description, tagDesc))
+        })
         test('get invalid id', async () => {
             const res = await app.request('/api/tag/invalidId', {
                 method: 'GET'
@@ -63,12 +72,14 @@ describe('/api/tag', () => {
             expect(res.status).toBe(404)
         })
         test('get by id', async () => {
-            const res = await app.request('/api/tag/1', {
+            const createdRes = await db.insert(tags).values({description: tagDesc}).returning()
+            if (!createdRes[0]) throw new Error('creation failed')
+            const res = await app.request(`/api/tag/${createdRes[0].id}`, {
                 method: 'GET'
             })
             expect(res.status).toBe(200)
             const resData = await res.json() as TagSelectSchema
-            expect(resData.id).toBe(1)
+            expect(resData.id).toBe(createdRes[0].id)
         })
         test('get all', async () => {
             const res = await app.request('/api/tag', {
@@ -81,18 +92,6 @@ describe('/api/tag', () => {
     })
 
     describe('put', () => {
-        afterAll(async () => {
-            await app.request('/api/tag', {
-                method: 'PUT',
-                ...jsonHeader,
-                body: JSON.stringify({
-                    tags: [{
-                        id: 1,
-                        description: testTag.description
-                    }]
-                })
-            })
-        })
         test('Fails to update: no payload', async () => {
             const res = await app.request('/api/tag', {
                 method: 'PUT',
@@ -104,12 +103,15 @@ describe('/api/tag', () => {
             expect(res.status).toBe(400)
         })
         test('updates', async () => {
+        const tagDesc = 'tag-api-test'
+            const createdRes = await db.insert(tags).values({description: tagDesc}).returning()
+            if (!createdRes[0]) throw new Error('creation failed')
             const res = await app.request('/api/tag', {
                 method: 'PUT',
                 ...jsonHeader,
                 body: JSON.stringify({
                     tags: [{
-                        id: 1,
+                        id: createdRes[0].id,
                         description: 'test-tag-updated!'
                     }]
                 })
@@ -118,6 +120,7 @@ describe('/api/tag', () => {
             const resData = await res.json() as { updated: any[]; failed: any[] }
             expect(resData.failed).toHaveLength(0)
             expect(resData.updated).toHaveLength(1)
+            await db.delete(tags).where(eq(tags.id, createdRes[0].id))
         })
         test('Fails to update: invalid tag payload', async () => {
             const res = await app.request('/api/tag', {
