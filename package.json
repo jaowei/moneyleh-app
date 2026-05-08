@@ -35,6 +35,7 @@
     "lefthook": "^2.1.6"
   },
   "trustedDependencies": [
-    "@tensorflow/tfjs-node"
+    "@tensorflow/tfjs-node",
+    "lefthook"
   ]
 }
