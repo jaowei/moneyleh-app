@@ -1,11 +1,11 @@
 import { describe, expect, test, afterEach, afterAll, beforeAll } from "bun:test";
 import app from "../index.ts";
 import { jsonHeader, testTag } from "../lib/test.utils.ts";
-import type { PostTransactionPayload } from "./transaction.ts";
+import type { PatchTransactionPayload, PostTransactionPayload } from "./transaction.ts";
 import { testUser } from "../lib/test.utils.ts";
-import { statementOwnerships, statements, transactions, type TransactionsSelectSchema, transactionStatements, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
+import { statementOwnerships, statements, tags, transactions, type TransactionsSelectSchema, transactionStatements, type TransactionsUpdateSchema, transactionTags, userAccounts } from "../db/schema.ts";
 import { db } from "../db/db.ts";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 
 
 describe('/api/transaction', () => {
@@ -348,10 +348,18 @@ describe('/api/transaction', () => {
 
     describe('update transactions', () => {
         const testDate = 'test-date'
+        const testTagName = 'test-tag-txn'
         afterEach(async () => {
-            await db.delete(transactions).where(eq(transactions.transactionDate, testDate))
+            const testTxn = await db.select().from(transactions).where(eq(transactions.transactionDate, testDate))
+            for (const t of testTxn) {
+                await db.delete(transactionTags).where(eq(transactionTags.transactionId, t.id))
+                await db.delete(transactions).where(eq(transactions.transactionDate, testDate))
+            }
+            await db.delete(tags).where(like(tags.description, `%${testTagName}%`))
         })
         test('update a transaction', async () => {
+            const testTag = await db.insert(tags).values({description: `${testTagName}1`}).returning()
+            const testTag2 = await db.insert(tags).values({description: `${testTagName}2`}).returning()
             const testTransaction = await db.insert(transactions).values({
                 transactionDate: testDate,
                 amount: 0,
@@ -359,23 +367,34 @@ describe('/api/transaction', () => {
                 currency: 'SGD',
                 userId: testUser.id
             }).returning()
-            const transactionUpdatePayload: TransactionsUpdateSchema = {
-                id: testTransaction[0]?.id,
+            if (!testTransaction[0]) throw new Error('did not make test transaction')
+            if (!testTag[0]) throw new Error('did not make test transaction')
+            if (!testTag2[0]) throw new Error('did not make test transaction')
+            await db.insert(transactionTags).values({ transactionId: testTransaction[0].id, tagId: testTag[0].id })
+            const transactionUpdatePayload: PatchTransactionPayload['transactions'][0] = {
+                id: testTransaction[0].id,
                 amount: 999,
-                description: 'I was updated!'
+                description: 'I was updated!',
+                tags: [{
+                    id: testTag[0].id,
+                    description: 'test-tag'
+                }, {id: testTag2[0].id, description: 'test-tag2'}]
             }
-            const res = await app.request("/api/transaction/", {
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
                 method: "PATCH",
                 body: JSON.stringify({
                     transactions: [transactionUpdatePayload]
                 }),
                 ...jsonHeader,
             });
+            const transactionAfter = await db.select().from(transactions).where(eq(transactions.id, testTransaction[0].id))
+            const transactionTagAfter = await db.select().from(transactionTags).where(eq(transactionTags.transactionId, testTransaction[0].id))
             expect(res.status).toBe(200)
-            const resData = await res.json() as { failed: any[] }
-            expect(resData.failed).toHaveLength(0)
+            expect(transactionAfter[0]?.description).toBe(transactionUpdatePayload.description)
+            expect(transactionAfter[0]?.amount).toBe(transactionUpdatePayload.amount)
+            expect(transactionTagAfter.length).toBe(2)
         })
-        test('update an invalid transaction', async () => {
+        test('fails update when tag is invalid', async () => {
             const testTransaction = await db.insert(transactions).values({
                 transactionDate: testDate,
                 amount: 0,
@@ -383,12 +402,42 @@ describe('/api/transaction', () => {
                 currency: 'SGD',
                 userId: testUser.id
             }).returning()
+            if (!testTransaction[0]) throw new Error('did not make test transaction')
+            const transactionUpdatePayload: PatchTransactionPayload['transactions'][0] = {
+                id: testTransaction[0].id,
+                amount: 999,
+                description: 'I was updated!',
+                tags: [{
+                    id: 0,
+                    description: 'test-tag'
+                }]
+            }
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transactions: [transactionUpdatePayload]
+                }),
+                ...jsonHeader,
+            });
+            const transactionTagAfter = await db.select().from(transactionTags).where(eq(transactionTags.transactionId, testTransaction[0].id))
+            expect(res.status).toBe(400)
+            expect(await res.text()).toInclude('Could not update tag')
+            expect(transactionTagAfter.length).toBe(0)
+        })
+        test('fails on invalid transaction id', async () => {
+            await db.insert(transactions).values({
+                transactionDate: testDate,
+                amount: 0,
+                description: 'test-description',
+                currency: 'SGD',
+                userId: testUser.id
+            })
             const transactionUpdatePayload: TransactionsUpdateSchema = {
-                id: NaN,
+                id: 1000,
                 amount: 999,
                 description: 'I was updated!'
             }
-            const res = await app.request("/api/transaction/", {
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
                 method: "PATCH",
                 body: JSON.stringify({
                     transactions: [{
@@ -398,9 +447,49 @@ describe('/api/transaction', () => {
                 }),
                 ...jsonHeader,
             });
-            expect(res.status).toBe(200)
-            const resData = await res.json() as { failed: any[] }
-            expect(resData.failed).toHaveLength(1)
+            expect(res.status).toBe(400)
+            expect(await res.text()).toInclude('Could not update transaction')
+        })
+        test('fails when no transaction id is available', async () => {
+            const transactionUpdatePayload: TransactionsUpdateSchema = {
+                amount: 999,
+                description: 'I was updated!'
+            }
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transactions: [transactionUpdatePayload]
+                }),
+                ...jsonHeader,
+            });
+            expect(res.status).toBe(400)
+            expect(await res.text()).toInclude('Invalid input')
+        })
+        test('fails when mixed valid and invalid transactions', async () => {
+            const newTransaction = {
+                transactionDate: testDate,
+                amount: 0,
+                description: 'test-description',
+                currency: 'SGD',
+                userId: testUser.id
+            }
+            const testTransaction = await db.insert(transactions).values(newTransaction).returning()
+            const transactionUpdatePayload: TransactionsUpdateSchema = {
+                id: testTransaction?.[0]?.id,
+                amount: 999,
+                description: 'I was updated!'
+            }
+            const res = await app.request(`/api/transaction/${testUser.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transactions: [transactionUpdatePayload, { ...transactionUpdatePayload, id: -1 }]
+                }),
+                ...jsonHeader,
+            });
+            const result = await db.select().from(transactions).where(eq(transactions.id, testTransaction?.[0]?.id || 0))
+            expect(res.status).toBe(400)
+            expect(result?.[0]?.amount).toBe(newTransaction.amount)
+            expect(await res.text()).toInclude('Could not update transaction')
         })
     })
 

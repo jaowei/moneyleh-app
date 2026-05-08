@@ -290,8 +290,9 @@ function InventoryComponent() {
                                         <div className="flex flex-row gap-1">
                                             {acc.accounts?.id && (
                                                 <button className="btn btn-xs btn-primary">
-                                                    <Link to='/inventory/account/$accountId' params={{
-                                                        accountId: `${acc.accounts.id}`
+                                                    <Link to='/inventory/$type/$id' params={{
+                                                        id: `${acc.accounts.id}`,
+                                                        type: 'account'
                                                     }}>View</Link>
                                                 </button>
                                             )}
@@ -332,8 +333,9 @@ function InventoryComponent() {
                                         <div className="flex flex-row gap-1">
                                             {card.cards?.id && (
                                                 <button className="btn btn-xs btn-primary">
-                                                    <Link to='/inventory/card/$cardId' params={{
-                                                        cardId: `${card.cards.id}`
+                                                    <Link to='/inventory/$type/$id' params={{
+                                                        id: `${card.cards.id}`,
+                                                        type: 'card'
                                                     }}>View</Link>
                                                 </button>
                                             )}

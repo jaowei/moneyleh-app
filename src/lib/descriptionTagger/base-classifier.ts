@@ -26,31 +26,28 @@ export class BaseClassifier {
     public classifierInstance: Classifier
     public classifierDataPath: string
 
-    constructor(classifierType: Classifier['type'] = 'default-bayes', testFileName = process.env.CLASSIFIER_DATA_NAME || 'test') {
+    constructor(classifierType: Classifier['type'] = 'default-bayes', filePostFix = process.env.CLASSIFIER_DATA_NAME || 'test') {
         switch (classifierType) {
             case "natural-bayes":
                 this.classifierInstance = {
                     type: classifierType,
                     classifier: new BayesClassifier()
                 }
-                this.classifierDataPath =
-                    process.env.NODE_ENV === 'production' ? 'natural-bayes-classifier.json' : `natural-bayes-classifier-${testFileName}.json`;
+                this.classifierDataPath = `natural-bayes-classifier-${filePostFix}.json`;
                 break;
             case "default-bayes":
                 this.classifierInstance = {
                     type: classifierType,
                     classifier: new NaiveBayesClassifier()
                 }
-                this.classifierDataPath =
-                    process.env.NODE_ENV === 'production' ? 'default-bayes-classifier.json' : `default-bayes-classifier-${testFileName}.json`;
+                this.classifierDataPath = `default-bayes-classifier-${filePostFix}.json`;
                 break;
             case "default-knn":
                 this.classifierInstance = {
                     type: classifierType,
                     classifier: new KnnClassifier
                 }
-                this.classifierDataPath =
-                    process.env.NODE_ENV === 'production' ? 'default-knn-classifier.json' : `default-knn-classifier-${testFileName}.json`;
+                this.classifierDataPath = `default-knn-classifier-${filePostFix}.json`;
                 break;
         }
     }

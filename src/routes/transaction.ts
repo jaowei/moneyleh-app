@@ -7,7 +7,6 @@ import {
     transactions as transactionsDb,
     transactionsInsertSchemaZ, type TransactionTagsInsertSchema,
     tagSelectSchemaZ, transactionTags as transactionTagsDb, transactionsUpdateSchemaZ,
-    type TransactionsUpdateSchema,
     userCards, userAccounts, type TagSelectSchema, accounts, cards,
     statementOwnerships,
     statements,
@@ -25,11 +24,12 @@ import { runTrainer } from "./transaction.utils.ts";
 
 const allowOnlyAccountOrCardIdErrMsg = 'An account id or card id is required, both cannot be empty and filled in the same transaction'
 
+const UiTagZ = tagSelectSchemaZ.partial().extend({
+    id: z.number(),
+    description: z.string().min(1)
+})
 const transactionFromUIZ = transactionsInsertSchemaZ.extend({
-    tags: z.array(tagSelectSchemaZ.partial().extend({
-        id: z.number(),
-        description: z.string().min(1)
-    })).optional(),
+    tags: z.array(UiTagZ).optional(),
     userId: z.string()
 }).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
 const transactionsFromUIZ = z.array(transactionFromUIZ).min(1)
@@ -63,8 +63,12 @@ const postTransactionCsvPayloadZ = z.object({
 }).refine((data) => refineAccountOrCardId(data), { error: allowOnlyAccountOrCardIdErrMsg })
 
 const transactionsPatchPayloadZ = z.object({
-    transactions: z.array(transactionsUpdateSchemaZ).min(1)
+    transactions: z.array(transactionsUpdateSchemaZ.extend({
+        id: z.number(),
+        tags: z.array(UiTagZ).optional()
+    })).min(1)
 })
+export type PatchTransactionPayload = z.infer<typeof transactionsPatchPayloadZ>
 
 const getUserTransactionsQueryZ = z.discriminatedUnion(
     "type",
@@ -344,7 +348,6 @@ export const transactionRoute = new Hono()
             })
         } catch (e) {
             const message = e instanceof Error ? e.message : JSON.stringify(e)
-            console.log(e)
             throw new HTTPException(400, {
                 message
             })
@@ -402,7 +405,7 @@ export const transactionRoute = new Hono()
         })
 
         const uniqueTransactionsMap = new Map<number,
-            TransactionsSelectSchema & { tags: TagSelectSchema[]; accountName?: string; cardName?: string }
+            TransactionsSelectSchema & { tags: Pick<TagSelectSchema, 'id' | 'description'>[]; accountName?: string; cardName?: string }
         >()
         processedTransactions.forEach((t) => {
             const transaction = uniqueTransactionsMap.get(t.id)
@@ -487,27 +490,35 @@ export const transactionRoute = new Hono()
             chartData
         })
     })
-    .patch('/*', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
+    .patch('/:userId', zodValidator('json', transactionsPatchPayloadZ), async (c) => {
         const { transactions } = c.req.valid('json')
-        const failedUpdates: TransactionsUpdateSchema[] = []
-        for (const t of transactions) {
-            if (!t.id) {
-                failedUpdates.push(t)
-                continue
-            }
-            try {
-                const updateRes = await db.update(transactionsDb).set({
+        db.transaction((tx) => {
+            for (const t of transactions) {
+                const updateRes = tx.update(transactionsDb).set({
                     ...t,
                     updated_at: new Date().toISOString()
-                }).where(eq(transactionsDb.id, t.id)).returning({ id: transactionsDb.id })
+                }).where(eq(transactionsDb.id, t.id)).returning({ id: transactionsDb.id }).all()
                 if (!updateRes.length) {
-                    failedUpdates.push(t)
+                    throw new HTTPException(400, {
+                        message: `Could not update transaction id (${t.id})`
+                    })
                 }
-            } catch (e) {
-                failedUpdates.push(t)
+                if (t.tags && t.tags.length > 0) {
+                    for (const tag of t.tags) {
+                        try {
+                            tx.insert(transactionTagsDb).values({
+                                tagId: tag.id,
+                                transactionId: t.id
+                            }).returning().onConflictDoNothing().all()
+                        } catch (error) {
+                            throw new HTTPException(400, {
+                                message: `Could not update tag id (${tag.id})`
+                            })
+
+                        }
+                    }
+                }
             }
-        }
-        return c.json({
-            failed: failedUpdates
         })
+        return c.text(`Updated ${transactions.length} transactions`)
     })

@@ -16,8 +16,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedInventoryRouteRouteImport } from './routes/_authenticated/inventory.route'
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated/inventory.index'
 import { Route as AuthenticatedInventoryUploadRouteImport } from './routes/_authenticated/inventory.upload'
-import { Route as AuthenticatedInventoryCardCardIdRouteImport } from './routes/_authenticated/inventory.card.$cardId'
-import { Route as AuthenticatedInventoryAccountAccountIdRouteImport } from './routes/_authenticated/inventory.account.$accountId'
+import { Route as AuthenticatedInventoryTypeIdRouteImport } from './routes/_authenticated/inventory.$type.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -56,16 +55,10 @@ const AuthenticatedInventoryUploadRoute =
     path: '/upload',
     getParentRoute: () => AuthenticatedInventoryRouteRoute,
   } as any)
-const AuthenticatedInventoryCardCardIdRoute =
-  AuthenticatedInventoryCardCardIdRouteImport.update({
-    id: '/card/$cardId',
-    path: '/card/$cardId',
-    getParentRoute: () => AuthenticatedInventoryRouteRoute,
-  } as any)
-const AuthenticatedInventoryAccountAccountIdRoute =
-  AuthenticatedInventoryAccountAccountIdRouteImport.update({
-    id: '/account/$accountId',
-    path: '/account/$accountId',
+const AuthenticatedInventoryTypeIdRoute =
+  AuthenticatedInventoryTypeIdRouteImport.update({
+    id: '/$type/$id',
+    path: '/$type/$id',
     getParentRoute: () => AuthenticatedInventoryRouteRoute,
   } as any)
 
@@ -76,8 +69,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
-  '/inventory/account/$accountId': typeof AuthenticatedInventoryAccountAccountIdRoute
-  '/inventory/card/$cardId': typeof AuthenticatedInventoryCardCardIdRoute
+  '/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,8 +77,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
-  '/inventory/account/$accountId': typeof AuthenticatedInventoryAccountAccountIdRoute
-  '/inventory/card/$cardId': typeof AuthenticatedInventoryCardCardIdRoute
+  '/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,8 +88,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
-  '/_authenticated/inventory/account/$accountId': typeof AuthenticatedInventoryAccountAccountIdRoute
-  '/_authenticated/inventory/card/$cardId': typeof AuthenticatedInventoryCardCardIdRoute
+  '/_authenticated/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,8 +99,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inventory/upload'
     | '/inventory/'
-    | '/inventory/account/$accountId'
-    | '/inventory/card/$cardId'
+    | '/inventory/$type/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -118,8 +107,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inventory/upload'
     | '/inventory'
-    | '/inventory/account/$accountId'
-    | '/inventory/card/$cardId'
+    | '/inventory/$type/$id'
   id:
     | '__root__'
     | '/'
@@ -129,8 +117,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/inventory/upload'
     | '/_authenticated/inventory/'
-    | '/_authenticated/inventory/account/$accountId'
-    | '/_authenticated/inventory/card/$cardId'
+    | '/_authenticated/inventory/$type/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -190,18 +177,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryUploadRouteImport
       parentRoute: typeof AuthenticatedInventoryRouteRoute
     }
-    '/_authenticated/inventory/card/$cardId': {
-      id: '/_authenticated/inventory/card/$cardId'
-      path: '/card/$cardId'
-      fullPath: '/inventory/card/$cardId'
-      preLoaderRoute: typeof AuthenticatedInventoryCardCardIdRouteImport
-      parentRoute: typeof AuthenticatedInventoryRouteRoute
-    }
-    '/_authenticated/inventory/account/$accountId': {
-      id: '/_authenticated/inventory/account/$accountId'
-      path: '/account/$accountId'
-      fullPath: '/inventory/account/$accountId'
-      preLoaderRoute: typeof AuthenticatedInventoryAccountAccountIdRouteImport
+    '/_authenticated/inventory/$type/$id': {
+      id: '/_authenticated/inventory/$type/$id'
+      path: '/$type/$id'
+      fullPath: '/inventory/$type/$id'
+      preLoaderRoute: typeof AuthenticatedInventoryTypeIdRouteImport
       parentRoute: typeof AuthenticatedInventoryRouteRoute
     }
   }
@@ -210,18 +190,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedInventoryRouteRouteChildren {
   AuthenticatedInventoryUploadRoute: typeof AuthenticatedInventoryUploadRoute
   AuthenticatedInventoryIndexRoute: typeof AuthenticatedInventoryIndexRoute
-  AuthenticatedInventoryAccountAccountIdRoute: typeof AuthenticatedInventoryAccountAccountIdRoute
-  AuthenticatedInventoryCardCardIdRoute: typeof AuthenticatedInventoryCardCardIdRoute
+  AuthenticatedInventoryTypeIdRoute: typeof AuthenticatedInventoryTypeIdRoute
 }
 
 const AuthenticatedInventoryRouteRouteChildren: AuthenticatedInventoryRouteRouteChildren =
   {
     AuthenticatedInventoryUploadRoute: AuthenticatedInventoryUploadRoute,
     AuthenticatedInventoryIndexRoute: AuthenticatedInventoryIndexRoute,
-    AuthenticatedInventoryAccountAccountIdRoute:
-      AuthenticatedInventoryAccountAccountIdRoute,
-    AuthenticatedInventoryCardCardIdRoute:
-      AuthenticatedInventoryCardCardIdRoute,
+    AuthenticatedInventoryTypeIdRoute: AuthenticatedInventoryTypeIdRoute,
   }
 
 const AuthenticatedInventoryRouteRouteWithChildren =

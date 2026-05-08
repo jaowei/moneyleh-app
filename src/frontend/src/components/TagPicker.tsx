@@ -1,13 +1,20 @@
 import { useRouter } from "@tanstack/react-router";
 import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
-import { useRef, useState, type ChangeEvent } from "react";
+import React, { useState, type ChangeEvent } from "react";
 
-export type UiTag = Pick<Tag, 'id' | 'description'>
+export type UiTag = Pick<Tag, 'id' | 'description'> 
 
-interface TagInputProps {
+interface TagModalProps {
+    ref: React.Ref<HTMLDialogElement>;
     onTagChange: (selectedTags: UiTag[]) => void;
+    onModalClose: () => void;
     selectedTags: UiTag[];
     availableTags: UiTag[]
+}
+
+interface TagPickerProps {
+    onTagPickerClick: () => void;
+    disabled?: boolean;
 }
 
 const tagFilter = (searchQuery: string) => {
@@ -17,15 +24,14 @@ const tagFilter = (searchQuery: string) => {
     }
 }
 
-export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInputProps) => {
-    const tagModalRef = useRef<null | HTMLDialogElement>(null)
-    const remainingTags = availableTags.filter((tag) => !selectedTags.find((t) => t.id === tag.id))
+export const TagPickerModal = ({ref, selectedTags, availableTags, onTagChange, onModalClose}: TagModalProps) => {
     const [newTagName, setNewTagName] = useState('')
     const [tagSearchQuery, setTagSearchQuery] = useState('')
     const [tagCreationError, setTagCreationError] = useState('')
 
     const router = useRouter()
 
+    const remainingTags = availableTags.filter((tag) => !selectedTags.find((t) => t.id === tag.id))
     const filteredSelectedTags = tagSearchQuery ? selectedTags.filter(tagFilter(tagSearchQuery)) : selectedTags
     const filteredRemainingTags = tagSearchQuery ? remainingTags.filter(tagFilter(tagSearchQuery)) : remainingTags
 
@@ -35,7 +41,7 @@ export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInput
         })
         if (res.ok) {
             const createdTag = (await res.json()).created
-            const newTags = [...selectedTags, createdTag[0]]
+            const newTags = [...selectedTags, {id: createdTag[0].id, description: createdTag[0].description}]
             onTagChange(newTags)
             setNewTagName('')
             router.invalidate()
@@ -46,7 +52,6 @@ export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInput
 
     const handleCheckboxSelect = (tag: UiTag) => {
         return (e: ChangeEvent<HTMLInputElement>) => {
-            console.log(e.target.checked)
             if (!e.target.checked) {
                 // unchecking, remove tag
                 const newTags = selectedTags.filter((existingTag) => tag.id !== existingTag.id)
@@ -66,13 +71,8 @@ export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInput
     const handleSearchInput = (e: ChangeEvent<HTMLInputElement>) => {
         setTagSearchQuery(e.target.value)
     }
-
     return (
-        <div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">
-            <button className="btn btn-xs btn-accent" onClick={() => tagModalRef.current?.showModal()}>
-                <span className="icon-[fluent--tag-48-regular]"></span>
-            </button>
-            <dialog ref={tagModalRef} className="modal">
+            <dialog ref={ref} className="modal">
                 <div className="modal-box max-w-[75vw] min-h-[90vh]">
                     <div className="flex w-full flex-col gap-4">
                         <div className="flex flex-row items-center gap-4">
@@ -121,11 +121,20 @@ export const TagPicker = ({ selectedTags, availableTags, onTagChange }: TagInput
                     </div>
                     <div className="modal-action">
                         <form method="dialog">
-                            <button className="btn btn-error">Close</button>
+                            <button className="btn btn-error" onClick={onModalClose}>Close</button>
                         </form>
                     </div>
                 </div>
             </dialog>
+    )
+}
+
+export const TagPicker = ({ onTagPickerClick, disabled = false }: TagPickerProps) => {
+    return (
+        <div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">
+            <button className="btn btn-xs btn-accent" disabled={disabled} onClick={onTagPickerClick}>
+                <span className="icon-[fluent--tag-48-regular]"></span>
+            </button>
         </div>
     )
 }

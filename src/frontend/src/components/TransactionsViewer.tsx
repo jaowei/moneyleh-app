@@ -1,8 +1,10 @@
 import { backendRouteClient, type Tag, type FileUploadRes } from "../lib/backend-clients.ts";
-import { TagPicker, type UiTag } from "./TagPicker.tsx";
-import { type Dispatch, type SetStateAction, useState } from "react";
+import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { useAuth } from "../context/auth.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
+import { useTagModal } from "../hooks/useTagModal.ts";
+import { useRequestState } from "../hooks/useRequestState.ts";
 
 interface TransactionViewerProps {
     fileUploadRes: FileUploadRes;
@@ -22,11 +24,11 @@ interface TransactionRowProps {
     transaction: FileUploadRes['taggedTransactions'][0][0];
     transactionIndex: number;
     canEdit: boolean;
-    tagData: Tag[]
+    onTagEditorOpen: (tags: UiTag[], currentIdx: number) => void;
     setTransactions: Dispatch<SetStateAction<FileUploadRes['taggedTransactions'][0]>>
 }
 
-const TransactionRow = ({ transaction, tagData, setTransactions, transactionIndex, canEdit }: TransactionRowProps) => {
+const TransactionViewerRow = ({ transaction, setTransactions, transactionIndex, canEdit, onTagEditorOpen }: TransactionRowProps) => {
     const date = new Date(transaction.transactionDate)
     const handleTagChange = (selectedTags: UiTag[]) => {
         setTransactions((existing) => existing.map((txn, idx) => {
@@ -40,6 +42,9 @@ const TransactionRow = ({ transaction, tagData, setTransactions, transactionInde
             }
         }))
     }
+        const handleTagPickerClick = () => {
+            onTagEditorOpen(transaction.tags, transactionIndex)
+        }
     return (
         <tr>
             <td>{date.toLocaleDateString()}</td>
@@ -47,22 +52,25 @@ const TransactionRow = ({ transaction, tagData, setTransactions, transactionInde
             <td>{transaction.currency}</td>
             <td>{transaction.amount}</td>
             <td><TagTableViewer selectedTags={transaction.tags} canEdit={canEdit} onTagChange={handleTagChange} /></td>
-            <td><TagPicker availableTags={tagData} selectedTags={transaction.tags} onTagChange={handleTagChange} /></td>
+                <td><TagPicker onTagPickerClick={handleTagPickerClick} /></td>
         </tr>
     )
 }
 
-export const EditableTransactionsTable = ({
+const TransactionViewerTable = ({
     transactions, statementInfo, accountInfo, cardInfo, tagData, onSaveSuccess
 }: TransactionsTableProps) => {
     const { user } = useAuth()
     const [editableTransactions, setEditableTransactions] = useState(transactions);
-    const [saved, setSaved] = useState(false)
-    const [saveError, setSaveError] = useState('')
+    const {requestSuccess, error, onSuccess, onError, reset} = useRequestState()
+    const {tagModalRef, selectedTags, 
+        handleTagEditorChange,
+        handleTagEditorClose, handleTagEditorOpen, indexEditing} = useTagModal()
+
     const userId = user?.id
     const name = transactions[0]?.accountName || accountInfo?.accountName || cardInfo?.cardName
     const handleSaveTransactionsClick = async () => {
-        setSaveError('')
+        reset()
         try {
             const res = await backendRouteClient.api.transaction.$post({
                 json: {
@@ -73,30 +81,41 @@ export const EditableTransactionsTable = ({
                 }
             })
             if (!res.ok) {
-                setSaveError(await res.text())
+                onError(await res.text())
             } else {
                 onSaveSuccess?.()
-                setSaved(true)
+                onSuccess()
             }
         } catch (e) {
-            if (e instanceof Error) {
-                setSaveError(`${e.name}: ${e.message}`)
-            } else {
-                setSaveError(JSON.stringify(e))
-            }
+            onError(e)
         }
     }
     if (!userId) {
         return <div>Please sign in again</div>
     }
+
+    const handleTagChange = (selectedTags: UiTag[]) => {
+        setEditableTransactions((existing) => existing.map((txn, idx) => {
+            if (indexEditing === idx) {
+                return {
+                    ...txn,
+                    tags: selectedTags,
+                }
+            } else {
+                return txn
+            }
+        }))
+        handleTagEditorChange(selectedTags)
+    }
+
     return (
         <div className="flex flex-col w-full h-full items-center justify-center gap-4">
-            <button className="btn btn-primary" disabled={saved || !editableTransactions.length}
+            <button className="btn btn-primary" disabled={requestSuccess || !editableTransactions.length}
                 onClick={handleSaveTransactionsClick}>Save transactions for {name}
             </button>
-            {saveError &&
+            {error &&
                 <div role="alert" className="alert alert-error">
-                    <span>{saveError}</span>
+                    <span>{error}</span>
                 </div>
             }
             <table className="table table-zebra table-xs">
@@ -112,11 +131,16 @@ export const EditableTransactionsTable = ({
                 </thead>
                 <tbody>
                     {editableTransactions.map((t, idx) => {
-                        return <TransactionRow transaction={t} tagData={tagData} setTransactions={setEditableTransactions}
-                            transactionIndex={idx} canEdit={!saved} />
+                        return <TransactionViewerRow transaction={t} setTransactions={setEditableTransactions}
+                            transactionIndex={idx} canEdit={!requestSuccess} onTagEditorOpen={handleTagEditorOpen} />
                     })}
                 </tbody>
             </table>
+            <TagPickerModal ref={tagModalRef} availableTags={tagData}
+            selectedTags={selectedTags}
+            onModalClose={handleTagEditorClose}
+            onTagChange={handleTagChange}
+            />
         </div>
     )
 }
@@ -132,7 +156,7 @@ export default function TransactionsViewer({ fileUploadRes, tagData }: Transacti
                         <input type="radio" name="transactions-tabs"
                             className="tab" aria-label={`${name}`} defaultChecked={idx === 0} />
                         <div className="tab-content border-base-300 bg-base-100 p-10 max-h-[55vh] overflow-auto">
-                            <EditableTransactionsTable
+                            <TransactionViewerTable
                                 transactions={transactionsPerAccount}
                                 statementInfo={statementInfo}
                                 accountInfo={accountInfo[idx]}

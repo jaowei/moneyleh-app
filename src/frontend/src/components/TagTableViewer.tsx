@@ -32,7 +32,7 @@ const TagActionButton = ({ onClick, tagDescription, actionType }: TagActionButto
             case "add":
                 return 'btn-accent'
             case "preview":
-                return 'btn-warning btn-xs'
+                return 'btn-warning'
             case "readonly":
                 return ''
         }
@@ -50,7 +50,7 @@ const TagActionButton = ({ onClick, tagDescription, actionType }: TagActionButto
         }
     }
     return (
-        <button className={`btn btn-soft ${getStyleTag()}`} onClick={onClick} disabled={actionType === 'readonly'}>
+        <button className={`btn btn-soft ${getStyleTag()} btn-xs`} onClick={onClick} disabled={actionType === 'readonly'}>
             <div className="truncate max-w-24">
                 {tagDescription}
             </div>
