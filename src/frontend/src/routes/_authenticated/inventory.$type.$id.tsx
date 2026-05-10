@@ -67,36 +67,42 @@ function InventoryDataComponent() {
     }
 
     return (
-        <div>
+        <div className="flex flex-col gap-3 items-center">
             <div className="text-7xl">{data.displayName}</div>
-            <AccountCardStats
-                numTransactions={data.transactionCount}
-                currentBalance={data.valueByCurrency}
-                latestTransactionDate={data.transactions[0]?.transactionDate}
-            />
-            <AccountCardChart chartData={data.chartData} />
-            <BulkUploadModal
-                accountName={type === 'account' ? data.displayName : undefined}
-                accountId={type === 'account' ? Number(id) : undefined}
-                tagData={tagData}
-                onAddSuccess={() => {
-                    router.invalidate()
-                }}
-                cardName={type === 'card' ? data.displayName : undefined}
-                cardId={type === 'card' ? Number(id) : undefined}
-            />
-            {data.transactions.length > 0 && (
-                <table className="table table-zebra table-xs">
-                    <EditableTransactionsTableHeader />
-                    <tbody>
-                        {editableTransactions.map((t, idx) => (
-                            <AccountCardTransactionRow userId={userId}
-                                transaction={t} transactionIndex={idx}
-                                onTagEditorOpen={handleTagEditorOpen} setTransactions={setEditableTransactions} />
-                        ))}
-                    </tbody>
-                </table>
-            )}
+            <div className="flex flex-row justify-center gap-5 w-full items-center">
+                <div className="flex flex-col items-center gap-5">
+                  <AccountCardStats
+                      numTransactions={data.transactionCount}
+                      currentBalance={data.valueByCurrency}
+                      latestTransactionDate={data.transactions[0]?.transactionDate}
+                  />
+                  <BulkUploadModal
+                      accountName={type === 'account' ? data.displayName : undefined}
+                      accountId={type === 'account' ? Number(id) : undefined}
+                      tagData={tagData}
+                      onAddSuccess={() => {
+                          router.invalidate()
+                      }}
+                      cardName={type === 'card' ? data.displayName : undefined}
+                      cardId={type === 'card' ? Number(id) : undefined}
+                  />
+              </div>
+              <AccountCardChart chartData={data.chartData} />
+            </div>
+            <div className="w-[85vw] max-h-[45vh] overflow-auto border rounded-sm border-neutral-content">
+              {data.transactions.length > 0 && (
+                  <table className="table table-zebra table-xs table-pin-rows">
+                      <EditableTransactionsTableHeader />
+                      <tbody>
+                          {editableTransactions.map((t, idx) => (
+                              <AccountCardTransactionRow userId={userId}
+                                  transaction={t} transactionIndex={idx}
+                                  onTagEditorOpen={handleTagEditorOpen} setTransactions={setEditableTransactions} />
+                          ))}
+                      </tbody>
+                  </table>
+              )}
+            </div>
             <TagPickerModal ref={tagModalRef} availableTags={tagData}
                 selectedTags={selectedTags}
                 onModalClose={handleTagEditorClose}
