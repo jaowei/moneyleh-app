@@ -6,7 +6,7 @@ describe("pdf: dbs formats", () => {
     describe('dbs card', () => {
         test("use statement with re issued card and fx transactions", async () => {
             const file = await getFile('./test-files/dbsCard-fx-reissue.pdf')
-            const data = await pdfParser(file, testUser.id)
+            const {data} = await pdfParser(file, testUser.id)
             if ("cards" in data) {
                 const cardsArr = Object.entries(data.cards)
                 expect(cardsArr.length).toBe(2)
@@ -33,7 +33,7 @@ describe("pdf: dbs formats", () => {
     describe("dbs statement", () => {
         test('extract consolidated statement', async () => {
             const file = await getFile('./test-files/dbsAccountStatement.pdf')
-            const data = await pdfParser(file, testUser.id)
+            const {data} = await pdfParser(file, testUser.id)
             if ("accounts" in data && !("ordinaryAccount" in data.accounts)) {
                 expect(data.accounts).toHaveProperty("My Account")
                 expect(data.accounts["My Account"]?.transactions).toBeArrayOfSize(33)

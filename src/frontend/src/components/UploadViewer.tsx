@@ -1,14 +1,18 @@
-import { backendRouteClient, type Tag, type FileUploadRes } from "../lib/backend-clients.ts";
+import { backendRouteClient, type Tag, type FileUploadRes, type GetCompanyRes } from "../lib/backend-clients.ts";
 import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { useAuth } from "../context/auth.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
 import { useTagModal } from "../hooks/useTagModal.ts";
 import { useRequestState } from "../hooks/useRequestState.ts";
+import { AddAccountForm, AddCardForm } from "./AddAccountCardForm.tsx";
+import { useRouter } from "@tanstack/react-router";
 
 interface TransactionViewerProps {
+    userId: string;
     fileUploadRes: FileUploadRes;
     tagData: Tag[]
+    companies: GetCompanyRes['data']
 }
 
 interface TransactionsTableProps {
@@ -18,6 +22,7 @@ interface TransactionsTableProps {
     cardInfo?: FileUploadRes['cardInfo'][0]
     onSaveSuccess?: () => void;
     tagData: Tag[];
+    saveDisabled: boolean;
 }
 
 interface TransactionRowProps {
@@ -42,9 +47,9 @@ const TransactionViewerRow = ({ transaction, setTransactions, transactionIndex, 
             }
         }))
     }
-        const handleTagPickerClick = () => {
-            onTagEditorOpen(transaction.tags, transactionIndex)
-        }
+    const handleTagPickerClick = () => {
+        onTagEditorOpen(transaction.tags, transactionIndex)
+    }
     return (
         <tr>
             <td>{date.toLocaleDateString()}</td>
@@ -52,20 +57,20 @@ const TransactionViewerRow = ({ transaction, setTransactions, transactionIndex, 
             <td>{transaction.currency}</td>
             <td>{transaction.amount}</td>
             <td><TagTableViewer selectedTags={transaction.tags} canEdit={canEdit} onTagChange={handleTagChange} /></td>
-                <td><TagPicker onTagPickerClick={handleTagPickerClick} /></td>
+            <td><TagPicker onTagPickerClick={handleTagPickerClick} /></td>
         </tr>
     )
 }
 
 const TransactionViewerTable = ({
-    transactions, statementInfo, accountInfo, cardInfo, tagData, onSaveSuccess
+    transactions, statementInfo, accountInfo, cardInfo, tagData, onSaveSuccess, saveDisabled
 }: TransactionsTableProps) => {
     const { user } = useAuth()
     const [editableTransactions, setEditableTransactions] = useState(transactions);
-    const {requestSuccess, error, onSuccess, onError, reset} = useRequestState()
-    const {tagModalRef, selectedTags, 
+    const { requestSuccess, error, onSuccess, onError, reset } = useRequestState()
+    const { tagModalRef, selectedTags,
         handleTagEditorChange,
-        handleTagEditorClose, handleTagEditorOpen, indexEditing} = useTagModal()
+        handleTagEditorClose, handleTagEditorOpen, indexEditing } = useTagModal()
 
     const userId = user?.id
     const name = transactions[0]?.accountName || accountInfo?.accountName || cardInfo?.cardName
@@ -110,7 +115,7 @@ const TransactionViewerTable = ({
 
     return (
         <div className="flex flex-col w-full h-full items-center justify-center gap-4">
-            <button className="btn btn-primary" disabled={requestSuccess || !editableTransactions.length}
+            <button className="btn btn-primary" disabled={saveDisabled || requestSuccess || !editableTransactions.length}
                 onClick={handleSaveTransactionsClick}>Save transactions for {name}
             </button>
             {error &&
@@ -137,31 +142,57 @@ const TransactionViewerTable = ({
                 </tbody>
             </table>
             <TagPickerModal ref={tagModalRef} availableTags={tagData}
-            selectedTags={selectedTags}
-            onModalClose={handleTagEditorClose}
-            onTagChange={handleTagChange}
+                selectedTags={selectedTags}
+                onModalClose={handleTagEditorClose}
+                onTagChange={handleTagChange}
             />
         </div>
     )
 }
 
-export default function TransactionsViewer({ fileUploadRes, tagData }: TransactionViewerProps) {
+export default function UploadViewer({ fileUploadRes, tagData, companies, userId }: TransactionViewerProps) {
+    const router = useRouter()
     return (
         <div className="tabs tabs-border">
             {fileUploadRes.taggedTransactions.map((transactionsPerAccount, idx) => {
-                const { statementInfo, accountInfo, cardInfo } = fileUploadRes
+                const { statementInfo, accountInfo, cardInfo, companyId } = fileUploadRes
+                const [isNewCardAccount, setIsNewCardAccount] = useState(accountInfo[idx]?.accountId === undefined && cardInfo[idx]?.cardId === undefined
+                )
+                const handleSubmitSuccess = async () => {
+                    router.invalidate()
+                    setIsNewCardAccount(false)
+                }
+                const isCard = cardInfo[idx]?.cardName
+                const isAccount = accountInfo[idx]?.accountName
                 const name = transactionsPerAccount[0]?.accountName || accountInfo[idx]?.accountName || cardInfo[idx]?.cardName
+                const formInitialValues = {
+                    name,
+                    companyId: `${companyId}`
+                }
                 return (
                     <>
                         <input type="radio" name="transactions-tabs"
                             className="tab" aria-label={`${name}`} defaultChecked={idx === 0} />
-                        <div className="tab-content border-base-300 bg-base-100 p-10 max-h-[55vh] overflow-auto">
+                        <div className="tab-content border-base-300 bg-base-100 p-10 max-h-[65vh] overflow-auto">
+                            {isNewCardAccount && (
+                                <div>
+                                    <h2 className="text-2xl">New account/card detected</h2>
+                                    <p>{name} has not been added to your inventory yet, would you like to add it?</p>
+                                    {isCard && (<AddCardForm companies={companies} userId={userId} onFormSubmitSucess={handleSubmitSuccess}
+                                        initialValues={formInitialValues}
+                                    />)}
+                                    {isAccount && (<AddAccountForm companies={companies} userId={userId} onFormSubmitSucess={handleSubmitSuccess}
+                                        initialValues={formInitialValues}
+                                    />)}
+                                </div>
+                            )}
                             <TransactionViewerTable
                                 transactions={transactionsPerAccount}
                                 statementInfo={statementInfo}
                                 accountInfo={accountInfo[idx]}
                                 cardInfo={cardInfo[idx]}
                                 tagData={tagData}
+                                saveDisabled={isNewCardAccount}
                             />
                         </div>
                     </>

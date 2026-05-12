@@ -5,7 +5,7 @@ import { pdfParser } from '../pdf'
 describe('pdf: uob formats', () => {
     test('parses uob card statement', async () => {
         const file = await getFile('./test-files/uobCard.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'card') {
             Object.values(data.cards).forEach((d, idx) => {
                 if (idx === 0) {
@@ -25,7 +25,7 @@ describe('pdf: uob formats', () => {
 
     test('parses uob account statement', async () => {
         const file = await getFile('./test-files/uobAccountStatement.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'account') {
             expect(Object.keys(data.accounts).length).toBe(1)
             Object.values(data.accounts).forEach((d) => {

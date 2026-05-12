@@ -1,4 +1,4 @@
-import { describe, test, expect, spyOn, afterAll, beforeAll, afterEach, jest } from "bun:test";
+import { describe, test, expect, beforeAll, afterEach, jest } from "bun:test";
 import app from "../index.ts";
 import { jsonHeader, testUser } from "../lib/test.utils.ts";
 import { statements, userAccounts, type UserAccountsInsertSchema, type UserCardInsertSchema, userCards } from "../db/schema.ts";
@@ -19,11 +19,15 @@ describe('/api/ui', () => {
         afterEach(() => {
             jest.restoreAllMocks()
         })
-        test('file upload: parse transactions card', async () => {
+        const getCompleteFormData = (filePath: string) => {
             const formData = new FormData()
-            const testFile = Bun.file('./test-files/dbsCard.pdf')
+            const testFile = Bun.file(filePath)
             formData.append('file', testFile)
             formData.append('userId', testUser.id)
+            return formData
+        }
+        test('file upload: parse transactions card dbs', async () => {
+            const formData = getCompleteFormData('./test-files/dbsCard.pdf')
             const res = await app.request("/api/ui/fileUpload", {
                 method: "POST",
                 body: formData
@@ -34,6 +38,31 @@ describe('/api/ui', () => {
             expect(result.taggedTransactions.length).toBe(2)
             expect(result.taggedTransactions[0].length).toBe(23)
             expect(result.taggedTransactions[1].length).toBe(20)
+        })
+        test('file upload: parse transactions account dbs', async () => {
+            const formData = getCompleteFormData('./test-files/dbsAccountStatement.pdf')
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(200);
+            const result = await res.json() as { taggedTransactions: any[] }
+            expect(result.taggedTransactions).toBeArrayOfSize(2)
+            expect(result.taggedTransactions[0].length).toBe(33)
+            expect(result.taggedTransactions[1].length).toBe(0)
+        })
+        test('file upload: parse transactions account cpf', async () => {
+            const formData = getCompleteFormData('./test-files/cpf.pdf')
+            const res = await app.request("/api/ui/fileUpload", {
+                method: "POST",
+                body: formData
+            });
+            expect(res.status).toBe(200);
+            const result = await res.json() as { taggedTransactions: any[] }
+            expect(result.taggedTransactions).toBeArrayOfSize(3)
+            expect(result.taggedTransactions[0].length).toBe(2)
+            expect(result.taggedTransactions[1].length).toBe(1)
+            expect(result.taggedTransactions[2].length).toBe(3)
         })
         test('file upload: no user id', async () => {
             const formData = new FormData()
@@ -48,33 +77,14 @@ describe('/api/ui', () => {
             expect(result).toInclude('expected string')
             expect(result).toInclude('userId')
         })
-        test('file upload: parse transactions account', async () => {
-            const formData = new FormData()
-            const testFile = Bun.file('./test-files/dbsAccountStatement.pdf')
-            formData.append('file', testFile)
-            formData.append('userId', testUser.id)
-            const res = await app.request("/api/ui/fileUpload", {
-                method: "POST",
-                body: formData
-            });
-            expect(res.status).toBe(200);
-            const result = await res.json() as { taggedTransactions: any[] }
-            expect(result.taggedTransactions).toBeArrayOfSize(2)
-            expect(result.taggedTransactions[0].length).toBe(33)
-            expect(result.taggedTransactions[1].length).toBe(0)
-
-        })
         test('file upload: unknown statement', async () => {
-            const formData = new FormData()
-            const testFile = Bun.file('./test-files/sample.pdf')
-            formData.append('file', testFile)
-            formData.append('userId', testUser.id)
+            const formData = getCompleteFormData('./test-files/sample.pdf')
             const res = await app.request("/api/ui/fileUpload", {
                 method: "POST",
                 body: formData
             });
             expect(res.status).toBe(500);
-            expect(res.statusText).toInclude('Unable to determine');
+            expect(await res.text()).toInclude('Unable to determine');
         })
     })
     describe('assign to', () => {

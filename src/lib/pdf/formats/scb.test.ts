@@ -5,7 +5,7 @@ import { pdfParser } from '../pdf'
 describe('pdf: scb formats', () => {
     test('parse scb card statement', async () => {
         const file = await getFile('./test-files/scbCard.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'card') {
             expect(Object.keys(data.cards).length).toBe(1)
             Object.values(data.cards).forEach((card) => {

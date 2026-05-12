@@ -1,6 +1,7 @@
 import z from 'zod'
 import type { TransactionsInsertSchema } from "../../db/schema.ts";
 import { Page, type PDFPage } from "mupdf";
+import type { Companies } from '../../db/company.seed.ts';
 
 // Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
 
@@ -88,6 +89,8 @@ export interface CPFStatementData extends StatementDataBase {
 export type StatementData = CardStatementData | AccountStatementData | CPFStatementData
 
 export type PdfFormatExtractor = (dataToExtract: MuPdfStructuredTextPage[], userId: string) => StatementData
+
+export type PdfParser = (file: File, userId: string) => Promise<{data: StatementData, companyName: Companies}>
 
 export interface PdfFormat {
     searchString: string;

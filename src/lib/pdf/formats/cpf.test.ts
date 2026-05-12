@@ -7,7 +7,7 @@ describe('pdf: CPF statement', () => {
         const file = Bun.file('./test-files/cpf.pdf')
         const buf = await file.arrayBuffer()
         const f = new File([buf], 'file')
-        const data = await pdfParser(f, testUser.id)
+        const {data} = await pdfParser(f, testUser.id)
         if ("accounts" in data) {
             const accounts = Object.keys(data.accounts)
             expect(accounts.length).toBe(3)

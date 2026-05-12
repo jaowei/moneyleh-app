@@ -5,7 +5,7 @@ import { pdfParser } from '../pdf'
 describe('pdf: trust bank formats', () => {
     test('parse trust card statement: offset statement date', async () => {
         const file = await getFile('./test-files/trustCard.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'card') {
             expect(Object.keys(data.cards).length).toBe(1)
             Object.values(data.cards).forEach((cardData) => {
@@ -19,7 +19,7 @@ describe('pdf: trust bank formats', () => {
     })
     test('parse trust card statement: straight statement date', async () => {
         const file = await getFile('./test-files/trustCard-straight.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'card') {
             expect(Object.keys(data.cards).length).toBe(1)
             Object.values(data.cards).forEach((cardData) => {

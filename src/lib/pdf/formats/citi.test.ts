@@ -5,7 +5,7 @@ import { describe, test, expect } from "bun:test";
 describe('pdf: Citibank statements', () => {
     test('card statement', async () => {
         const file = await getFile('./test-files/citiCard.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'card') {
             const cards = Object.values(data.cards)
             expect(cards.length).toBe(2)

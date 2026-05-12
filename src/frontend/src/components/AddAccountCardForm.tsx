@@ -11,6 +11,23 @@ interface FormProps {
     onFormSubmitSucess: () => void;
 }
 
+interface AccountFormProps extends FormProps {
+    initialValues?: {
+        name?: string;
+        accountType?: string
+        companyId?: string
+    }
+}
+
+interface CardFormProps extends FormProps {
+    initialValues?: {
+        name?: string;
+        companyId?: string
+        cardType?: string
+        cardNetwork?: string
+    }
+}
+
 const AddForm = ({ title, children, isOpen, onCollapseClick }: {
     title: string;
     children: React.ReactNode;
@@ -55,7 +72,7 @@ const ErrorDisplay = ({ error }: { error: string }) => {
     )
 }
 
-export const AddAccountForm = ({ companies, userId, onFormSubmitSucess }: FormProps) => {
+export const AddAccountForm = ({ companies, userId, onFormSubmitSucess, initialValues }: AccountFormProps) => {
     const [error, setError] = useState('')
     const [openCollapse, setOpenCollapse] = useState(false)
 
@@ -91,6 +108,7 @@ export const AddAccountForm = ({ companies, userId, onFormSubmitSucess }: FormPr
         <AddForm title="Create a new account" isOpen={openCollapse} onCollapseClick={() => { setOpenCollapse((p) => !p) }}>
             <Form
                 onSubmit={onSubmit}
+                initialValues={initialValues}
                 render={({ handleSubmit }) => (
                     <form onSubmit={handleSubmit}>
                         <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
@@ -118,7 +136,7 @@ export const AddAccountForm = ({ companies, userId, onFormSubmitSucess }: FormPr
     )
 }
 
-export const AddCardForm = ({ companies, userId, onFormSubmitSucess }: FormProps) => {
+export const AddCardForm = ({ companies, userId, onFormSubmitSucess, initialValues }: CardFormProps) => {
     const [error, setError] = useState('')
     const [openCollapse, setOpenCollapse] = useState(false)
 
@@ -155,6 +173,7 @@ export const AddCardForm = ({ companies, userId, onFormSubmitSucess }: FormProps
         <AddForm title="add new card" isOpen={openCollapse} onCollapseClick={() => { setOpenCollapse((p) => !p) }}>
             <Form
                 onSubmit={onSubmit}
+                initialValues={initialValues}
                 render={({ handleSubmit }) => (
                     <form onSubmit={handleSubmit}>
                         <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">

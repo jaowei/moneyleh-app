@@ -50,4 +50,5 @@ export const STARTING_COMPANIES = [
     {
       name: "GXS",
     },
-  ]
+  ] as const
+  export type Companies = (typeof STARTING_COMPANIES)[number]['name']

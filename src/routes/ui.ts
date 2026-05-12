@@ -9,11 +9,11 @@ import {
     userCards,
     userCompanies,
 } from "../db/schema.ts";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { appLogger } from "../index.ts";
 import { HTTPException } from "hono/http-exception";
 import { findUserOrThrow } from "./route.utils.ts";
-import type { StatementData } from "../lib/pdf/pdf.type.ts";
+import type { PdfParser } from "../lib/pdf/pdf.type.ts";
 import { pdfParser } from "../lib/pdf/pdf.ts";
 import { type TaggedTransaction, tagTransactions } from "../lib/descriptionTagger/descriptionTagger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
@@ -30,7 +30,7 @@ const userAssignmentsZ = z.object({
 const FileUploadPayloadZ = z.object({
     // min 5kb, max 150kb
     userId: z.string(),
-    file: z.file().mime(["application/pdf"]).min(1 * 1000).max(200 * 1000)
+    file: z.file().mime(["application/pdf"]).min(1 * 1000).max(300 * 1000)
 })
 
 export const uiRoute = new Hono()
@@ -107,7 +107,7 @@ export const uiRoute = new Hono()
     .post("/fileUpload", zodValidator('form', FileUploadPayloadZ), async (c) => {
         const { file, userId } = c.req.valid('form')
 
-        let statementData: StatementData | undefined = undefined
+        let statementData: Awaited<ReturnType<PdfParser>> | undefined = undefined
         switch (file.type) {
             case 'application/pdf':
                 statementData = await pdfParser(file, userId)
@@ -131,63 +131,50 @@ export const uiRoute = new Hono()
             cardId?: number | null;
             accountId?: number | null;
         }>> = []
-        let cardInfo = []
-        let accountInfo = []
-        switch (statementData.type) {
+        let cardInfo: { cardId: number | undefined; cardName: string }[] = []
+        let accountInfo: { accountId: number | undefined; accountName: string }[] = []
+        switch (statementData.data.type) {
             case "card":
-                for (const [cardName, data] of Object.entries(statementData.cards)) {
-                    let targetCard
-                    const cardRes = await db.select().from(cards).where(inArray(cards.name, cardName.toLowerCase().split(' ')))
-                    if (!cardRes.length) {
-                        appLogger(`Card with name : ${cardName} not found in database, refining search...`)
-                        // TODO: try to refind card again
-                        // TODO: else try to insert card
-                        throw new HTTPException(404, {
-                            message: 'Card does not exist, please add a card to continue'
-                        })
-                    } else {
-                        targetCard = cardRes[0]
-                    }
-
-                    if (!targetCard) {
-                        throw new HTTPException()
-                    }
+                for (const [parsedCardName, data] of Object.entries(statementData.data.cards)) {
+                    const cardRes = await db.select({ id: cards.id, name: cards.name, companyName: companies.name }).from(cards)
+                        .leftJoin(companies, eq(companies.id, cards.companyId))
+                        .where(and(
+                            eq(companies.name, statementData.companyName),
+                            inArray(cards.name, parsedCardName.toLowerCase().split(' '))
+                        ))
+                    const cardName = cardRes?.[0]?.name || parsedCardName
                     cardInfo.push({
-                        cardId: targetCard.id,
-                        cardName: targetCard.name
+                        cardId: cardRes?.[0]?.id,
+                        cardName
                     })
 
                     const taggedTxns = await tagTransactions(data.transactions)
-                    const txnWithCardName = taggedTxns.map((t) => ({ ...t, accountName: cardName, cardId: targetCard.id }))
+                    const txnWithCardName = taggedTxns.map((t) => ({ ...t, accountName: cardName, cardId: cardRes?.[0]?.id }))
                     taggedTransactions.push(txnWithCardName)
                 }
                 break;
             case "cpf":
             case "account":
-                for (const [accountName, data] of Object.entries(statementData.accounts)) {
-                    let targetAccount
-                    const accountRes = await db.select().from(accounts).where(like(accounts.name, accountName.toLowerCase().replaceAll(' ', '_')))
-                    if (!accountRes.length) {
-                        appLogger(`Account with name : ${accountName} not found in database, refining search...`)
-                        // TODO: try to refind account again
-                        // TODO: else try to insert account
-                        throw new HTTPException(404, {
-                            message: 'Account does not exist, please add an account to continue'
-                        })
-                    } else {
-                        targetAccount = accountRes[0]
-                    }
-
-                    if (!targetAccount) {
-                        throw new HTTPException()
-                    }
+                for (const [parsedAcctName, data] of Object.entries(statementData.data.accounts)) {
+                    const query = `%${parsedAcctName.toLowerCase()}`
+                    const accountRes = await db.select({ id: accounts.id, name: accounts.name, companyName: companies.name }).from(accounts)
+                        .leftJoin(companies, eq(companies.id, accounts.companyId))
+                        .where(and(
+                            eq(companies.name, statementData.companyName),
+                            or(
+                                sql`lower(${accounts.name}) in ${parsedAcctName.toLowerCase().split(' ')}`,
+                                sql`lower(${accounts.name}) like ${query}`,
+                                sql`replace(lower(${accounts.name}),' ','') like ${parsedAcctName.toLowerCase()}`,
+                            ))
+                        )
+                    const accountName = accountRes?.[0]?.name || parsedAcctName
                     accountInfo.push({
-                        accountId: targetAccount.id,
-                        accountName: targetAccount.name
+                        accountId: accountRes?.[0]?.id,
+                        accountName
                     })
 
                     const taggedTxns = await tagTransactions(data.transactions)
-                    const txnWithAccountName = taggedTxns.map((t) => ({ ...t, accountName, accountId: targetAccount.id }))
+                    const txnWithAccountName = taggedTxns.map((t) => ({ ...t, accountName, accountId: accountRes?.[0]?.id }))
                     taggedTransactions.push(txnWithAccountName)
                 }
                 break;
@@ -196,13 +183,21 @@ export const uiRoute = new Hono()
                 break;
         }
 
+        const companyRes = await db.select().from(companies).where(eq(companies.name, statementData.companyName))
+        if (!companyRes[0]) {
+            throw new HTTPException(500, {
+                message: 'Error parsing statement: Unable to detect company from statement'
+            })
+        }
+
         return c.json({
             taggedTransactions,
             statementInfo: {
-                statementDate: statementData.statementDate
+                statementDate: statementData.data.statementDate
             },
             cardInfo,
-            accountInfo
+            accountInfo,
+            companyId: companyRes[0].id
         })
     })
     .get('/availableInventory/:userId', async (c) => {

@@ -5,7 +5,7 @@ import { pdfParser } from '../pdf'
 describe('PDF format: GXS', () => {
     test('parse account statement', async () => {
         const file = await getFile('./test-files/gxsAccount.pdf')
-        const data = await pdfParser(file, testUser.id)
+        const {data} = await pdfParser(file, testUser.id)
         if (data.type === 'account') {
             expect(Object.keys(data.accounts).length).toBe(3)
             Object.entries(data.accounts).forEach(([name, data], idx) => {

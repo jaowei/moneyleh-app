@@ -8,7 +8,7 @@ import { auth } from "../lib/auth.ts";
 console.log("===Seed companies: Start!")
 await db
     .insert(schema.companies)
-    .values(STARTING_COMPANIES)
+    .values([...STARTING_COMPANIES])
     .onConflictDoNothing();
 console.log("===Seed companies: Done!")
 
@@ -84,7 +84,7 @@ export const seedDataCards: schema.CardsInsertSchema[] = [
         cardNetwork: "amex"
     },
     {
-        name: "premier miles",
+        name: "premiermiles",
         companyId: companyIdMap.Citibank,
         cardType: "miles",
         cardNetwork: "world mastercard"
@@ -114,12 +114,12 @@ export const seedDataAccounts: schema.AccountsInsertSchema[] = [
         accountType: 'cash'
     },
     {
-        name: 'my_account',
+        name: 'my account',
         companyId: companyIdMap.DBS,
         accountType: 'cash'
     },
     {
-        name: 'supplementary_retirement_scheme_account',
+        name: 'supplementary retirement scheme account',
         companyId: companyIdMap.DBS,
         accountType: 'cash'
     },
@@ -129,7 +129,7 @@ export const seedDataAccounts: schema.AccountsInsertSchema[] = [
         accountType: 'cash'
     },
     {
-        name: 'one',
+        name: 'one account',
         companyId: companyIdMap.UOB,
         accountType: 'cash'
     },
@@ -139,22 +139,22 @@ export const seedDataAccounts: schema.AccountsInsertSchema[] = [
         accountType: 'cash'
     },
     {
-        name: 'ordinary_account',
+        name: 'ordinary account',
         companyId: companyIdMap.CPF,
         accountType: 'CPF'
     },
     {
-        name: 'medisave_account',
+        name: 'medisave account',
         companyId: companyIdMap.CPF,
         accountType: 'CPF'
     },
     {
-        name: 'special_account',
+        name: 'special account',
         companyId: companyIdMap.CPF,
         accountType: 'CPF'
     },
     {
-        name: 'investment_account',
+        name: 'investment account',
         companyId: companyIdMap.CPF,
         accountType: 'CPF'
     },

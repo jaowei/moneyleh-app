@@ -304,8 +304,9 @@ export const uobCard: PdfFormat = {
     searchString: '',
     searchFn: (page) => {
         const hasCreditCard = !!page.search('Credit Card').length
+        const hasPaymentSummary = !!page.search('Payment Summary').length
         const hasUobName = !!page.search('uobgroup').length
-        return hasCreditCard && hasUobName
+        return hasCreditCard && hasUobName && hasPaymentSummary
     },
     extractData: extractDataCard
 }

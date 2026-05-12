@@ -8,7 +8,7 @@ describe('pdf: Chocolate finance statement', () => {
         const file = Bun.file('./test-files/chocolate.pdf')
         const buf = await file.arrayBuffer()
         const f = new File([buf], 'file')
-        const data = await pdfParser(f, testUser.id)
+        const {data} = await pdfParser(f, testUser.id)
         const dateObj = dayjs(data.statementDate)
         expect(dateObj.year()).toBe(2025)
         expect(dateObj.month()).toBe(8)
