@@ -1,23 +1,35 @@
-import { useState, type ChangeEvent } from "react"
+import { type ChangeEvent, useState } from "react";
 
 interface EditableCellProps {
-    value: string | number;
-    onChange: (value: string) => void;
-    editing: boolean;
+	value: string | number;
+	onChange: (value: string) => void;
+	editing: boolean;
 }
 
-export const EditableCell = ({ value, editing, onChange }: EditableCellProps) => {
-    const [currentValue, setCurrentValue] = useState<string | number>(value)
-    const inputType = typeof value === 'string' ? 'text' : 'number'
-    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setCurrentValue(e.target.value)
-        onChange(e.target.value)
-    }
+export const EditableCell = ({
+	value,
+	editing,
+	onChange,
+}: EditableCellProps) => {
+	const [currentValue, setCurrentValue] = useState<string | number>(value);
+	const inputType = typeof value === "string" ? "text" : "number";
+	const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+		setCurrentValue(e.target.value);
+		onChange(e.target.value);
+	};
 
-    return (<td>
-        {editing ? (<input type={inputType} className="input input-xs"
-            value={currentValue}
-            onChange={handleInputChange}
-        />) : value}
-    </td>)
-}
+	return (
+		<td>
+			{editing ? (
+				<input
+					type={inputType}
+					className="input input-xs"
+					value={currentValue}
+					onChange={handleInputChange}
+				/>
+			) : (
+				value
+			)}
+		</td>
+	);
+};

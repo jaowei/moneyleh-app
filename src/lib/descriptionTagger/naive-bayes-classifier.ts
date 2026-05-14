@@ -5,206 +5,229 @@
  *
  */
 
-export const fromJson = (jsonStr: string) => {
-    let parsed;
-    try {
-        parsed = JSON.parse(jsonStr);
-    } catch (e) {
-        throw new Error("Naivebayes.fromJson expects a valid JSON string.");
-    }
-    // init a new classifier
-    return new NaiveBayesClassifier(parsed.state, parsed.options);
-};
-
 export interface NaiveBayesClassifierState {
-    tokeniser: (text: string) => string;
-    vocabulary: Record<string, any>;
-    vocabularySize: number;
-    totalDocuments: number;
-    docCount: Record<string, number>;
-    wordCount: Record<string, number>;
-    wordFrequencyCount: Record<string, any>;
-    categories: Record<string, number>;
+	tokeniser: (text: string) => string;
+	vocabulary: Record<string, boolean>;
+	vocabularySize: number;
+	totalDocuments: number;
+	docCount: Record<string, number>;
+	wordCount: Record<string, number>;
+	wordFrequencyCount: Record<string, Record<string, number>>;
+	categories: Record<string, boolean>;
 }
 
+interface NaiveBayesClassifierOptions {
+	tokeniser: () => string[];
+}
+
+export const fromJson = (jsonStr: string) => {
+	let parsed: {
+		state: NaiveBayesClassifierState;
+		options: NaiveBayesClassifierOptions;
+	};
+	try {
+		parsed = JSON.parse(jsonStr);
+	} catch (e) {
+		throw new Error("Naivebayes.fromJson expects a valid JSON string.");
+	}
+	// init a new classifier
+	return new NaiveBayesClassifier(parsed.state, parsed.options);
+};
+
 export class NaiveBayesClassifier {
-    // set options object
-    options = {};
+	// set options object
+	options = {};
 
-    tokeniser = function (text: string) {
-        //remove punctuation from text - remove anything that isn't a word char or a space
-        const rgxPunctuation = /[^(a-zA-ZA-Яa-я0-9_)+\s]/g;
+	tokeniser = (text: string) => {
+		//remove punctuation from text - remove anything that isn't a word char or a space
+		const rgxPunctuation = /[^(a-zA-ZA-Яa-я0-9_)+\s]/g;
 
-        const sanitized = text.replace(rgxPunctuation, " ");
+		const sanitized = text.replace(rgxPunctuation, " ");
 
-        return sanitized.split(/\s+/);
-    };
+		return sanitized.split(/\s+/);
+	};
 
-    //initialize our vocabulary and its size
-    vocabulary: Record<string, any> = {};
-    vocabularySize = 0;
+	//initialize our vocabulary and its size
+	vocabulary: NaiveBayesClassifierState["vocabulary"] = {};
+	vocabularySize = 0;
 
-    //number of documents we have learned from
-    totalDocuments = 0;
+	//number of documents we have learned from
+	totalDocuments = 0;
 
-    //document frequency table for each of our categories
-    //=> for each category, how often were documents mapped to it
-    docCount: Record<string, number> = {};
+	//document frequency table for each of our categories
+	//=> for each category, how often were documents mapped to it
+	docCount: NaiveBayesClassifierState["docCount"] = {};
 
-    //for each category, how many words total were mapped to it
-    wordCount: Record<string, number> = {};
+	//for each category, how many words total were mapped to it
+	wordCount: NaiveBayesClassifierState["wordCount"] = {};
 
-    //word frequency table for each category
-    //=> for each category, how frequent was a given word mapped to it
-    wordFrequencyCount: Record<string, any> = {};
+	//word frequency table for each category
+	//=> for each category, how frequent was a given word mapped to it
+	wordFrequencyCount: NaiveBayesClassifierState["wordFrequencyCount"] = {};
 
-    //hashmap of our category names
-    categories: Record<string, any> = {};
+	//hashmap of our category names
+	categories: NaiveBayesClassifierState["categories"] = {};
 
-    constructor(state?: NaiveBayesClassifierState, options?: Record<string, any>) {
-        if (typeof options !== "undefined") {
-            if (!options || typeof options !== "object" || Array.isArray(options)) {
-                throw TypeError("NaiveBayes got invalid `options`: `" + options + "`. Pass in an object.");
-            }
-            this.options = options;
-            if (options.tokeniser) {
-                this.tokeniser = options.tokeniser;
-            }
-        }
-        this.vocabulary = state?.vocabulary ?? {};
-        this.vocabularySize = state?.vocabularySize ?? 0;
-        this.totalDocuments = state?.totalDocuments ?? 0;
-        this.docCount = state?.docCount ?? {};
-        this.wordCount = state?.wordCount ?? {};
-        this.wordFrequencyCount = state?.wordFrequencyCount ?? {};
-        this.categories = state?.categories ?? {};
-    }
+	constructor(
+		state?: NaiveBayesClassifierState,
+		options?: NaiveBayesClassifierOptions,
+	) {
+		if (typeof options !== "undefined") {
+			if (!options || typeof options !== "object" || Array.isArray(options)) {
+				throw TypeError(
+					"NaiveBayes got invalid `options`: `" +
+						options +
+						"`. Pass in an object.",
+				);
+			}
+			this.options = options;
+			if (options.tokeniser) {
+				this.tokeniser = options.tokeniser;
+			}
+		}
+		this.vocabulary = state?.vocabulary ?? {};
+		this.vocabularySize = state?.vocabularySize ?? 0;
+		this.totalDocuments = state?.totalDocuments ?? 0;
+		this.docCount = state?.docCount ?? {};
+		this.wordCount = state?.wordCount ?? {};
+		this.wordFrequencyCount = state?.wordFrequencyCount ?? {};
+		this.categories = state?.categories ?? {};
+	}
 
-    initialiseCategory(categoryName: string) {
-        if (!this.categories[categoryName]) {
-            this.docCount[categoryName] = 0;
-            this.wordCount[categoryName] = 0;
-            this.wordFrequencyCount[categoryName] = {};
-            this.categories[categoryName] = true;
-        }
-        return this;
-    }
+	initialiseCategory(categoryName: string) {
+		if (!this.categories[categoryName]) {
+			this.docCount[categoryName] = 0;
+			this.wordCount[categoryName] = 0;
+			this.wordFrequencyCount[categoryName] = {};
+			this.categories[categoryName] = true;
+		}
+		return this;
+	}
 
-    async learn(text: string, category: string) {
-        //initialize category data structures if we've never seen this category
-        this.initialiseCategory(category);
+	async learn(text: string, category: string) {
+		//initialize category data structures if we've never seen this category
+		this.initialiseCategory(category);
 
-        //update our count of how many documents mapped to this category, 
-        // already initialised so it will exist
-        if (this.docCount[category] !== undefined) {
-            this.docCount[category]++
-        }
+		//update our count of how many documents mapped to this category,
+		// already initialised so it will exist
+		if (this.docCount[category] !== undefined) {
+			this.docCount[category]++;
+		}
 
-        //update the total number of documents we have learned from
-        this.totalDocuments++;
+		//update the total number of documents we have learned from
+		this.totalDocuments++;
 
-        //normalize the text into a word array
-        let tokens = await this.tokeniser(text);
+		//normalize the text into a word array
+		const tokens = await this.tokeniser(text);
 
-        //get a frequency count for each token in the text
-        let frequencyTable = this.frequencyTable(tokens);
+		//get a frequency count for each token in the text
+		const frequencyTable = this.frequencyTable(tokens);
 
-        /*
+		/*
           Update our vocabulary and our word frequency count for this category
        */
-        Object.keys(frequencyTable).forEach((token) => {
-            //add this word to our vocabulary if not already existing
-            if (!this.vocabulary[token]) {
-                this.vocabulary[token] = true;
-                this.vocabularySize++;
-            }
+		Object.keys(frequencyTable).forEach((token) => {
+			//add this word to our vocabulary if not already existing
+			if (!this.vocabulary[token]) {
+				this.vocabulary[token] = true;
+				this.vocabularySize++;
+			}
 
-            const frequencyInText = frequencyTable[token];
+			const frequencyInText = frequencyTable[token] || 0;
 
-            //update the frequency information for this word in this category
-            if (!this.wordFrequencyCount[category][token]) this.wordFrequencyCount[category][token] = frequencyInText;
-            else this.wordFrequencyCount[category][token] += frequencyInText;
+			//update the frequency information for this word in this category
+			// already initialised so it will exist
+			if (this.wordFrequencyCount[category] !== undefined) {
+				if (!this.wordFrequencyCount[category][token])
+					this.wordFrequencyCount[category][token] = frequencyInText;
+				else this.wordFrequencyCount[category][token] += frequencyInText;
+			}
 
-            //update the count of all words we have seen mapped to this category
-            this.wordCount[category] += frequencyInText;
-        });
+			//update the count of all words we have seen mapped to this category
+			// already initialised so it will exist
+			if (this.wordCount[category] !== undefined) {
+				this.wordCount[category] += frequencyInText;
+			}
+		});
 
-        return this;
-    }
+		return this;
+	}
 
-    frequencyTable(tokens: any[]) {
-        const frequencyTable: Record<string, any> = {};
+	frequencyTable(tokens: string[]) {
+		const frequencyTable: Record<string, number> = {};
 
-        tokens.forEach(function (token) {
-            if (!frequencyTable[token]) frequencyTable[token] = 1;
-            else frequencyTable[token]++;
-        });
+		tokens.forEach((token) => {
+			if (!frequencyTable[token]) frequencyTable[token] = 1;
+			else frequencyTable[token]++;
+		});
 
-        return frequencyTable;
-    }
+		return frequencyTable;
+	}
 
-    async categorise(text: string) {
-        const categoryProbabilities: { label: string, value: number }[] = [];
+	async categorise(text: string) {
+		const categoryProbabilities: { label: string; value: number }[] = [];
 
-        const tokens = await this.tokeniser(text);
-        const frequencyTable = this.frequencyTable(tokens);
+		const tokens = await this.tokeniser(text);
+		const frequencyTable = this.frequencyTable(tokens);
 
-        //iterate thru our categories to find the one with max probability for this text
-        Object.keys(this.categories).forEach((category) => {
-            // categories already exist so this case is unlikely
-            if (this.docCount[category] === undefined) return
+		//iterate thru our categories to find the one with max probability for this text
+		Object.keys(this.categories).forEach((category) => {
+			// categories already exist so this case is unlikely
+			if (this.docCount[category] === undefined) return;
 
-            //start by calculating the overall probability of this category
-            //=>  out of all documents we've ever looked at, how many were
-            //    mapped to this category
-            const categoryProbability = this.docCount[category] / this.totalDocuments;
+			//start by calculating the overall probability of this category
+			//=>  out of all documents we've ever looked at, how many were
+			//    mapped to this category
+			const categoryProbability = this.docCount[category] / this.totalDocuments;
 
-            //take the log to avoid underflow
-            let logProbability = Math.log(categoryProbability);
+			//take the log to avoid underflow
+			let logProbability = Math.log(categoryProbability);
 
-            //now determine P( w | c ) for each word `w` in the text
-            Object.keys(frequencyTable).forEach((token) => {
-                const frequencyInText = frequencyTable[token];
-                const tokenProbability = this.tokenProbability(token, category);
+			//now determine P( w | c ) for each word `w` in the text
+			Object.keys(frequencyTable).forEach((token) => {
+				const frequencyInText = frequencyTable[token] || 0;
+				const tokenProbability = this.tokenProbability(token, category);
 
-                //determine the log of the P( w | c ) for this word
-                logProbability += frequencyInText * Math.log(tokenProbability);
-            });
+				//determine the log of the P( w | c ) for this word
+				logProbability += frequencyInText * Math.log(tokenProbability);
+			});
 
-            categoryProbabilities.push({
-                label: category,
-                // change back to non log probability
-                value: Math.exp(logProbability)
-            });
-        });
+			categoryProbabilities.push({
+				label: category,
+				// change back to non log probability
+				value: Math.exp(logProbability),
+			});
+		});
 
-        return categoryProbabilities;
-    }
+		return categoryProbabilities;
+	}
 
-    tokenProbability(token: string, category: string) {
-        //how many times this word has occurred in documents mapped to this category
-        const wordFrequencyCount = this.wordFrequencyCount[category][token] || 0;
+	tokenProbability(token: string, category: string) {
+		//how many times this word has occurred in documents mapped to this category
+		const wordFrequencyCount = this.wordFrequencyCount[category]?.[token] || 0;
 
-        //what is the count of all words that have ever been mapped to this category
-        const wordCount = this.wordCount[category];
+		//what is the count of all words that have ever been mapped to this category
+		const wordCount = this.wordCount[category];
 
-        //use laplace Add-1 Smoothing equation
-        // unlikely case that there will be no wordCount
-        return wordCount === undefined ? 0 : (wordFrequencyCount + 1) / (wordCount + this.vocabularySize);
-    }
+		//use laplace Add-1 Smoothing equation
+		// unlikely case that there will be no wordCount
+		return wordCount === undefined
+			? 0
+			: (wordFrequencyCount + 1) / (wordCount + this.vocabularySize);
+	}
 
-    toJson() {
-        return JSON.stringify({
-            state: {
-                categories: this.categories,
-                docCount: this.docCount,
-                totalDocuments: this.totalDocuments,
-                vocabulary: this.vocabulary,
-                vocabularySize: this.vocabularySize,
-                wordCount: this.wordCount,
-                wordFrequencyCount: this.wordFrequencyCount,
-            },
-            options: this.options,
-        });
-    }
+	toJson() {
+		return JSON.stringify({
+			state: {
+				categories: this.categories,
+				docCount: this.docCount,
+				totalDocuments: this.totalDocuments,
+				vocabulary: this.vocabulary,
+				vocabularySize: this.vocabularySize,
+				wordCount: this.wordCount,
+				wordFrequencyCount: this.wordFrequencyCount,
+			},
+			options: this.options,
+		});
+	}
 }

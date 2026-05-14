@@ -1,183 +1,204 @@
 import { BayesClassifier, WordTokenizer } from "natural";
-import { NaiveBayesClassifier } from "./naive-bayes-classifier";
-import { KnnClassifier } from "./knn-classifier";
 import { appLogger } from "../..";
+import { KnnClassifier } from "./knn-classifier";
+import { NaiveBayesClassifier } from "./naive-bayes-classifier";
 
 export type DocumentToAdd = {
-    description: string;
-    tag: string;
-    transactionId: number;
-}
+	description: string;
+	tag: string;
+	transactionId: number;
+};
 type NaturalBayesClassifier = {
-    type: 'natural-bayes';
-    classifier: BayesClassifier;
-}
+	type: "natural-bayes";
+	classifier: BayesClassifier;
+};
 type DefaultBayesClassifier = {
-    type: 'default-bayes';
-    classifier: NaiveBayesClassifier
-}
+	type: "default-bayes";
+	classifier: NaiveBayesClassifier;
+};
 type DefaultKnnClassifier = {
-    type: 'default-knn';
-    classifier: KnnClassifier
-}
-type Classifier = NaturalBayesClassifier | DefaultBayesClassifier | DefaultKnnClassifier
+	type: "default-knn";
+	classifier: KnnClassifier;
+};
+type Classifier =
+	| NaturalBayesClassifier
+	| DefaultBayesClassifier
+	| DefaultKnnClassifier;
 
 export class BaseClassifier {
-    public classifierInstance: Classifier
-    public classifierDataPath: string
+	public classifierInstance: Classifier;
+	public classifierDataPath: string;
 
-    constructor(classifierType: Classifier['type'] = 'default-bayes', filePostFix = process.env.CLASSIFIER_DATA_NAME || 'test') {
-        switch (classifierType) {
-            case "natural-bayes":
-                this.classifierInstance = {
-                    type: classifierType,
-                    classifier: new BayesClassifier()
-                }
-                this.classifierDataPath = `natural-bayes-classifier-${filePostFix}.json`;
-                break;
-            case "default-bayes":
-                this.classifierInstance = {
-                    type: classifierType,
-                    classifier: new NaiveBayesClassifier()
-                }
-                this.classifierDataPath = `default-bayes-classifier-${filePostFix}.json`;
-                break;
-            case "default-knn":
-                this.classifierInstance = {
-                    type: classifierType,
-                    classifier: new KnnClassifier
-                }
-                this.classifierDataPath = `default-knn-classifier-${filePostFix}.json`;
-                break;
-        }
-    }
+	constructor(
+		classifierType: Classifier["type"] = "default-bayes",
+		filePostFix = process.env.CLASSIFIER_DATA_NAME || "test",
+	) {
+		switch (classifierType) {
+			case "natural-bayes":
+				this.classifierInstance = {
+					type: classifierType,
+					classifier: new BayesClassifier(),
+				};
+				this.classifierDataPath = `natural-bayes-classifier-${filePostFix}.json`;
+				break;
+			case "default-bayes":
+				this.classifierInstance = {
+					type: classifierType,
+					classifier: new NaiveBayesClassifier(),
+				};
+				this.classifierDataPath = `default-bayes-classifier-${filePostFix}.json`;
+				break;
+			case "default-knn":
+				this.classifierInstance = {
+					type: classifierType,
+					classifier: new KnnClassifier(),
+				};
+				this.classifierDataPath = `default-knn-classifier-${filePostFix}.json`;
+				break;
+		}
+	}
 
-    public async init() {
-        switch (this.classifierInstance.type) {
-            case 'natural-bayes': {
-                const initData = Bun.file(this.classifierDataPath)
-                if (!(await initData.exists())) {
-                    const c = this.classifierInstance.classifier
-                    await Bun.write(this.classifierDataPath, JSON.stringify(c))
-                } else {
-                    const data = await initData.json()
-                    this.classifierInstance.classifier = BayesClassifier.restore(data)
-                }
-                break;
-            }
-            case 'default-bayes': {
-                const initData = Bun.file(this.classifierDataPath)
-                if (!(await initData.exists())) {
-                    const c = this.classifierInstance.classifier
-                    await Bun.write(this.classifierDataPath, c.toJson())
-                } else {
-                    const data = await initData.json()
-                    this.classifierInstance.classifier = new NaiveBayesClassifier(data.state, data.options)
-                }
-                break;
-            }
-            case "default-knn": {
-                const initData = Bun.file(this.classifierDataPath)
-                await this.classifierInstance.classifier.init()
-                if (!(await initData.exists())) {
-                    await this.classifierInstance.classifier.save(this.classifierDataPath)
-                } else {
-                    await this.classifierInstance.classifier.restore(this.classifierDataPath)
-                }
-            }
+	public async init() {
+		switch (this.classifierInstance.type) {
+			case "natural-bayes": {
+				const initData = Bun.file(this.classifierDataPath);
+				if (!(await initData.exists())) {
+					const c = this.classifierInstance.classifier;
+					await Bun.write(this.classifierDataPath, JSON.stringify(c));
+				} else {
+					const data = await initData.json();
+					this.classifierInstance.classifier = BayesClassifier.restore(data);
+				}
+				break;
+			}
+			case "default-bayes": {
+				const initData = Bun.file(this.classifierDataPath);
+				if (!(await initData.exists())) {
+					const c = this.classifierInstance.classifier;
+					await Bun.write(this.classifierDataPath, c.toJson());
+				} else {
+					const data = await initData.json();
+					this.classifierInstance.classifier = new NaiveBayesClassifier(
+						data.state,
+						data.options,
+					);
+				}
+				break;
+			}
+			case "default-knn": {
+				const initData = Bun.file(this.classifierDataPath);
+				await this.classifierInstance.classifier.init();
+				if (!(await initData.exists())) {
+					await this.classifierInstance.classifier.save(
+						this.classifierDataPath,
+					);
+				} else {
+					await this.classifierInstance.classifier.restore(
+						this.classifierDataPath,
+					);
+				}
+			}
+		}
+	}
 
-        }
-    }
+	public async addDocument(doc: DocumentToAdd) {
+		switch (this.classifierInstance.type) {
+			case "natural-bayes": {
+				const res = this.naturalTokeniseWord(doc.description);
+				this.classifierInstance.classifier.addDocument(res, doc.tag);
+				break;
+			}
+			case "default-bayes": {
+				this.classifierInstance.classifier.learn(doc.description, doc.tag);
+				break;
+			}
+			case "default-knn": {
+				await this.classifierInstance.classifier.addDocument(doc);
+				break;
+			}
+		}
+	}
 
-    public async addDocument(doc: DocumentToAdd) {
-        switch (this.classifierInstance.type) {
-            case 'natural-bayes': {
-                const res = this.naturalTokeniseWord(doc.description)
-                this.classifierInstance.classifier.addDocument(res, doc.tag)
-                break;
-            }
-            case 'default-bayes': {
-                this.classifierInstance.classifier.learn(doc.description, doc.tag)
-                break;
-            }
-            case 'default-knn': {
-                await this.classifierInstance.classifier.addDocument(doc)
-                break;
-            }
-        }
-    }
+	public async addDocuments(docs: DocumentToAdd[]) {
+		const failedDocs = [];
+		for (const doc of docs) {
+			try {
+				if (doc.description === "") {
+					await this.addDocument({ ...doc, description: " " });
+				} else {
+					await this.addDocument(doc);
+				}
+			} catch (e) {
+				appLogger(
+					`${this.classifierInstance.type}-Error adding document ${JSON.stringify(doc)}`,
+				);
+				failedDocs.push(doc);
+			}
+		}
+		if (failedDocs.length > 0) {
+			const failedIds = failedDocs.map((failed) => failed.transactionId);
+			await Bun.write(
+				`${this.classifierInstance.type}-failed-transactions-${new Date().toISOString()}.json`,
+				JSON.stringify(failedIds),
+			);
+		}
+	}
 
-    public async addDocuments(docs: DocumentToAdd[]) {
-        const failedDocs = []
-        for (const doc of docs) {
-            try {
-                if (doc.description === '') {
-                    await this.addDocument({ ...doc, description: ' ' })
-                } else {
-                    await this.addDocument(doc)
-                }
-            } catch (e) {
-                appLogger(`${this.classifierInstance.type}-Error adding document ${JSON.stringify(doc)}`)
-                failedDocs.push(doc)
-            }
-        }
-        if (failedDocs.length > 0) {
-            const failedIds = failedDocs.map((failed) => failed.transactionId)
-            await Bun.write(`${this.classifierInstance.type}-failed-transactions-${new Date().toISOString()}.json`, JSON.stringify(failedIds))
-        }
-    }
+	public async saveAndTrain() {
+		switch (this.classifierInstance.type) {
+			case "natural-bayes": {
+				this.classifierInstance.classifier.train();
+				const serialised = JSON.stringify(this.classifierInstance.classifier);
+				await Bun.write(this.classifierDataPath, serialised);
+				break;
+			}
+			case "default-bayes": {
+				const serialised = this.classifierInstance.classifier.toJson();
+				await Bun.write(this.classifierDataPath, serialised);
+				break;
+			}
+			case "default-knn": {
+				await this.classifierInstance.classifier.save(this.classifierDataPath);
+				break;
+			}
+		}
+	}
 
-    public async saveAndTrain() {
-        switch (this.classifierInstance.type) {
-            case "natural-bayes": {
-                this.classifierInstance.classifier.train()
-                const serialised = JSON.stringify(this.classifierInstance.classifier)
-                await Bun.write(this.classifierDataPath, serialised)
-                break;
-            }
-            case "default-bayes": {
-                const serialised = this.classifierInstance.classifier.toJson()
-                await Bun.write(this.classifierDataPath, serialised)
-                break;
-            }
-            case "default-knn": {
-                await this.classifierInstance.classifier.save(this.classifierDataPath)
-                break;
-            }
-        }
-    }
+	public isValid() {
+		switch (this.classifierInstance.type) {
+			case "natural-bayes":
+				return !!this.classifierInstance.classifier.docs.length;
+			case "default-bayes":
+				return !!this.classifierInstance.classifier.docCount;
+			case "default-knn":
+				return !!this.classifierInstance.classifier.instance.getNumClasses();
+		}
+	}
 
-    public isValid() {
-        switch (this.classifierInstance.type) {
-            case "natural-bayes":
-                return !!this.classifierInstance.classifier.docs.length
-            case "default-bayes":
-                return !!this.classifierInstance.classifier.docCount
-            case "default-knn":
-                return !!this.classifierInstance.classifier.instance.getNumClasses()
-        }
-    }
+	public async predict(target: string) {
+		switch (this.classifierInstance.type) {
+			case "natural-bayes": {
+				const tokenised = this.naturalTokeniseWord(target);
+				const res =
+					this.classifierInstance.classifier.getClassifications(tokenised);
+				return res.map((r) => ({ label: r.label, value: r.value }));
+			}
+			case "default-bayes": {
+				const res = await this.classifierInstance.classifier.categorise(target);
+				return res.map((r) => ({ label: r.label, value: r.value }));
+			}
+			case "default-knn": {
+				const res = await this.classifierInstance.classifier.predict(target);
+				return Object.entries(res.confidences).map(([label, value]) => ({
+					label,
+					value,
+				}));
+			}
+		}
+	}
 
-    public async predict(target: string) {
-        switch (this.classifierInstance.type) {
-            case "natural-bayes": {
-                const tokenised = this.naturalTokeniseWord(target)
-                const res = this.classifierInstance.classifier.getClassifications(tokenised)
-                return res.map((r) => ({ label: r.label, value: r.value }))
-            }
-            case "default-bayes": {
-                const res = await this.classifierInstance.classifier.categorise(target)
-                return res.map((r) => ({ label: r.label, value: r.value }))
-            }
-            case "default-knn": {
-                const res = await this.classifierInstance.classifier.predict(target)
-                return Object.entries(res.confidences).map(([label, value]) => ({ label, value }))
-            }
-        }
-    }
-
-    private naturalTokeniseWord(word: string) {
-        const tokeniser = new WordTokenizer()
-        return tokeniser.tokenize(word)
-    }
+	private naturalTokeniseWord(word: string) {
+		const tokeniser = new WordTokenizer();
+		return tokeniser.tokenize(word);
+	}
 }

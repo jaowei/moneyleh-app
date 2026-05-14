@@ -23,7 +23,12 @@ pre-push:
 #         - security
 #       run: bundle audit
 #
-# pre-commit:
+pre-commit:
+  commands:
+    check:
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
+      run: bunx --bun @biomejs/biome check --write {staged_files} 
+      stage_fixed: true
 #   parallel: true
   # jobs:
   # - name: test

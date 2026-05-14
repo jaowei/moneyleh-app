@@ -1,22 +1,22 @@
+import dayjs from "dayjs";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
-import { auth } from "./lib/auth";
-import { logger } from "hono/logger";
-import { companyRoute } from "./routes/company";
 import { HTTPException } from "hono/http-exception";
+import { logger } from "hono/logger";
 import { alreadyExistsResponse } from "./errors";
-import { uiRoute } from "./routes/ui.ts";
-import { transactionRoute } from "./routes/transaction.ts";
-import { tagRoute } from "./routes/tag.ts";
-import dayjs from "dayjs";
+import { auth } from "./lib/auth";
 import { accountRoute } from "./routes/account.ts";
 import { cardRoute } from "./routes/card.ts";
+import { companyRoute } from "./routes/company";
+import { tagRoute } from "./routes/tag.ts";
+import { transactionRoute } from "./routes/transaction.ts";
+import { uiRoute } from "./routes/ui.ts";
 
 const app = new Hono();
 
 export const appLogger = (message: string, ...rest: string[]) => {
-    console.log(`[${dayjs().toISOString()}] ${message}`, ...rest)
-}
+	console.log(`[${dayjs().toISOString()}] ${message}`, ...rest);
+};
 
 app.use(logger(appLogger));
 
@@ -25,49 +25,49 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
 // routes
 const routes = app
-    .route("/api/company", companyRoute)
-    .route("/api/transaction", transactionRoute)
-    .route("/api/tag", tagRoute)
-    .route("/api/account", accountRoute)
-    .route("/api/card", cardRoute)
+	.route("/api/company", companyRoute)
+	.route("/api/transaction", transactionRoute)
+	.route("/api/tag", tagRoute)
+	.route("/api/account", accountRoute)
+	.route("/api/card", cardRoute);
 
 // all ui focused endpoints
-app.route("/api/ui", uiRoute)
+app.route("/api/ui", uiRoute);
 
 // serve the frontend SPA build
 // hack to serve SPA
 // https://github.com/honojs/hono/issues/1859
 app
-    .use(
-        "/*",
-        serveStatic({
-            root: "./src/frontend/dist",
-        })
-    )
-    .use(
-        "*",
-        serveStatic({
-            path: "index.html",
-            root: "./src/frontend/dist",
-        })
-    );
+	.use(
+		"/*",
+		serveStatic({
+			root: "./src/frontend/dist",
+		}),
+	)
+	.use(
+		"*",
+		serveStatic({
+			path: "index.html",
+			root: "./src/frontend/dist",
+		}),
+	);
 
 app.onError((err) => {
-    const errMsg = `${err} | ${JSON.stringify(err)}`
-    appLogger(`At global exception handler, message is: ${errMsg}`)
-    if (err.message.includes("UNIQUE constraint failed")) {
-        return alreadyExistsResponse;
-    } else if (err instanceof HTTPException) {
-        return err.getResponse();
-    }
-    return new Response('Error', {
-        status: 500,
-        statusText: errMsg
-    });
+	const errMsg = `${err} | ${JSON.stringify(err)}`;
+	appLogger(`At global exception handler, message is: ${errMsg}`);
+	if (err.message.includes("UNIQUE constraint failed")) {
+		return alreadyExistsResponse;
+	} else if (err instanceof HTTPException) {
+		return err.getResponse();
+	}
+	return new Response("Error", {
+		status: 500,
+		statusText: errMsg,
+	});
 });
 
 export default {
-    port: 9000,
-    ...app
+	port: 9000,
+	...app,
 };
-export type AppType = typeof routes
+export type AppType = typeof routes;
