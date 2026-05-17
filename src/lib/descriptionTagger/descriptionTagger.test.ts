@@ -36,4 +36,10 @@ describe("description tagger", () => {
 		expect(tagged.length).toBe(transactions.length);
 		expect(tagged?.[0]?.tags?.[0]?.description).toBe(testLabelName);
 	});
+	test("tag not found in db", async () => {
+		spyOn(BaseClassifier.prototype, "isValid").mockReturnValueOnce(true);
+		const tagged = await tagTransactions(transactions);
+		expect(tagged.length).toBe(transactions.length);
+		expect(tagged?.[0]?.tags?.length).toBe(0);
+	});
 });

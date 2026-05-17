@@ -6,5 +6,8 @@ describe("default naive bayes test", () => {
 		const c = new NaiveBayesClassifier();
 		c.learn("test-text", "test-label");
 		expect(c.docCount).toMatchObject({ "test-label": 1 });
+
+		const categories = await c.categorise("test-text");
+		expect(categories.length).toBe(1);
 	});
 });

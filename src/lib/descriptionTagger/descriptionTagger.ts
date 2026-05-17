@@ -48,7 +48,7 @@ export const tagTransactions = async (
 						.from(tags)
 						.where(like(tags.description, prediction.label));
 					if (!queryRes[0]) {
-						tagged.push(emptyTransaction);
+						throw new Error("DB and classifier data is out of sync");
 					} else {
 						foundTags.push(queryRes[0]);
 					}
