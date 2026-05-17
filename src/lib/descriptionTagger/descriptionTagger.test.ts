@@ -38,6 +38,7 @@ describe("description tagger", () => {
 	});
 	test("tag not found in db", async () => {
 		spyOn(BaseClassifier.prototype, "isValid").mockReturnValueOnce(true);
+		spyOn(BaseClassifier.prototype, "predict").mockResolvedValueOnce([]);
 		const tagged = await tagTransactions(transactions);
 		expect(tagged.length).toBe(transactions.length);
 		expect(tagged?.[0]?.tags?.length).toBe(0);

@@ -163,16 +163,23 @@ export const statements = sqliteTable("statements", {
 	userId: text("user_id")
 		.references(() => user.id)
 		.notNull(),
+	statementOwnershipId: integer("statement_ownership_id")
+		.references(() => statementOwnerships.id)
+		.notNull(),
 	...timestamps,
 });
 
 export const statementOwnerships = sqliteTable("statement_ownerships", {
-	statementId: integer("statement_id")
-		.notNull()
-		.references(() => statements.id, { onDelete: "cascade" }),
+	id: integer().primaryKey(),
+	identifier: text().unique().notNull(),
 	accountId: integer("account_id").references(() => accounts.id),
 	cardId: integer("card_id").references(() => cards.id),
 });
+export const statementOwnershipsInsertSchemaZ =
+	createInsertSchema(statementOwnerships);
+export type StatementOwnershipsInsertSchema = z.infer<
+	typeof statementOwnershipsInsertSchemaZ
+>;
 
 export const transactionStatements = sqliteTable(
 	"transaction_statements",

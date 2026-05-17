@@ -45,18 +45,18 @@ const getDataExtractorForFormat = (
 	} else if (firstPage.search(chocolate.searchString).length) {
 		return {
 			extractor: chocolate.extractData,
-			companyName: "Chocolate_Finance",
+			companyName: "Chocolate Finance",
 		};
 	} else if (uobCard.searchFn?.(firstPage)) {
 		return { extractor: uobCard.extractData, companyName: "UOB" };
 	} else if (uobAccount.searchFn?.(firstPage)) {
 		return { extractor: uobAccount.extractData, companyName: "UOB" };
 	} else if (firstPage.search(trustCard.searchString).length) {
-		return { extractor: trustCard.extractData, companyName: "Trust_Bank" };
+		return { extractor: trustCard.extractData, companyName: "Trust Bank" };
 	} else if (firstPage.search(scbCard.searchString).length) {
 		return {
 			extractor: scbCard.extractData,
-			companyName: "Standard_Chartered",
+			companyName: "Standard Chartered",
 		};
 	} else if (firstPage.search(citiCard.searchString).length) {
 		return { extractor: citiCard.extractData, companyName: "Citibank" };

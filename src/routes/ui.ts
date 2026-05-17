@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
@@ -21,7 +21,10 @@ import {
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { pdfParser } from "../lib/pdf/pdf.ts";
 import type { PdfParser } from "../lib/pdf/pdf.type.ts";
-import { findUserOrThrow } from "./route.utils.ts";
+import {
+	findUserOrThrow,
+	getStatementOwnerByIdentifier,
+} from "./route.utils.ts";
 
 const userAssignmentsZ = z.object({
 	accountData: z
@@ -40,7 +43,7 @@ const userAssignmentsZ = z.object({
 		.optional(),
 });
 
-const FileUploadPayloadZ = z.object({
+const fileUploadPayloadZ = z.object({
 	// min 5kb, max 150kb
 	userId: z.string(),
 	file: z
@@ -49,6 +52,12 @@ const FileUploadPayloadZ = z.object({
 		.min(1 * 1000)
 		.max(300 * 1000),
 });
+
+export const statementInfoZ = z.object({
+	statementDate: z.string(),
+	statementOwnerIds: z.array(z.number()),
+});
+export type StatementInfo = z.infer<typeof statementInfoZ>;
 
 export const uiRoute = new Hono()
 	.post(
@@ -143,7 +152,7 @@ export const uiRoute = new Hono()
 	.post("/assignTo/*", async (c) => {
 		return c.text("Please specify a user id", 400);
 	})
-	.post("/fileUpload", zodValidator("form", FileUploadPayloadZ), async (c) => {
+	.post("/fileUpload", zodValidator("form", fileUploadPayloadZ), async (c) => {
 		const { file, userId } = c.req.valid("form");
 
 		let statementData: Awaited<ReturnType<PdfParser>> | undefined;
@@ -178,28 +187,46 @@ export const uiRoute = new Hono()
 			accountId: number | undefined;
 			accountName: string;
 		}[] = [];
+		const statementInfo: StatementInfo = {
+			statementDate: statementData.data.statementDate,
+			statementOwnerIds: [],
+		};
 		switch (statementData.data.type) {
 			case "card":
 				for (const [parsedCardName, data] of Object.entries(
 					statementData.data.cards,
 				)) {
-					const cardRes = await db
-						.select({
-							id: cards.id,
-							name: cards.name,
-							companyName: companies.name,
-						})
-						.from(cards)
-						.leftJoin(companies, eq(companies.id, cards.companyId))
-						.where(
-							and(
-								eq(companies.name, statementData.companyName),
-								inArray(cards.name, parsedCardName.toLowerCase().split(" ")),
-							),
-						);
-					const cardName = cardRes?.[0]?.name || parsedCardName;
+					const cardOwnerRes =
+						await getStatementOwnerByIdentifier(parsedCardName);
+					let cardName = parsedCardName;
+					let cardId: number | undefined;
+					if (cardOwnerRes[0]?.cardId) {
+						statementInfo.statementOwnerIds.push(cardOwnerRes[0].id);
+						const cardRes = await db
+							.select({
+								id: cards.id,
+								name: cards.name,
+								companyName: companies.name,
+							})
+							.from(cards)
+							.leftJoin(companies, eq(companies.id, cards.companyId))
+							.where(
+								and(
+									eq(companies.name, statementData.companyName),
+									eq(cards.id, cardOwnerRes[0].cardId),
+								),
+							);
+						cardId = cardRes?.[0]?.id;
+						if (cardRes[0]) {
+							cardName = cardRes[0].name;
+						}
+					} else {
+						throw new HTTPException(500, {
+							message: `Statement parsed name not linked to card (${parsedCardName}), contact developer to get it linked`,
+						});
+					}
 					cardInfo.push({
-						cardId: cardRes?.[0]?.id,
+						cardId,
 						cardName,
 					});
 
@@ -207,7 +234,7 @@ export const uiRoute = new Hono()
 					const txnWithCardName = taggedTxns.map((t) => ({
 						...t,
 						accountName: cardName,
-						cardId: cardRes?.[0]?.id,
+						cardId,
 					}));
 					taggedTransactions.push(txnWithCardName);
 				}
@@ -217,28 +244,37 @@ export const uiRoute = new Hono()
 				for (const [parsedAcctName, data] of Object.entries(
 					statementData.data.accounts,
 				)) {
-					const query = `%${parsedAcctName.toLowerCase()}`;
-					const accountRes = await db
-						.select({
-							id: accounts.id,
-							name: accounts.name,
-							companyName: companies.name,
-						})
-						.from(accounts)
-						.leftJoin(companies, eq(companies.id, accounts.companyId))
-						.where(
-							and(
-								eq(companies.name, statementData.companyName),
-								or(
-									sql`lower(${accounts.name}) in ${parsedAcctName.toLowerCase().split(" ")}`,
-									sql`lower(${accounts.name}) like ${query}`,
-									sql`replace(lower(${accounts.name}),' ','') like ${parsedAcctName.toLowerCase()}`,
+					const accountOwnerRes =
+						await getStatementOwnerByIdentifier(parsedAcctName);
+					let accountName = parsedAcctName;
+					let accountId: number | undefined;
+					if (accountOwnerRes[0]?.accountId) {
+						statementInfo.statementOwnerIds.push(accountOwnerRes[0].id);
+						const accountRes = await db
+							.select({
+								id: accounts.id,
+								name: accounts.name,
+								companyName: companies.name,
+							})
+							.from(accounts)
+							.leftJoin(companies, eq(companies.id, accounts.companyId))
+							.where(
+								and(
+									eq(companies.name, statementData.companyName),
+									eq(accounts.id, accountOwnerRes[0].accountId),
 								),
-							),
-						);
-					const accountName = accountRes?.[0]?.name || parsedAcctName;
+							);
+						accountId = accountRes?.[0]?.id;
+						if (accountRes[0]) {
+							accountName = accountRes[0].name;
+						}
+					} else {
+						throw new HTTPException(500, {
+							message: `Statement parsed name not linked to account (${parsedAcctName}), contact developer to get it linked`,
+						});
+					}
 					accountInfo.push({
-						accountId: accountRes?.[0]?.id,
+						accountId,
 						accountName,
 					});
 
@@ -246,14 +282,13 @@ export const uiRoute = new Hono()
 					const txnWithAccountName = taggedTxns.map((t) => ({
 						...t,
 						accountName,
-						accountId: accountRes?.[0]?.id,
+						accountId,
 					}));
 					taggedTransactions.push(txnWithAccountName);
 				}
 				break;
 			default:
-				appLogger("NOT IMPLEMENTED");
-				break;
+				throw new HTTPException(500, { message: "Statement NOT IMPLEMENTED" });
 		}
 
 		const companyRes = await db
@@ -269,9 +304,7 @@ export const uiRoute = new Hono()
 
 		return c.json({
 			taggedTransactions,
-			statementInfo: {
-				statementDate: statementData.data.statementDate,
-			},
+			statementInfo,
 			cardInfo,
 			accountInfo,
 			companyId: companyRes[0].id,

@@ -214,6 +214,7 @@ export const AddCardForm = ({
 				name,
 				companyId,
 				cardNetwork,
+				statementIdentifier: initialValues?.name,
 			},
 			param: {
 				userId,

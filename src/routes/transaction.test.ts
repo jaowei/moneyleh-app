@@ -9,15 +9,14 @@ import {
 import { and, eq, inArray, like } from "drizzle-orm";
 import { db } from "../db/db.ts";
 import {
-	statementOwnerships,
 	statements,
-	type TransactionsSelectSchema,
 	type TransactionsUpdateSchema,
 	tags,
 	transactionStatements,
 	transactions,
 	transactionTags,
 	userAccounts,
+	userCards,
 } from "../db/schema.ts";
 import app from "../index.ts";
 import { jsonHeader, testUser } from "../lib/test.utils.ts";
@@ -42,7 +41,7 @@ describe("/api/transaction", () => {
 			const txnToDelete = await db
 				.select()
 				.from(transactions)
-				.where(eq(transactions.transactionDate, fixedDate));
+				.where(eq(transactions.userId, testUser.id));
 			if (txnToDelete.length) {
 				for (const target of txnToDelete) {
 					console.log("----- Deleting transaction!");
@@ -72,9 +71,14 @@ describe("/api/transaction", () => {
 			.where(eq(statements.userId, testUser.id));
 		const statementIds = results.map((r) => r.id);
 		await db
-			.delete(statementOwnerships)
-			.where(inArray(statementOwnerships.statementId, statementIds));
+			.delete(transactionStatements)
+			.where(inArray(transactionStatements.statementId, statementIds));
 		await db.delete(statements).where(inArray(statements.id, statementIds));
+	};
+
+	const assignmentCleanup = async () => {
+		await db.delete(userCards).where(eq(userCards.userId, testUser.id));
+		await db.delete(userAccounts).where(eq(userAccounts.userId, testUser.id));
 	};
 
 	describe("create", () => {
@@ -86,8 +90,12 @@ describe("/api/transaction", () => {
 		test("inserts when transactions are similar in the same statement", async () => {
 			const testPayload: PostTransactionPayload = {
 				transactions: [testTransaction, testTransaction],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -113,8 +121,12 @@ describe("/api/transaction", () => {
 		test("inserts into db: no tags", async () => {
 			const testTransactions: PostTransactionPayload = {
 				transactions: [testTransaction],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -137,8 +149,12 @@ describe("/api/transaction", () => {
 						],
 					},
 				],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -162,8 +178,12 @@ describe("/api/transaction", () => {
 						],
 					},
 				],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -183,8 +203,12 @@ describe("/api/transaction", () => {
 						tags: [],
 					},
 				],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -201,14 +225,16 @@ describe("/api/transaction", () => {
 			const secondRes = await app.request("/api/transaction", {
 				method: "POST",
 				body: JSON.stringify({
+					...testTransactions,
 					transactions: [txnNotAdded, ...testTransactions.transactions],
-					statementInfo: { statementDate: new Date().toISOString() },
 					accountInfo: { accountId: 1, accountName: "test-account" },
 				}),
 				...jsonHeader,
 			});
 			expect(secondRes.status).toBe(400);
-			expect(await secondRes.text()).toInclude("similar transaction");
+			const errText = await secondRes.text();
+			expect(errText).toInclude("already added");
+			expect(errText).toInclude("Statement");
 			const queryRes = db
 				.select()
 				.from(transactions)
@@ -231,8 +257,12 @@ describe("/api/transaction", () => {
 						cardId: 1,
 					},
 				],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				cardInfo: { cardId: 1, cardName: "test-card" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -248,6 +278,7 @@ describe("/api/transaction", () => {
 		afterAll(async () => {
 			await transactionCleanup();
 			await statementCleanup();
+			await assignmentCleanup();
 		});
 
 		test("inserts into db", async () => {
@@ -261,8 +292,12 @@ describe("/api/transaction", () => {
 						cardId: 1,
 					},
 				],
-				statementInfo: { statementDate: new Date().toISOString() },
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
 				cardInfo: { cardId: 1, cardName: "test-card" },
+				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
 				method: "POST",
@@ -678,7 +713,7 @@ describe("/api/transaction", () => {
 			const testFile = Bun.file("./test-files/migrationTest.csv");
 			formData.append("file", testFile);
 			formData.append("userId", testUser.id);
-			formData.append("accountId", "1");
+			formData.append("accountId", "100000");
 			const res = await app.request("/api/transaction/csv", {
 				method: "POST",
 				body: formData,
@@ -709,10 +744,13 @@ describe("/api/transaction", () => {
 			});
 			test("inserts into db", async () => {
 				const accountId = 1;
-				await db.insert(userAccounts).values({
-					userId: testUser.id,
-					accountId,
-				});
+				await db
+					.insert(userAccounts)
+					.values({
+						userId: testUser.id,
+						accountId,
+					})
+					.onConflictDoNothing();
 				const formData = new FormData();
 				const testFile = Bun.file("./test-files/migrationTest.csv");
 				formData.append("file", testFile);

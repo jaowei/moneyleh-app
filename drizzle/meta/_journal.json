@@ -15,6 +15,27 @@
 			"when": 1776678311791,
 			"tag": "0001_ancient_blob",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1779009321007,
+			"tag": "0002_fantastic_ricochet",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1779009380211,
+			"tag": "0003_seed-statement-ownership",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1779011358454,
+			"tag": "0004_lowly_rattler",
+			"breakpoints": true
 		}
 	]
 }

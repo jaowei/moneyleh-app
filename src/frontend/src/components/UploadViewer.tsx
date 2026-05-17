@@ -27,12 +27,15 @@ interface TransactionViewerTabContentProps extends TransactionViewerProps {
 
 interface TransactionsTableProps {
 	transactions: FileUploadRes["taggedTransactions"][0];
-	statementInfo: FileUploadRes["statementInfo"];
+	statementInfo: Omit<FileUploadRes["statementInfo"], "statementOwnerIds"> & {
+		statementOwnershipId: number;
+	};
 	accountInfo?: FileUploadRes["accountInfo"][0];
 	cardInfo?: FileUploadRes["cardInfo"][0];
 	onSaveSuccess?: () => void;
 	tagData: Tag[];
 	saveDisabled: boolean;
+	companyId: number;
 }
 
 interface TransactionRowProps {
@@ -98,6 +101,7 @@ const TransactionViewerTable = ({
 	tagData,
 	onSaveSuccess,
 	saveDisabled,
+	companyId,
 }: TransactionsTableProps) => {
 	const { user } = useAuth();
 	const [editableTransactions, setEditableTransactions] =
@@ -127,6 +131,7 @@ const TransactionViewerTable = ({
 					statementInfo,
 					cardInfo,
 					accountInfo,
+					companyId,
 				},
 			});
 			if (!res.ok) {
@@ -227,10 +232,6 @@ const TabContent = ({
 		accountInfo[idx]?.accountId === undefined &&
 			cardInfo[idx]?.cardId === undefined,
 	);
-	const handleSubmitSuccess = async () => {
-		router.invalidate();
-		setIsNewCardAccount(false);
-	};
 	const isCard = cardInfo[idx]?.cardName;
 	const isAccount = accountInfo[idx]?.accountName;
 	const name =
@@ -240,6 +241,11 @@ const TabContent = ({
 	const formInitialValues = {
 		name,
 		companyId: `${companyId}`,
+	};
+
+	const handleSubmitSuccess = async () => {
+		router.invalidate();
+		setIsNewCardAccount(false);
 	};
 	return (
 		<>
@@ -278,11 +284,15 @@ const TabContent = ({
 				)}
 				<TransactionViewerTable
 					transactions={transactions}
-					statementInfo={statementInfo}
+					statementInfo={{
+						statementDate: statementInfo.statementDate,
+						statementOwnershipId: statementInfo.statementOwnerIds[idx],
+					}}
 					accountInfo={accountInfo[idx]}
 					cardInfo={cardInfo[idx]}
 					tagData={tagData}
 					saveDisabled={isNewCardAccount}
+					companyId={companyId}
 				/>
 			</div>
 		</>

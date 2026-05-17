@@ -9,34 +9,34 @@ export const STARTING_COMPANIES = [
 		name: "Citibank",
 	},
 	{
-		name: "Trust_Bank",
+		name: "Trust Bank",
 	},
 	{
-		name: "Standard_Chartered",
+		name: "Standard Chartered",
 	},
 	{
 		name: "HSBC",
 	},
 	{
-		name: "Interactive_Brokers",
+		name: "Interactive Brokers",
 	},
 	{
-		name: "Tiger_Brokers",
+		name: "Tiger Brokers",
 	},
 	{
-		name: "Moo_Moo",
+		name: "Moo Moo",
 	},
 	{
 		name: "CPF",
 	},
 	{
-		name: "Great_Eastern",
+		name: "Great Eastern",
 	},
 	{
 		name: "SingLife",
 	},
 	{
-		name: "Chocolate_Finance",
+		name: "Chocolate Finance",
 	},
 	{
 		name: "AMEX",

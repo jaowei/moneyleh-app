@@ -159,23 +159,28 @@ export const seedDataAccounts: schema.AccountsInsertSchema[] = [
 	},
 	{
 		name: "cash",
-		companyId: companyIdMap.Interactive_Brokers,
+		companyId: companyIdMap["Interactive Brokers"],
 		accountType: "brokerage",
 	},
 	{
 		name: "cash",
-		companyId: companyIdMap.Moo_Moo,
+		companyId: companyIdMap["Moo Moo"],
 		accountType: "brokerage",
 	},
 	{
 		name: "cash",
-		companyId: companyIdMap.Tiger_Brokers,
+		companyId: companyIdMap["Tiger Brokers"],
 		accountType: "brokerage",
 	},
 	{
 		name: "cash",
 		companyId: companyIdMap.IFast,
 		accountType: "brokerage",
+	},
+	{
+		name: "chocolate managed account",
+		companyId: companyIdMap["Chocolate Finance"],
+		accountType: "cash",
 	},
 ];
 await db.insert(schema.accounts).values(seedDataAccounts).onConflictDoNothing();

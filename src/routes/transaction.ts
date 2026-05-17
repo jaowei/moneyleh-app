@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
@@ -20,6 +20,7 @@ import {
 	transactionTags as transactionTagsDb,
 	userAccounts,
 	userCards,
+	userCompanies,
 } from "../db/schema.ts";
 import { appLogger } from "../index.ts";
 import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
@@ -28,6 +29,7 @@ import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { findUserOrThrow } from "./route.utils.ts";
 import { runTrainer } from "./transaction.utils.ts";
+import { statementInfoZ } from "./ui.ts";
 
 const allowOnlyAccountOrCardIdErrMsg =
 	"An account id or card id is required, both cannot be empty and filled in the same transaction";
@@ -53,21 +55,22 @@ const cardInfoPayloadZ = z
 		cardName: z.string(),
 	})
 	.optional();
-type CardInfoPayload = z.infer<typeof cardInfoPayloadZ>;
 const accountInfoPayloadZ = z
 	.object({
 		accountId: z.coerce.number(),
 		accountName: z.string(),
 	})
 	.optional();
-type AccountInfoPayload = z.infer<typeof accountInfoPayloadZ>;
+const statementInfoPayloadZ = statementInfoZ
+	.omit({ statementOwnerIds: true })
+	.extend({ statementOwnershipId: z.number() });
+type StatementInfoPayload = z.infer<typeof statementInfoPayloadZ>;
 const PostTransactionPayloadZ = z.object({
 	transactions: transactionsFromUIZ,
-	statementInfo: z.object({
-		statementDate: z.string(),
-	}),
+	statementInfo: statementInfoPayloadZ,
 	cardInfo: cardInfoPayloadZ,
 	accountInfo: accountInfoPayloadZ,
+	companyId: z.coerce.number(),
 });
 export type PostTransactionPayload = z.infer<typeof PostTransactionPayloadZ>;
 
@@ -112,50 +115,40 @@ const getUserTransactionsQueryZ = z.discriminatedUnion("type", [
 
 export const transactionRoute = new Hono()
 	.post("/", zodValidator("json", PostTransactionPayloadZ), async (c) => {
-		const { transactions, statementInfo, cardInfo, accountInfo } =
+		const { transactions, statementInfo, cardInfo, accountInfo, companyId } =
 			c.req.valid("json");
 
-		const addStatementOrThrow = async (
-			statementDate: string,
-			cardInfo: CardInfoPayload,
-			accountInfo: AccountInfoPayload,
-		) => {
-			let queryFilter: SQL;
-			let logMsg: string;
-			if (cardInfo) {
-				queryFilter = eq(statementOwnerships.cardId, cardInfo.cardId);
-				logMsg = `Card: ${cardInfo.cardName}`;
-			} else if (accountInfo) {
-				queryFilter = eq(statementOwnerships.accountId, accountInfo.accountId);
-				logMsg = `Account: ${accountInfo.accountName}`;
-			} else {
-				throw new HTTPException(400, {
-					message: "Error checking statement info",
-				});
-			}
+		const name = cardInfo?.cardName || accountInfo?.accountName;
 
+		const addStatementOrThrow = async (
+			statementInfo: StatementInfoPayload,
+			name?: string,
+		) => {
 			const existingStatementQuery = await db
 				.select()
 				.from(statements)
 				.leftJoin(
 					statementOwnerships,
-					eq(statements.id, statementOwnerships.statementId),
+					eq(statements.statementOwnershipId, statementOwnerships.id),
 				)
-				.where(and(eq(statements.statementDate, statementDate), queryFilter));
+				.where(
+					and(
+						eq(statements.statementDate, statementInfo.statementDate),
+						eq(
+							statements.statementOwnershipId,
+							statementInfo.statementOwnershipId,
+						),
+					),
+				);
 
 			if (existingStatementQuery.length > 0) {
 				throw new HTTPException(400, {
-					message: `${logMsg} | statement date: ${statementDate} already added`,
+					message: `Statement for: ${name} | statement date: ${statementInfo.statementDate} already added`,
 				});
 			}
-			return logMsg;
 		};
 
-		const statementLog = await addStatementOrThrow(
-			statementInfo.statementDate,
-			cardInfo,
-			accountInfo,
-		);
+		await addStatementOrThrow(statementInfo, name);
 
 		let shouldTrain = false;
 		const documentsToAdd: DocumentToAdd[] = [];
@@ -169,35 +162,46 @@ export const transactionRoute = new Hono()
 					.values({
 						statementDate: statementInfo.statementDate,
 						userId,
+						statementOwnershipId: statementInfo.statementOwnershipId,
 					})
-					.onConflictDoNothing()
 					.returning()
 					.all();
 				if (!insertedStatement[0]) {
 					tx.rollback();
 					throw new Error(
-						`Error persisting statement for user ${userId}, ${statementLog}`,
+						`Error persisting statement for user ${userId}, ${name}`,
 					);
 				}
-				const insertedOwnership = tx
-					.insert(statementOwnerships)
-					.values({
-						statementId: insertedStatement[0].id,
-						...(cardInfo && { cardId: cardInfo.cardId }),
-						...(accountInfo && { accountId: accountInfo.accountId }),
-					})
-					.returning()
-					.all();
+				appLogger(`Inserted statement for user ${userId}, ${name}`);
 
-				if (!insertedOwnership[0]) {
-					tx.rollback();
-					throw new Error(
-						`Error persisting statement ownership for user ${userId}, ${statementLog}`,
-					);
+				appLogger("Check assignment of card/account to user");
+				const insertCompanyQuery = tx
+					.insert(userCompanies)
+					.values({ userId, companyId });
+				if (accountInfo) {
+					const insertedRes = tx
+						.insert(userAccounts)
+						.values({ accountId: accountInfo.accountId, userId })
+						.returning()
+						.onConflictDoNothing()
+						.all();
+					if (insertedRes[0]) {
+						appLogger(`Inserted account ${insertedRes[0].accountId}`);
+						insertCompanyQuery.returning().onConflictDoNothing().all();
+					}
+				} else if (cardInfo) {
+					const insertedRes = tx
+						.insert(userCards)
+						.values({ cardId: cardInfo.cardId, userId })
+						.returning()
+						.onConflictDoNothing()
+						.all();
+					if (insertedRes[0]) {
+						appLogger(`Inserted card ${insertedRes[0].cardId}`);
+						insertCompanyQuery.returning().onConflictDoNothing().all();
+					}
 				}
-				appLogger(
-					`Inserted statement and statment ownership for user ${userId}, ${statementLog}`,
-				);
+				appLogger("Assignment done");
 
 				appLogger("Processing transactions...");
 				for (const t of transactions) {
@@ -255,7 +259,7 @@ export const transactionRoute = new Hono()
 						);
 					}
 
-					if (!tags || !tags.length) continue;
+					if (!tags?.length) continue;
 
 					const tagIds = tags.map((tag) => tag.id);
 					insertedTransactionIds.push(...txnId.map((txn) => txn.id));
@@ -679,7 +683,7 @@ export const transactionRoute = new Hono()
 									.returning()
 									.onConflictDoNothing()
 									.all();
-							} catch (error) {
+							} catch {
 								throw new HTTPException(400, {
 									message: `Could not update tag id (${tag.id})`,
 								});

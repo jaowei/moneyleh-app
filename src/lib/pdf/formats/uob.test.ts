@@ -9,12 +9,12 @@ describe("pdf: uob formats", () => {
 		if (data.type === "card") {
 			Object.values(data.cards).forEach((d, idx) => {
 				if (idx === 0) {
-					d.transactions.length = 10;
-					d.total = -289.01;
+					expect(d.transactions.length).toBe(10);
+					expect(d.total).toBe(-289.01);
 					d.transactions.forEach(testATransaction);
 				} else {
-					d.transactions.length = 14;
-					d.total = -345.9;
+					expect(d.transactions.length).toBe(14);
+					expect(d.total).toBe(-345.9);
 					d.transactions.forEach(testATransaction);
 				}
 			});
