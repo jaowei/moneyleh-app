@@ -67,10 +67,10 @@ interface StatementDataBase {
 
 export interface CardStatementData extends StatementDataBase {
 	type: "card";
-	dueDate: string;
-	creditLimit: number;
 	cards: Record<string, CardData>; // key is card name
 	points: Record<string, PointsData>;
+	dueDate?: string;
+	creditLimit?: number;
 }
 
 export interface AccountStatementData extends StatementDataBase {

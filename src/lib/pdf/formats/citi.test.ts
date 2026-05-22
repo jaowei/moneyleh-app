@@ -23,4 +23,25 @@ describe("pdf: Citibank statements", () => {
 			throw new Error();
 		}
 	});
+	// citibank statements can only be downloaded separately
+	// the statements belong to the same document but are split by card
+	// e.g. card 1 statement is page 1 to 5, while card 2 is page 5 to end
+	test("incomplete card statement", async () => {
+		const file = await getFile("./test-files/citiCardNoHeader.pdf");
+		const { data } = await pdfParser(file, testUser.id);
+		if (data.type === "card") {
+			const cards = Object.values(data.cards);
+			expect(cards.length).toBe(1);
+			expect(cards[0]?.cardNumber.length).toBeGreaterThan(1);
+			expect(cards[0]?.transactions.length).toBe(7);
+			cards[0]?.transactions.forEach((t) => {
+				testATransaction(t);
+			});
+			expect(data.creditLimit).toBe(0);
+			expect(data.statementDate).toBe("");
+			expect(data.dueDate).toBe("2026-05-23T00:00:00.000Z");
+		} else {
+			throw new Error();
+		}
+	});
 });

@@ -2,7 +2,7 @@ import { HTTPException } from "hono/http-exception";
 import * as mupdf from "mupdf";
 import type { Companies } from "../../db/company.seed.ts";
 import { chocolate } from "./formats/chocolate.ts";
-import { citiCard } from "./formats/citi.ts";
+import { citiCard, citiCardNoHeader } from "./formats/citi.ts";
 import { cpf } from "./formats/cpf.ts";
 import { dbsAccount, dbsCard } from "./formats/dbs.ts";
 import { gxsAccount } from "./formats/gxs.ts";
@@ -62,6 +62,8 @@ const getDataExtractorForFormat = (
 		return { extractor: citiCard.extractData, companyName: "Citibank" };
 	} else if (firstPage.search(gxsAccount.searchString).length) {
 		return { extractor: gxsAccount.extractData, companyName: "GXS" };
+	} else if (citiCardNoHeader.searchFn?.(firstPage)) {
+		return { extractor: citiCardNoHeader.extractData, companyName: "Citibank" };
 	} else {
 		throw new HTTPException(500, {
 			message: "Unable to determine PDF statement format",

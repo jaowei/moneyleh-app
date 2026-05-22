@@ -11,6 +11,11 @@ import { parseTxnDate } from "../pdf.utils";
 
 type ProcessedPdfBlockCiti = MuPdfStructuredTextBlock & { text: string };
 
+// for statement/due dates in summary, header
+const parseCitiStatementDate = (dateToParse: string) => {
+	return parseDateString(dateToParse, "MMMM DD, YYYY");
+};
+
 const getDateFromSummary = (
 	processed: ProcessedPdfBlockCiti[],
 	searchText: "Statement Date" | "Payment Due Date",
@@ -26,7 +31,7 @@ const getDateFromSummary = (
 		}
 		throw ParsingErrors.dueDate;
 	}
-	const parsedDate = parseDateString(dateToParse, "MMMM DD, YYYY");
+	const parsedDate = parseCitiStatementDate(dateToParse);
 	if (!parsedDate) {
 		if (searchText === "Statement Date") {
 			throw ParsingErrors.statementDate;
@@ -47,7 +52,7 @@ const getCreditLimit = (processed: ProcessedPdfBlockCiti[]) => {
 	}
 	try {
 		return parseFloat(limitToParse.replace("$", "").replace(",", ""));
-	} catch (error) {
+	} catch {
 		throw ParsingErrors.creditLimit;
 	}
 };
@@ -68,7 +73,7 @@ const getCardDetails = (processed: ProcessedPdfBlockCiti[]) => {
 		const matches = block.text.match(
 			/([a-zA-Z\s]*)([\d,]*.\d{2})[\d.]*[a-zA-Z\s]*([\d,]*)/,
 		);
-		if (!matches || !matches[1] || !matches[2] || !matches[3]) {
+		if (!matches?.[1] || !matches[2] || !matches[3]) {
 			throw ParsingErrors.cardDetails;
 		}
 		try {
@@ -76,7 +81,7 @@ const getCardDetails = (processed: ProcessedPdfBlockCiti[]) => {
 			const cardTotalDue = parseFloat(
 				matches[2].replace("$", "").replace(",", ""),
 			);
-			const cardPoints = parseInt(matches[3].replace(",", ""));
+			const cardPoints = parseInt(matches[3].replace(",", ""), 10);
 			cardDetails[cardName] = {
 				transactions: [],
 				total: cardTotalDue,
@@ -89,7 +94,7 @@ const getCardDetails = (processed: ProcessedPdfBlockCiti[]) => {
 				expiring: 0,
 				endBalance: cardPoints,
 			};
-		} catch (error) {
+		} catch {
 			throw ParsingErrors.cardDetails;
 		}
 	});
@@ -213,6 +218,18 @@ const processCardPoints = (
 	// TODO: figure out how to match points to card
 	pointsDetails;
 };
+const consolidateBlockLines = (
+	block: MuPdfStructuredTextBlock,
+): ProcessedPdfBlockCiti => {
+	const text = block.lines
+		.map((line) => line.text)
+		.join("")
+		.trim();
+	return {
+		...block,
+		text,
+	};
+};
 
 const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 	const extractedData: StatementData = {
@@ -227,18 +244,6 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 	if (!firstPage) {
 		throw ParsingErrors.page;
 	}
-	const consolidateBlockLines = (
-		block: MuPdfStructuredTextBlock,
-	): ProcessedPdfBlockCiti => {
-		const text = block.lines
-			.map((line) => line.text)
-			.join("")
-			.trim();
-		return {
-			...block,
-			text,
-		};
-	};
 	const processed = firstPage.blocks.map(consolidateBlockLines);
 
 	extractedData.statementDate = getDateFromSummary(processed, "Statement Date");
@@ -262,7 +267,77 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 	return extractedData;
 };
 
+const getCardDetailsNoHeader = (processed: ProcessedPdfBlockCiti[]) => {
+	const header = processed[3];
+	if (!header?.text.includes("Payment Due Date"))
+		throw ParsingErrors.cardDetails;
+
+	const matched = header.text.match(
+		/([\w\s]*) (\d{4} \d{4} \d{4} \d{4})Payment Due Date: (.*)/,
+	);
+	const cardDetails: CardStatementData["cards"] = {};
+	let dueDate = "";
+	if (matched?.[1] && matched?.[2]) {
+		cardDetails[matched[1]] = {
+			transactions: [],
+			total: 0,
+			cardNumber: matched[2],
+		};
+	} else {
+		throw ParsingErrors.cardDetails;
+	}
+	if (matched?.[3]) {
+		const date = parseCitiStatementDate(matched[3]);
+		if (date) {
+			dueDate = date;
+		} else {
+			throw ParsingErrors.dueDate;
+		}
+	}
+	return { cardDetails, dueDate };
+};
+
+const extractDataCardNoHeader: PdfFormatExtractor = (dataToExtract, userId) => {
+	const extractedData: StatementData = {
+		type: "card",
+		dueDate: "",
+		statementDate: "",
+		creditLimit: 0,
+		cards: {},
+		points: {},
+	};
+	const firstPage = dataToExtract.at(0);
+	if (!firstPage) {
+		throw ParsingErrors.page;
+	}
+	const processed = dataToExtract.flatMap((data) =>
+		data.blocks.map(consolidateBlockLines),
+	);
+
+	const { cardDetails, dueDate } = getCardDetailsNoHeader(processed);
+	extractedData.cards = cardDetails;
+	extractedData.dueDate = dueDate;
+
+	processCardTransactions(
+		processed,
+		cardDetails,
+		extractedData.dueDate,
+		userId,
+	);
+
+	return extractedData;
+};
+
 export const citiCard: PdfFormat = {
 	searchString: "YOUR CITIBANK CARDS",
 	extractData: extractDataCard,
+};
+export const citiCardNoHeader: PdfFormat = {
+	searchString: "",
+	searchFn: (page) => {
+		const hasCompanyName = !!page.search("CITI").length;
+		const hasCardSummary = !!page.search("Payments & Credits").length;
+		return hasCardSummary && hasCompanyName;
+	},
+	extractData: extractDataCardNoHeader,
 };
