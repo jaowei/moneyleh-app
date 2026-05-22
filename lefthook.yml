@@ -26,8 +26,7 @@ pre-push:
 pre-commit:
   commands:
     check:
-      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
-      run: bunx --bun @biomejs/biome check --write {staged_files} 
+      run: bun run check 
       stage_fixed: true
 #   parallel: true
   # jobs:
