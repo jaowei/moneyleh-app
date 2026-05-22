@@ -3,6 +3,7 @@ import type { AppType } from "../../../index.ts";
 import type { UiRouteType } from "../../../routes/ui.ts";
 import { getBackendErrorResponse } from "./error.ts";
 
+// UI
 export const uiRouteClient = hc<UiRouteType>("/api/ui");
 export type FileUploadRes = InferResponseType<
 	typeof uiRouteClient.fileUpload.$post
@@ -17,6 +18,7 @@ export type AllCards = InferResponseType<
 	(typeof uiRouteClient.availableInventory)[":userId"]["$get"]
 >["allCards"];
 
+// REST API
 export const backendRouteClient = hc<AppType>("");
 export type Tag = InferResponseType<
 	(typeof backendRouteClient.api.tag)[":tagId"]["$get"]
@@ -27,15 +29,24 @@ export type TransactionsReq = InferRequestType<
 export type GetTransactionDataRes = InferResponseType<
 	(typeof backendRouteClient.api.transaction)[":userId"]["$get"]
 >;
+
 export type GetCompanyRes = InferResponseType<
 	typeof backendRouteClient.api.company.$get
 >;
+
 export type PostAccountReq = InferRequestType<
 	(typeof backendRouteClient.api.account)[":userId"]["$post"]
 >["json"];
+export type PostAccountRes = InferResponseType<
+	(typeof backendRouteClient.api.account)[":userId"]["$post"]
+>;
+
 export type PostCardReq = InferRequestType<
 	(typeof backendRouteClient.api.card)[":userId"]["$post"]
 >["json"];
+export type PostCardRes = InferResponseType<
+	(typeof backendRouteClient.api.card)[":userId"]["$post"]
+>;
 
 export const fetchTagData = async () => {
 	const tagDataRes = await backendRouteClient.api.tag.$get();

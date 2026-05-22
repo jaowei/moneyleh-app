@@ -174,11 +174,17 @@ export const statementOwnerships = sqliteTable("statement_ownerships", {
 	identifier: text().unique().notNull(),
 	accountId: integer("account_id").references(() => accounts.id),
 	cardId: integer("card_id").references(() => cards.id),
+	...timestamps,
 });
 export const statementOwnershipsInsertSchemaZ =
 	createInsertSchema(statementOwnerships);
+export const statementOwnershipsSelectSchemaZ =
+	createSelectSchema(statementOwnerships);
 export type StatementOwnershipsInsertSchema = z.infer<
 	typeof statementOwnershipsInsertSchemaZ
+>;
+export type StatementOwnershipsSelectSchema = z.infer<
+	typeof statementOwnershipsSelectSchemaZ
 >;
 
 export const transactionStatements = sqliteTable(

@@ -1,15 +1,20 @@
 import { useRouter } from "@tanstack/react-router";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { useAuth } from "../context/auth.tsx";
+import { useAccountCardModal } from "../hooks/useAccountCardModal.ts";
 import { useRequestState } from "../hooks/useRequestState.ts";
 import { useTagModal } from "../hooks/useTagModal.ts";
 import {
 	backendRouteClient,
 	type FileUploadRes,
 	type GetCompanyRes,
+	type PostAccountRes,
+	type PostCardRes,
 	type Tag,
+	uiRouteClient,
 } from "../lib/backend-clients.ts";
-import { AddAccountForm, AddCardForm } from "./AddAccountCardForm.tsx";
+import { getBackendErrorResponse } from "../lib/error.ts";
+import { AccountCardDialog } from "./AccountCardDialog.tsx";
 import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
 
@@ -28,7 +33,7 @@ interface TransactionViewerTabContentProps extends TransactionViewerProps {
 interface TransactionsTableProps {
 	transactions: FileUploadRes["taggedTransactions"][0];
 	statementInfo: Omit<FileUploadRes["statementInfo"], "statementOwnerIds"> & {
-		statementOwnershipId: number;
+		statementOwnershipId: number | null | undefined;
 	};
 	accountInfo?: FileUploadRes["accountInfo"][0];
 	cardInfo?: FileUploadRes["cardInfo"][0];
@@ -123,12 +128,16 @@ const TransactionViewerTable = ({
 		accountInfo?.accountName ||
 		cardInfo?.cardName;
 	const handleSaveTransactionsClick = async () => {
+		if (!statementInfo.statementOwnershipId) throw new Error();
 		reset();
 		try {
 			const res = await backendRouteClient.api.transaction.$post({
 				json: {
 					transactions: editableTransactions,
-					statementInfo,
+					statementInfo: {
+						...statementInfo,
+						statementOwnershipId: statementInfo.statementOwnershipId,
+					},
 					cardInfo,
 					accountInfo,
 					companyId,
@@ -227,26 +236,78 @@ const TabContent = ({
 	userId,
 }: TransactionViewerTabContentProps) => {
 	const router = useRouter();
-	const { statementInfo, accountInfo, cardInfo, companyId } = fileUploadRes;
-	const [isNewCardAccount, setIsNewCardAccount] = useState(
-		accountInfo[idx]?.accountId === undefined &&
-			cardInfo[idx]?.cardId === undefined,
+	const {
+		statementInfo,
+		accountInfo,
+		cardInfo,
+		companyId,
+		availableAccounts,
+		availableCards,
+	} = fileUploadRes;
+
+	const {
+		dialogRef,
+		setAddingError,
+		addingError,
+		handleModalClose,
+		handleModalOpen,
+	} = useAccountCardModal();
+
+	const statementIsNotLinked = !statementInfo.statementOwnerIds[idx];
+	const [isUnlinked, setIsUnlinked] = useState(statementIsNotLinked);
+	const [newStatementOwnerId, setNewStatementOwnerId] = useState<number>();
+	const [entitiesToLink, setEntitiesToLink] = useState(
+		availableAccounts[idx] || availableCards[idx] || [],
 	);
+
 	const isCard = cardInfo[idx]?.cardName;
 	const isAccount = accountInfo[idx]?.accountName;
+	const title = isCard ? "Card" : "Account";
 	const name =
 		transactions[0]?.accountName ||
 		accountInfo[idx]?.accountName ||
 		cardInfo[idx]?.cardName;
-	const formInitialValues = {
+	const initialValues = {
 		name,
 		companyId: `${companyId}`,
 	};
 
-	const handleSubmitSuccess = async () => {
-		router.invalidate();
-		setIsNewCardAccount(false);
+	const handleDialogAddClick = async (id: number) => {
+		const data = isAccount
+			? { accountData: [{ accountId: id, userId }] }
+			: { cardData: [{ cardId: id, userId }] };
+		const assignRes = await uiRouteClient.assignTo[":userId"].$post({
+			param: { userId },
+			json: data,
+		});
+		const linkRes = await uiRouteClient.linkStatement.$post({
+			json: {
+				identifier: name,
+				...(isAccount ? { accountId: id } : { cardId: id }),
+			},
+		});
+		if (assignRes.ok && linkRes.ok) {
+			dialogRef.current?.close();
+			router.invalidate();
+			setIsUnlinked(false);
+			const linked = await linkRes.json();
+			setNewStatementOwnerId(linked.data.id);
+		} else if (!assignRes.ok) {
+			setAddingError((await getBackendErrorResponse(assignRes)).message);
+		} else {
+			setAddingError((await getBackendErrorResponse(linkRes)).message);
+		}
 	};
+
+	const handleLinkFormSuccess = (created: PostAccountRes | PostCardRes) => {
+		const { id, name, companyId } = created;
+		const targetCompany = companies.find((company) => company.id === companyId);
+		if (!targetCompany) throw new Error("Could not find company");
+		const companyName = targetCompany.name;
+		const newEntity = { id, name, companyName };
+		setEntitiesToLink((prev) => [...prev, newEntity]);
+	};
+
 	return (
 		<>
 			<input
@@ -257,42 +318,46 @@ const TabContent = ({
 				defaultChecked={idx === 0}
 			/>
 			<div className="tab-content border-base-300 bg-base-100 p-10 max-h-[65vh] overflow-auto">
-				{isNewCardAccount && (
+				{isUnlinked && (
 					<div>
-						<h2 className="text-2xl">New account/card detected</h2>
+						<h2 className="text-2xl">New {title} detected</h2>
 						<p>
-							{name} has not been added to your inventory yet, would you like to
-							add it?
+							{name} is not associated with any {title}, link to existing or
+							create a new {title}
 						</p>
-						{isCard && (
-							<AddCardForm
-								companies={companies}
-								userId={userId}
-								onFormSubmitSucess={handleSubmitSuccess}
-								initialValues={formInitialValues}
-							/>
-						)}
-						{isAccount && (
-							<AddAccountForm
-								companies={companies}
-								userId={userId}
-								onFormSubmitSucess={handleSubmitSuccess}
-								initialValues={formInitialValues}
-							/>
-						)}
+						<button
+							type="button"
+							className="btn btn-sm btn-accent"
+							onClick={handleModalOpen}
+						>
+							Link or add {title}
+						</button>
 					</div>
 				)}
 				<TransactionViewerTable
 					transactions={transactions}
 					statementInfo={{
 						statementDate: statementInfo.statementDate,
-						statementOwnershipId: statementInfo.statementOwnerIds[idx],
+						statementOwnershipId:
+							statementInfo.statementOwnerIds[idx] || newStatementOwnerId,
 					}}
 					accountInfo={accountInfo[idx]}
 					cardInfo={cardInfo[idx]}
 					tagData={tagData}
-					saveDisabled={isNewCardAccount}
+					saveDisabled={isUnlinked}
 					companyId={companyId}
+				/>
+				<AccountCardDialog
+					ref={dialogRef}
+					entityType={isAccount ? "account" : "card"}
+					companyData={companies}
+					userId={userId}
+					onModalClose={handleModalClose}
+					handleSelection={handleDialogAddClick}
+					entitiesToAdd={entitiesToLink}
+					selectionError={addingError}
+					formInitialValues={initialValues}
+					onFormSuccess={handleLinkFormSuccess}
 				/>
 			</div>
 		</>
@@ -309,8 +374,8 @@ export default function UploadViewer({
 		<div className="tabs tabs-border">
 			{fileUploadRes.taggedTransactions.map((transactionsPerAccount, idx) => {
 				const uniqueKey =
-					fileUploadRes.accountInfo[idx].accountName ||
-					fileUploadRes.cardInfo[idx].cardName;
+					fileUploadRes.accountInfo[idx]?.accountName ||
+					fileUploadRes.cardInfo[idx]?.cardName;
 				return (
 					<TabContent
 						key={uniqueKey}

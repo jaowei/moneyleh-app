@@ -1,7 +1,16 @@
-import { afterEach, beforeAll, describe, expect, jest, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	jest,
+	test,
+} from "bun:test";
+import { eq, like } from "drizzle-orm";
 import { db } from "../db/db.ts";
 import {
+	statementOwnerships,
 	statements,
 	type UserAccountsInsertSchema,
 	type UserCardInsertSchema,
@@ -38,11 +47,22 @@ describe("/api/ui", () => {
 				body: formData,
 			});
 			expect(res.status).toBe(200);
-			const result = (await res.json()) as { taggedTransactions: any[] };
+			// TODO: unable to get Hono test client working, to figure out how to get typesafe testing
+			const result = (await res.json()) as any;
 			expect(result).toHaveProperty("taggedTransactions");
 			expect(result.taggedTransactions.length).toBe(2);
 			expect(result.taggedTransactions[0].length).toBe(23);
 			expect(result.taggedTransactions[1].length).toBe(20);
+			expect(result.statementInfo.statementDate.length).toBeGreaterThan(1);
+			expect(result.statementInfo.statementOwnerIds.length).toBeGreaterThan(1);
+			expect(result.availableCards.length).toBe(2);
+			expect(result.availableCards[0]).toBe(null);
+			expect(result.availableAccounts.length).toBe(0);
+			expect(result.companyId).toBeTruthy();
+			expect(result.accountInfo.length).toBe(0);
+			expect(result.cardInfo.length).toBe(2);
+			expect(result.cardInfo[0].cardId).toBeNumber();
+			expect(result.cardInfo[0].cardName).toBeString();
 		});
 		test("file upload: parse transactions account dbs", async () => {
 			const formData = getCompleteFormData(
@@ -202,6 +222,51 @@ describe("/api/ui", () => {
 			expect(data).toHaveProperty("allCards");
 			expect(data).toHaveProperty("userAccounts");
 			expect(data).toHaveProperty("userCards");
+		});
+	});
+	describe("linkStatement", () => {
+		const testIdentifier = "test-id";
+		afterAll(async () => {
+			await db
+				.delete(statementOwnerships)
+				.where(like(statementOwnerships.identifier, `%${testIdentifier}%`));
+		});
+		test("invalid payload", async () => {
+			const res = await app.request("/api/ui/linkStatement", {
+				method: "POST",
+				body: JSON.stringify({
+					identifier: "",
+				}),
+				...jsonHeader,
+			});
+			expect(res.status).toBe(400);
+			expect(await res.text()).toInclude("Too small");
+		});
+		test("links statement for card", async () => {
+			const res = await app.request("/api/ui/linkStatement", {
+				method: "POST",
+				body: JSON.stringify({
+					identifier: `${testIdentifier}-card`,
+					cardId: 1,
+				}),
+				...jsonHeader,
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as any;
+			expect(body.data).toBeObject();
+		});
+		test("links statement for account", async () => {
+			const res = await app.request("/api/ui/linkStatement", {
+				method: "POST",
+				body: JSON.stringify({
+					identifier: `${testIdentifier}-account`,
+					accountId: 1,
+				}),
+				...jsonHeader,
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as any;
+			expect(body.data).toBeObject();
 		});
 	});
 });

@@ -26,6 +26,7 @@ import type {
 } from "./transaction.ts";
 
 describe("/api/transaction", () => {
+	db.run("PRAGMA busy_timeout = 5000;");
 	const fixedDate = "fixed-date";
 	const testTransaction = {
 		transactionDate: fixedDate,

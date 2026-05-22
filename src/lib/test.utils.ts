@@ -21,10 +21,6 @@ export const testUser = {
 	password: "testUser1pw",
 };
 
-export const testTag = {
-	description: "test-tag",
-};
-
 export const getFile = async (path: string): Promise<File> => {
 	const file = Bun.file(path);
 	const buf = await file.arrayBuffer();

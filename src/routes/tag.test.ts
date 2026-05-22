@@ -10,6 +10,7 @@ import {
 import { jsonHeader } from "../lib/test.utils.ts";
 
 describe("/api/tag", () => {
+	db.run("PRAGMA busy_timeout = 5000;");
 	describe("create", () => {
 		const tagPayload: TagInsertSchema = {
 			description: `test-tag-${new Date()}`,
@@ -65,7 +66,7 @@ describe("/api/tag", () => {
 	});
 
 	describe("get", () => {
-		const tagDesc = "tag-api-test";
+		const tagDesc = "tag-api-test-get";
 		afterAll(async () => {
 			await db.delete(tags).where(eq(tags.description, tagDesc));
 		});
@@ -99,6 +100,10 @@ describe("/api/tag", () => {
 	});
 
 	describe("put", () => {
+		const tagDesc = "tag-api-test-update";
+		afterAll(async () => {
+			await db.delete(tags).where(eq(tags.description, tagDesc));
+		});
 		test("Fails to update: no payload", async () => {
 			const res = await app.request("/api/tag", {
 				method: "PUT",
@@ -110,7 +115,6 @@ describe("/api/tag", () => {
 			expect(res.status).toBe(400);
 		});
 		test("updates", async () => {
-			const tagDesc = "tag-api-test";
 			const createdRes = await db
 				.insert(tags)
 				.values({ description: tagDesc })

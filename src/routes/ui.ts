@@ -7,6 +7,8 @@ import {
 	accounts,
 	cards,
 	companies,
+	type StatementOwnershipsSelectSchema,
+	statementOwnerships,
 	userAccountInsertSchemaZ,
 	userAccounts,
 	userCardInsertSchemaZ,
@@ -44,18 +46,23 @@ const userAssignmentsZ = z.object({
 });
 
 const fileUploadPayloadZ = z.object({
-	// min 5kb, max 150kb
 	userId: z.string(),
 	file: z
 		.file()
 		.mime(["application/pdf"])
-		.min(1 * 1000)
+		.min(1 * 1000) //1kb
 		.max(300 * 1000),
+});
+
+const LinkStatementPayloadZ = z.object({
+	identifier: z.string().min(1),
+	accountId: z.number().optional(),
+	cardId: z.number().optional(),
 });
 
 export const statementInfoZ = z.object({
 	statementDate: z.string(),
-	statementOwnerIds: z.array(z.number()),
+	statementOwnerIds: z.array(z.number().or(z.undefined())),
 });
 export type StatementInfo = z.infer<typeof statementInfoZ>;
 
@@ -152,6 +159,49 @@ export const uiRoute = new Hono()
 	.post("/assignTo/*", async (c) => {
 		return c.text("Please specify a user id", 400);
 	})
+	.post(
+		"/linkStatement",
+		zodValidator("json", LinkStatementPayloadZ),
+		async (c) => {
+			const { identifier, cardId, accountId } = c.req.valid("json");
+			const handleRes = (res: StatementOwnershipsSelectSchema[]) => {
+				if (!res.length) {
+					throw new HTTPException(500, {
+						message: `Could not add ${cardId || accountId}`,
+					});
+				}
+				if (res[0]) {
+					return res[0];
+				} else {
+					throw new HTTPException(500, {
+						message: `Could not add ${cardId || accountId}`,
+					});
+				}
+			};
+			let createdRes: StatementOwnershipsSelectSchema[] = [];
+			if (cardId) {
+				createdRes = await db
+					.insert(statementOwnerships)
+					.values({
+						identifier,
+						cardId,
+					})
+					.returning();
+			}
+			if (accountId) {
+				createdRes = await db
+					.insert(statementOwnerships)
+					.values({
+						identifier,
+						accountId,
+					})
+					.returning();
+			}
+			return c.json({
+				data: handleRes(createdRes),
+			});
+		},
+	)
 	.post("/fileUpload", zodValidator("form", fileUploadPayloadZ), async (c) => {
 		const { file, userId } = c.req.valid("form");
 
@@ -191,6 +241,13 @@ export const uiRoute = new Hono()
 			statementDate: statementData.data.statementDate,
 			statementOwnerIds: [],
 		};
+		const availableCards: Array<
+			{ id: number; name: string; companyName: string }[] | undefined
+		> = [];
+		const availableAccounts: Array<
+			{ id: number; name: string; companyName: string }[] | undefined
+		> = [];
+
 		switch (statementData.data.type) {
 			case "card":
 				for (const [parsedCardName, data] of Object.entries(
@@ -200,31 +257,33 @@ export const uiRoute = new Hono()
 						await getStatementOwnerByIdentifier(parsedCardName);
 					let cardName = parsedCardName;
 					let cardId: number | undefined;
-					if (cardOwnerRes[0]?.cardId) {
-						statementInfo.statementOwnerIds.push(cardOwnerRes[0].id);
-						const cardRes = await db
-							.select({
-								id: cards.id,
-								name: cards.name,
-								companyName: companies.name,
-							})
-							.from(cards)
-							.leftJoin(companies, eq(companies.id, cards.companyId))
-							.where(
-								and(
-									eq(companies.name, statementData.companyName),
-									eq(cards.id, cardOwnerRes[0].cardId),
-								),
-							);
+					const cardRes = await db
+						.select({
+							id: cards.id,
+							name: cards.name,
+							companyName: companies.name,
+						})
+						.from(cards)
+						.innerJoin(companies, eq(companies.id, cards.companyId))
+						.where(
+							and(
+								eq(companies.name, statementData.companyName),
+								cardOwnerRes[0]?.cardId
+									? eq(cards.id, cardOwnerRes[0].cardId)
+									: undefined,
+							),
+						);
+					if (cardOwnerRes[0] && cardRes[0]) {
+						cardName = cardRes[0].name;
+						cardId = cardRes[0].id;
+						availableCards.push(undefined);
+					} else if (cardRes.length < 1) {
 						cardId = cardRes?.[0]?.id;
-						if (cardRes[0]) {
-							cardName = cardRes[0].name;
-						}
+						availableCards.push(undefined);
 					} else {
-						throw new HTTPException(500, {
-							message: `Statement parsed name not linked to card (${parsedCardName}), contact developer to get it linked`,
-						});
+						availableCards.push(cardRes);
 					}
+					statementInfo.statementOwnerIds.push(cardOwnerRes?.[0]?.id);
 					cardInfo.push({
 						cardId,
 						cardName,
@@ -248,31 +307,34 @@ export const uiRoute = new Hono()
 						await getStatementOwnerByIdentifier(parsedAcctName);
 					let accountName = parsedAcctName;
 					let accountId: number | undefined;
-					if (accountOwnerRes[0]?.accountId) {
-						statementInfo.statementOwnerIds.push(accountOwnerRes[0].id);
-						const accountRes = await db
-							.select({
-								id: accounts.id,
-								name: accounts.name,
-								companyName: companies.name,
-							})
-							.from(accounts)
-							.leftJoin(companies, eq(companies.id, accounts.companyId))
-							.where(
-								and(
-									eq(companies.name, statementData.companyName),
-									eq(accounts.id, accountOwnerRes[0].accountId),
-								),
-							);
+					const accountRes = await db
+						.select({
+							id: accounts.id,
+							name: accounts.name,
+							companyName: companies.name,
+						})
+						.from(accounts)
+						.innerJoin(companies, eq(companies.id, accounts.companyId))
+						.where(
+							and(
+								eq(companies.name, statementData.companyName),
+								accountOwnerRes[0]?.accountId
+									? eq(accounts.id, accountOwnerRes[0].accountId)
+									: undefined,
+							),
+						);
+					console.log(accountRes);
+					if (accountOwnerRes[0] && accountRes[0]) {
+						accountName = accountRes[0].name;
+						accountId = accountRes[0].id;
+						availableAccounts.push(undefined);
+					} else if (accountRes.length < 1) {
 						accountId = accountRes?.[0]?.id;
-						if (accountRes[0]) {
-							accountName = accountRes[0].name;
-						}
+						availableAccounts.push(undefined);
 					} else {
-						throw new HTTPException(500, {
-							message: `Statement parsed name not linked to account (${parsedAcctName}), contact developer to get it linked`,
-						});
+						availableAccounts.push(accountRes);
 					}
+					statementInfo.statementOwnerIds.push(accountOwnerRes?.[0]?.id);
 					accountInfo.push({
 						accountId,
 						accountName,
@@ -308,6 +370,8 @@ export const uiRoute = new Hono()
 			cardInfo,
 			accountInfo,
 			companyId: companyRes[0].id,
+			availableAccounts,
+			availableCards,
 		});
 	})
 	.get("/availableInventory/:userId", async (c) => {

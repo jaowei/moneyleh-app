@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import React, { type ChangeEventHandler, useRef, useState } from "react";
+import type React from "react";
+import { useState } from "react";
 import {
-	AddAccountForm,
-	AddCardForm,
-} from "../../components/AddAccountCardForm.tsx";
-import { AddButton } from "../../components/AddButton.tsx";
+	AccountCardDialog,
+	type Entities,
+} from "../../components/AccountCardDialog.tsx";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 import { DismissableAlert } from "../../components/DismissableAlert.tsx";
-import { ModalCloseButton } from "../../components/ModalCloseButton.tsx";
+import { useAccountCardModal } from "../../hooks/useAccountCardModal.ts";
 import {
 	type AllAccounts,
 	type AllCards,
@@ -50,10 +50,6 @@ export const Route = createFileRoute("/_authenticated/inventory/")({
 	},
 });
 
-const AllListModalBox = ({ children }: { children: React.ReactNode }) => {
-	return <div className="modal-box max-w-[80vw]">{children}</div>;
-};
-
 const AllAccountsList = ({
 	allAccounts,
 	companyData,
@@ -62,40 +58,38 @@ const AllAccountsList = ({
 	companyData: GetCompanyRes["data"];
 }) => {
 	const { auth } = Route.useRouteContext();
+	const {
+		dialogRef: accountsListDialogRef,
+		addingError,
+		setAddingError,
+		handleModalClose,
+		handleModalOpen,
+	} = useAccountCardModal();
 	const userId = auth?.user?.id;
 	if (!userId) throw new Error("No user id");
 
 	const router = useRouter();
 
-	const accountsListDialogRef = useRef<HTMLDialogElement>(null);
-
-	const [searchTerm, setSearchTerm] = useState("");
-	const [addingError, setAddingError] = useState("");
-
-	const filteredAccounts = allAccounts.filter((acc) => {
+	const filteredAccounts: Entities = [];
+	for (const acc of allAccounts) {
 		const hasAccount = acc.accounts;
 		const isUserAccount = !!acc.user_accounts;
-		const targetSearchName = `${acc.companies?.name.toLowerCase()} ${acc.accounts?.name.toLowerCase()}`;
-		const matchSearchTerm = searchTerm
-			? targetSearchName.includes(searchTerm)
-			: true;
-		return hasAccount && !isUserAccount && matchSearchTerm;
-	});
+		if (hasAccount && !isUserAccount) {
+			filteredAccounts.push({
+				id: hasAccount.id,
+				companyName: acc.companies.name,
+				name: hasAccount.name,
+			});
+		}
+	}
 
-	const handleAccountSearchInputChange: ChangeEventHandler<HTMLInputElement> = (
-		e,
-	) => {
-		setSearchTerm(e.target.value.toLowerCase());
-	};
-	const handleAddAccountClick = async (account: AllAccounts[0]) => {
-		if (!account.accounts) return;
-
+	const handleAddAccountClick = async (accountId: number) => {
 		const res = await uiRouteClient.assignTo[":userId"].$post({
 			param: { userId },
 			json: {
 				accountData: [
 					{
-						accountId: account.accounts.id,
+						accountId,
 						userId,
 					},
 				],
@@ -108,72 +102,25 @@ const AllAccountsList = ({
 			setAddingError(res.statusText);
 		}
 	};
-	const handleModalClose = () => {
-		accountsListDialogRef.current?.close();
-	};
-	const handleFormSuccess = () => {
-		router.invalidate();
-	};
-
 	return (
 		<>
 			<button
 				type="button"
 				className="btn btn-sm btn-accent"
-				onClick={() => accountsListDialogRef.current?.showModal()}
+				onClick={handleModalOpen}
 			>
 				Add accounts
 			</button>
-			<dialog ref={accountsListDialogRef} className="modal">
-				<AllListModalBox>
-					<ModalCloseButton />
-					<input
-						className="input"
-						placeholder="search accounts"
-						onChange={handleAccountSearchInputChange}
-					/>
-					<AddAccountForm
-						companies={companyData}
-						userId={userId}
-						onFormSubmitSucess={handleFormSuccess}
-					/>
-					<table className="table">
-						<thead>
-							<tr>
-								<th colSpan={3} align="center">
-									Accounts
-								</th>
-							</tr>
-						</thead>
-						<thead>
-							<tr>
-								<th>Company name</th>
-								<th>Account name</th>
-								<th>Add</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredAccounts.map((acc) => (
-								<tr key={acc.accounts?.id}>
-									<td>{acc.companies.name}</td>
-									<td>{acc.accounts?.name}</td>
-									<td>
-										<AddButton onClick={() => handleAddAccountClick(acc)} />
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					{addingError && (
-						<div className="alert alert-error">{addingError}</div>
-					)}
-					<div className="modal-action">
-						<button type="button" className="btn" onClick={handleModalClose}>
-							Close
-						</button>
-					</div>
-				</AllListModalBox>
-			</dialog>
+			<AccountCardDialog
+				ref={accountsListDialogRef}
+				entityType="account"
+				companyData={companyData}
+				userId={userId}
+				onModalClose={handleModalClose}
+				handleSelection={handleAddAccountClick}
+				entitiesToAdd={filteredAccounts}
+				selectionError={addingError}
+			/>
 		</>
 	);
 };
@@ -188,39 +135,36 @@ const AllCardsList = ({
 	const { auth } = Route.useRouteContext();
 	const router = useRouter();
 
+	const {
+		dialogRef: cardsListDialogRef,
+		addingError,
+		setAddingError,
+		handleModalClose,
+		handleModalOpen,
+	} = useAccountCardModal();
 	const userId = auth?.user?.id;
 	if (!userId) throw new Error("No user id");
 
-	const cardsListDialogRef = useRef<HTMLDialogElement>(null);
-
-	const [searchTerm, setSearchTerm] = useState("");
-	const [addingError, setAddingError] = useState("");
-
-	const filteredCards = allCards.filter((card) => {
+	const filteredCards: Entities = [];
+	for (const card of allCards) {
 		const hasCard = card.cards;
 		const isUserCard = !!card.user_cards;
-		const targetSearchName = `${card.companies?.name.toLowerCase()} ${card.cards?.name.toLowerCase()}`;
-		const matchSearchTerm = searchTerm
-			? targetSearchName.includes(searchTerm)
-			: true;
-		return hasCard && !isUserCard && matchSearchTerm;
-	});
+		if (hasCard && !isUserCard) {
+			filteredCards.push({
+				id: hasCard.id,
+				companyName: card.companies.name,
+				name: hasCard.name,
+			});
+		}
+	}
 
-	const handleCardSearchInputChange: ChangeEventHandler<HTMLInputElement> = (
-		e,
-	) => {
-		setSearchTerm(e.target.value.toLowerCase());
-	};
-
-	const handleAddCardClick = async (card: AllCards[0]) => {
-		if (!card.cards) return;
-
+	const handleAddCardClick = async (cardId: number) => {
 		const res = await uiRouteClient.assignTo[":userId"].$post({
 			param: { userId },
 			json: {
 				cardData: [
 					{
-						cardId: card.cards.id,
+						cardId,
 						userId,
 					},
 				],
@@ -234,72 +178,25 @@ const AllCardsList = ({
 		}
 	};
 
-	const handleAddModalClose = () => {
-		cardsListDialogRef.current?.close();
-	};
-	const handleFormSuccess = () => {
-		router.invalidate();
-	};
-
 	return (
 		<div className="flex flex-col gap-2">
 			<button
 				type="button"
 				className="btn btn-sm btn-accent"
-				onClick={() => cardsListDialogRef.current?.showModal()}
+				onClick={handleModalOpen}
 			>
 				Add cards
 			</button>
-			<dialog ref={cardsListDialogRef} className="modal">
-				<AllListModalBox>
-					<ModalCloseButton />
-					<input
-						className="input"
-						placeholder="search cards"
-						onChange={handleCardSearchInputChange}
-					/>
-					<AddCardForm
-						companies={companyData}
-						userId={userId}
-						onFormSubmitSucess={handleFormSuccess}
-					/>
-					<table className="table">
-						<thead>
-							<tr>
-								<th colSpan={3} align="center">
-									Cards
-								</th>
-							</tr>
-						</thead>
-						<thead>
-							<tr>
-								<th>Company name</th>
-								<th>Card name</th>
-								<th>Add</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredCards.map((card) => (
-								<tr key={card.cards?.id}>
-									<td>{card.companies.name}</td>
-									<td>{card.cards?.name}</td>
-									<td>
-										<AddButton onClick={() => handleAddCardClick(card)} />
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					{addingError && (
-						<div className="alert alert-error">{addingError}</div>
-					)}
-					<div className="modal-action">
-						<button type="button" className="btn" onClick={handleAddModalClose}>
-							Close
-						</button>
-					</div>
-				</AllListModalBox>
-			</dialog>
+			<AccountCardDialog
+				ref={cardsListDialogRef}
+				entityType="card"
+				companyData={companyData}
+				userId={userId}
+				onModalClose={handleModalClose}
+				handleSelection={handleAddCardClick}
+				entitiesToAdd={filteredCards}
+				selectionError={addingError}
+			/>
 		</div>
 	);
 };

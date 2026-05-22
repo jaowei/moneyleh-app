@@ -7,16 +7,18 @@ import {
 	backendRouteClient,
 	type GetCompanyRes,
 	type PostAccountReq,
+	type PostAccountRes,
 	type PostCardReq,
+	type PostCardRes,
 } from "../lib/backend-clients";
 
 interface FormProps {
 	companies: GetCompanyRes["data"];
 	userId: string;
-	onFormSubmitSucess: () => void;
 }
 
-interface AccountFormProps extends FormProps {
+export interface AccountFormProps extends FormProps {
+	onFormSubmitSuccess: (created: PostAccountRes) => void;
 	initialValues?: {
 		name?: string;
 		accountType?: string;
@@ -24,7 +26,8 @@ interface AccountFormProps extends FormProps {
 	};
 }
 
-interface CardFormProps extends FormProps {
+export interface CardFormProps extends FormProps {
+	onFormSubmitSuccess: (created: PostCardRes) => void;
 	initialValues?: {
 		name?: string;
 		companyId?: string;
@@ -96,7 +99,7 @@ const ErrorDisplay = ({ error }: { error: string }) => {
 export const AddAccountForm = ({
 	companies,
 	userId,
-	onFormSubmitSucess,
+	onFormSubmitSuccess,
 	initialValues,
 }: AccountFormProps) => {
 	const [error, setError] = useState("");
@@ -130,7 +133,8 @@ export const AddAccountForm = ({
 		} else {
 			form.reset();
 			setOpenCollapse(false);
-			onFormSubmitSucess();
+			const res = await createRes.json();
+			onFormSubmitSuccess(res);
 		}
 	};
 	return (
@@ -193,7 +197,7 @@ export const AddAccountForm = ({
 export const AddCardForm = ({
 	companies,
 	userId,
-	onFormSubmitSucess,
+	onFormSubmitSuccess,
 	initialValues,
 }: CardFormProps) => {
 	const [error, setError] = useState("");
@@ -225,8 +229,8 @@ export const AddCardForm = ({
 			setError(await createRes.text());
 		} else {
 			form.reset();
-			setOpenCollapse(false);
-			onFormSubmitSucess();
+			const res = await createRes.json();
+			onFormSubmitSuccess(res);
 		}
 	};
 	return (

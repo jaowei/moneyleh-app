@@ -1,5 +1,5 @@
 import { auth } from "../lib/auth.ts";
-import { testTag, testUser } from "../lib/test.utils.ts";
+import { testUser } from "../lib/test.utils.ts";
 import * as authSchema from "./auth-schema";
 import { STARTING_COMPANIES } from "./company.seed";
 import { db } from "./db";
@@ -198,14 +198,5 @@ try {
 // add test user for backend tests
 await db.insert(authSchema.user).values(testUser).onConflictDoNothing();
 console.log("===Seed test user: Done!");
-
-console.log("===Seed test tag: Start!");
-await db
-	.insert(schema.tags)
-	.values({
-		description: testTag.description,
-	})
-	.onConflictDoNothing();
-console.log("===Seed test tag: Done!");
 
 console.log(`===Seeding complete.`);
