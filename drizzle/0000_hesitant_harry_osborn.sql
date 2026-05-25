@@ -50,22 +50,28 @@ CREATE TABLE `securities` (
 );
 --> statement-breakpoint
 CREATE TABLE `statement_ownerships` (
-	`statement_id` integer NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
+	`identifier` text NOT NULL,
 	`account_id` integer,
 	`card_id` integer,
-	FOREIGN KEY (`statement_id`) REFERENCES `statements`(`id`) ON UPDATE no action ON DELETE cascade,
+	`updated_at` text,
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+	`deleted_at` text,
 	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `statement_ownerships_identifier_unique` ON `statement_ownerships` (`identifier`);--> statement-breakpoint
 CREATE TABLE `statements` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`statement_date` text NOT NULL,
 	`user_id` text NOT NULL,
+	`statement_ownership_id` integer NOT NULL,
 	`updated_at` text,
 	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
 	`deleted_at` text,
-	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`statement_ownership_id`) REFERENCES `statement_ownerships`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `tags` (
@@ -77,6 +83,17 @@ CREATE TABLE `tags` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `tags_description_unique` ON `tags` (`description`);--> statement-breakpoint
+CREATE TABLE `transaction_statements` (
+	`transaction_id` integer NOT NULL,
+	`statement_id` integer NOT NULL,
+	`updated_at` text,
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+	`deleted_at` text,
+	PRIMARY KEY(`transaction_id`, `statement_id`),
+	FOREIGN KEY (`transaction_id`) REFERENCES `transactions`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`statement_id`) REFERENCES `statements`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `transaction_tags` (
 	`transaction_id` integer NOT NULL,
 	`tag_id` integer NOT NULL,

@@ -32,6 +32,7 @@ export class BaseClassifier {
 	constructor(
 		classifierType: Classifier["type"] = "default-bayes",
 		filePostFix = process.env.CLASSIFIER_DATA_NAME || "test",
+		rootPath = process.env.CLASSIFIER_ROOT || "./",
 	) {
 		switch (classifierType) {
 			case "natural-bayes":
@@ -39,21 +40,21 @@ export class BaseClassifier {
 					type: classifierType,
 					classifier: new BayesClassifier(),
 				};
-				this.classifierDataPath = `natural-bayes-classifier-${filePostFix}.json`;
+				this.classifierDataPath = `${rootPath}natural-bayes-classifier-${filePostFix}.json`;
 				break;
 			case "default-bayes":
 				this.classifierInstance = {
 					type: classifierType,
 					classifier: new NaiveBayesClassifier(),
 				};
-				this.classifierDataPath = `default-bayes-classifier-${filePostFix}.json`;
+				this.classifierDataPath = `${rootPath}default-bayes-classifier-${filePostFix}.json`;
 				break;
 			case "default-knn":
 				this.classifierInstance = {
 					type: classifierType,
 					classifier: new KnnClassifier(),
 				};
-				this.classifierDataPath = `default-knn-classifier-${filePostFix}.json`;
+				this.classifierDataPath = `${rootPath}default-knn-classifier-${filePostFix}.json`;
 				break;
 		}
 	}

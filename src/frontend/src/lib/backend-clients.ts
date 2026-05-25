@@ -52,6 +52,8 @@ export const fetchTagData = async () => {
 	const tagDataRes = await backendRouteClient.api.tag.$get();
 	if (tagDataRes.ok) {
 		return (await tagDataRes.json()).data;
+	} else if (tagDataRes.status === 404) {
+		return [];
 	} else {
 		throw await getBackendErrorResponse(tagDataRes);
 	}

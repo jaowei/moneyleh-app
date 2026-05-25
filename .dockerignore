@@ -1,4 +1,5 @@
 node_modules
+src/frontend/node_modules
 Dockerfile*
 docker-compose*
 .dockerignore

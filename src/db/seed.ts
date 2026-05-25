@@ -102,8 +102,19 @@ export const seedDataCards: schema.CardsInsertSchema[] = [
 		cardNetwork: "visa signature",
 	},
 ];
-await db.insert(schema.cards).values(seedDataCards).onConflictDoNothing();
+const cardsInserted = await db
+	.insert(schema.cards)
+	.values(seedDataCards)
+	.returning()
+	.onConflictDoNothing();
 console.log("===Seed cards: Done!");
+const cardIdMap = cardsInserted.reduce(
+	(prev, curr) => {
+		prev[curr.name] = curr.id;
+		return prev;
+	},
+	{} as Record<string, number>,
+);
 
 console.log("===Seed accounts: Start!");
 export const seedDataAccounts: schema.AccountsInsertSchema[] = [
@@ -183,8 +194,68 @@ export const seedDataAccounts: schema.AccountsInsertSchema[] = [
 		accountType: "cash",
 	},
 ];
-await db.insert(schema.accounts).values(seedDataAccounts).onConflictDoNothing();
+const accountsInserted = await db
+	.insert(schema.accounts)
+	.values(seedDataAccounts)
+	.returning()
+	.onConflictDoNothing();
+const accountIdMap = accountsInserted.reduce(
+	(prev, curr) => {
+		prev[curr.name] = curr.id;
+		return prev;
+	},
+	{} as Record<string, number>,
+);
 console.log("===Seed accounts: Done!");
+
+console.log("===Seed statement owners: Start!");
+const seedStatementOwnerships: schema.StatementOwnershipsInsertSchema[] = [
+	{ cardId: cardIdMap["altitude"], identifier: "DBS ALTITUDE VISA SIGNATURE" },
+	{ cardId: cardIdMap["woman's"], identifier: "DBS WOMAN'S WORLD MASTERCARD" },
+	{ cardId: cardIdMap["lady's"], identifier: "LADY'S CARD" },
+	{
+		cardId: cardIdMap["preferred platinum"],
+		identifier: "PREFERRED PLATINUM VISA",
+	},
+	{
+		cardId: cardIdMap["preferred platinum"],
+		identifier: "PREFERRED VISA",
+	},
+	{
+		cardId: cardIdMap["premiermiles"],
+		identifier: "CITI PREMIERMILES WORLD MASTER",
+	},
+	{ cardId: cardIdMap["rewards"], identifier: "CITI REWARDS WORLD MASTERCARD" },
+	{ accountId: accountIdMap["my account"], identifier: "My Account" },
+	{
+		accountId: accountIdMap["supplementary retirement scheme account"],
+		identifier: "Supplementary Retirement Scheme Account",
+	},
+	{ accountId: accountIdMap["one account"], identifier: "One Account" },
+	{ accountId: accountIdMap["stash"], identifier: "UOB Stash Account" },
+	{
+		accountId: accountIdMap["ordinary account"],
+		identifier: "ordinaryAccount",
+	},
+	{
+		accountId: accountIdMap["medisave account"],
+		identifier: "medisaveAccount",
+	},
+	{ accountId: accountIdMap["special account"], identifier: "specialAccount" },
+	{
+		accountId: accountIdMap["investment account"],
+		identifier: "investmentAccount",
+	},
+	{
+		accountId: accountIdMap["chocolate managed account"],
+		identifier: "chocolateManagedAccount",
+	},
+];
+await db
+	.insert(schema.statementOwnerships)
+	.values(seedStatementOwnerships)
+	.onConflictDoNothing();
+console.log("===Seed statement owners: Done!");
 
 console.log("===Seed test user: Start!");
 // add test user for UI
