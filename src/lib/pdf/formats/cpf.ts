@@ -1,8 +1,10 @@
 import type { TransactionsInsertSchema } from "../../../db/schema.ts";
+import { ParsingErrors } from "../../../errors.ts";
 import { appLogger } from "../../../index.ts";
 import { parseDateString } from "../../dayjs.ts";
 import type {
 	CPFStatementData,
+	MuPdfStructuredTextBlock,
 	PdfFormat,
 	PdfFormatExtractor,
 } from "../pdf.type.ts";
@@ -12,8 +14,8 @@ const parseAmount = (amountLine: string) => {
 	const clean = amountLine.replaceAll(",", "");
 	try {
 		return parseFloat(clean);
-	} catch (e) {
-		appLogger(`WARN: Unable to parse transaction amount`);
+	} catch {
+		throw ParsingErrors.transactionAmt;
 	}
 };
 
@@ -34,6 +36,43 @@ const parseTxn = (account: string, amountStr?: string) => {
 	}
 };
 
+const getStatementDate = (blocks: MuPdfStructuredTextBlock[]) => {
+	const dateBlock = blocks.find((block) =>
+		block.lines.find((line) => line.text === "Transaction history"),
+	);
+	if (!dateBlock) {
+		throw ParsingErrors.statementDate;
+	}
+	const statementPeriod = dateBlock.lines[1]?.text;
+	const matches = statementPeriod?.match(/\d{2} \w{3} \d{4}/);
+	if (matches?.[0]) {
+		const parsed = parseDateString(matches[0], "DD MMM YYYY");
+		if (!parsed) {
+			throw ParsingErrors.statementDate;
+		}
+		return parsed;
+	} else {
+		throw ParsingErrors.statementDate;
+	}
+};
+
+const getAbbrMap = (blocks: MuPdfStructuredTextBlock[]) => {
+	const abbrMap = new Map<string, string>();
+	blocks.forEach((block) => {
+		const abbrMatch = block.lines[0]?.text.match(/[A-Z]{3}/);
+		if (abbrMatch?.[0]) {
+			abbrMap.set(
+				abbrMatch[0],
+				block.lines
+					.slice(1)
+					.map((l) => l.text)
+					.join(" "),
+			);
+		}
+	});
+	return abbrMap;
+};
+
 const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 	const statementData: CPFStatementData = {
 		type: "cpf",
@@ -44,25 +83,18 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 			medisaveAccount: { transactions: [] },
 		},
 	};
-	const abbrMap = new Map<string, string>();
-	dataToExtract.forEach((page, pageNum) => {
+	if (!dataToExtract[0]) {
+		throw ParsingErrors.page;
+	}
+	const firstPageBlocks = dataToExtract[0].blocks;
+	statementData.statementDate = getStatementDate(firstPageBlocks);
+	const remainingPages = dataToExtract.slice(1).flatMap((page) => page.blocks);
+	const abbrMap = getAbbrMap(remainingPages);
+	dataToExtract.forEach((page) => {
 		const { blocks } = page;
 		blocks.forEach((block) => {
 			const startingLine = block.lines[0];
 			if (!startingLine) return;
-
-			if (startingLine.text.toLowerCase() === "transaction history") {
-				const statementPeriod = block.lines[1]?.text;
-				const matches = statementPeriod?.match(/\d{2} \w{3} \d{4}/);
-				if (matches?.[0]) {
-					const parsed = parseDateString(matches[0], "DD MMM YYYY");
-					if (!parsed) {
-						appLogger(`WARN: Could not parse date`);
-					} else {
-						statementData.statementDate = parsed;
-					}
-				}
-			}
 
 			if (block.lines.length >= 5) {
 				const txnDate = parseTxnDate(
@@ -74,10 +106,9 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 					const oaAmt = parseTxn("OA", block.lines.at(-3)?.text);
 					const saAmt = parseTxn("SA", block.lines.at(-2)?.text);
 					const maAmt = parseTxn("MA", block.lines.at(-1)?.text);
-					const transaction: TransactionsInsertSchema = {
+					const transaction: Omit<TransactionsInsertSchema, "amount"> = {
 						transactionDate: txnDate,
 						currency: "SGD",
-						amount: oaAmt || saAmt || maAmt,
 						description: block.lines
 							.slice(1, block.lines.length - 3)
 							.map((l) => l.text)
@@ -85,26 +116,24 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 						userId,
 					};
 					if (oaAmt) {
-						statementData.accounts.ordinaryAccount.transactions.push(
-							transaction,
-						);
+						statementData.accounts.ordinaryAccount.transactions.push({
+							...transaction,
+							amount: oaAmt,
+						});
 					}
 					if (saAmt) {
-						statementData.accounts.specialAccount.transactions.push(
-							transaction,
-						);
+						statementData.accounts.specialAccount.transactions.push({
+							...transaction,
+							amount: saAmt,
+						});
 					}
 					if (maAmt) {
-						statementData.accounts.medisaveAccount.transactions.push(
-							transaction,
-						);
+						statementData.accounts.medisaveAccount.transactions.push({
+							...transaction,
+							amount: maAmt,
+						});
 					}
 				}
-			}
-
-			if (block.lines.length === 2 && pageNum > 0) {
-				if (startingLine.text.toLowerCase() === "code") return;
-				abbrMap.set(startingLine.text, block.lines?.[1]?.text || "");
 			}
 		});
 	});

@@ -323,7 +323,6 @@ export const uiRoute = new Hono()
 									: undefined,
 							),
 						);
-					console.log(accountRes);
 					if (accountOwnerRes[0] && accountRes[0]) {
 						accountName = accountRes[0].name;
 						accountId = accountRes[0].id;
