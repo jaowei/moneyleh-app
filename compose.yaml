@@ -7,6 +7,7 @@ services:
       - moneyleh-app-data:/data
     environment:
       - BETTER_AUTH_SECRET
+      - BETTER_AUTH_URL
 
 volumes:
   moneyleh-app-data:

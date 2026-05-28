@@ -32,7 +32,6 @@ FROM base AS release
 ENV DATABASE_NAME=/data/moneyleh-app.db
 ENV CLASSIFIER_ROOT=/data/
 ENV NODE_ENV=production
-ENV BETTER_AUTH_URL=http://localhost:9000
 COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/src ./src
 COPY --from=prerelease /usr/src/app/drizzle ./drizzle
