@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
@@ -9,6 +9,7 @@ import {
 	companies,
 	type StatementOwnershipsSelectSchema,
 	statementOwnerships,
+	transactions,
 	userAccountInsertSchemaZ,
 	userAccounts,
 	userCardInsertSchemaZ,
@@ -387,6 +388,19 @@ export const uiRoute = new Hono()
 
 		const userCardRows = allCardRows.filter((row) => row.user_cards);
 
+		const userCardRowsWithAmount = userCardRows.map((row) => {
+			if (!row.user_cards) return { ...row, total: 0 };
+			const queryRes = db
+				.select({ totalAmount: sql<number>`sum(${transactions.amount})` })
+				.from(transactions)
+				.where(eq(transactions.cardId, row.user_cards.cardId))
+				.all();
+			return {
+				...row,
+				total: queryRes[0]?.totalAmount,
+			};
+		});
+
 		const allAccountRows = await db
 			.select()
 			.from(companies)
@@ -400,12 +414,24 @@ export const uiRoute = new Hono()
 			);
 
 		const userAccountRows = allAccountRows.filter((row) => row.user_accounts);
+		const userAccountRowsWithAmount = userAccountRows.map((row) => {
+			if (!row.user_accounts) return { ...row, total: 0 };
+			const queryRes = db
+				.select({ totalAmount: sql<number>`sum(${transactions.amount})` })
+				.from(transactions)
+				.where(eq(transactions.accountId, row.user_accounts.accountId))
+				.all();
+			return {
+				...row,
+				total: queryRes[0]?.totalAmount,
+			};
+		});
 
 		return c.json({
 			allAccounts: allAccountRows,
 			allCards: allCardRows,
-			userCards: userCardRows,
-			userAccounts: userAccountRows,
+			userCards: userCardRowsWithAmount,
+			userAccounts: userAccountRowsWithAmount,
 		});
 	});
 

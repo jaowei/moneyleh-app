@@ -204,6 +204,13 @@ const AllCardsList = ({
 const TableRow = ({ children }: { children: React.ReactNode }) => {
 	return <td className="overflow-y-auto">{children}</td>;
 };
+const TableRowAmount = ({ children }: { children: number }) => {
+	const amount = new Intl.NumberFormat("en-sg", {
+		style: "currency",
+		currency: "SGD",
+	}).format(children);
+	return <td className="overflow-y-auto text-primary font-bold">{amount}</td>;
+};
 
 function InventoryComponent() {
 	const { inventory, tagData, companyData } = Route.useLoaderData();
@@ -250,8 +257,8 @@ function InventoryComponent() {
 							<tr>
 								<th>Company name</th>
 								<th>Account name</th>
-								<th>Label</th>
-								<th></th>
+								<th>Total</th>
+								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -259,7 +266,7 @@ function InventoryComponent() {
 								<tr key={acc.accounts?.id}>
 									<TableRow>{acc.companies.name}</TableRow>
 									<TableRow>{acc.accounts?.name}</TableRow>
-									<TableRow>{acc.user_accounts?.accountLabel}</TableRow>
+									<TableRowAmount>{acc.total}</TableRowAmount>
 									<TableRow>
 										<div className="flex flex-row gap-1">
 											{acc.accounts?.id && (
@@ -308,8 +315,8 @@ function InventoryComponent() {
 							<tr>
 								<th>Company name</th>
 								<th>Card name</th>
-								<th>Label</th>
-								<th></th>
+								<th>Total</th>
+								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -317,7 +324,7 @@ function InventoryComponent() {
 								<tr key={card.cards?.id}>
 									<TableRow>{card.companies.name}</TableRow>
 									<TableRow>{card.cards?.name}</TableRow>
-									<TableRow>{card.user_cards?.cardLabel}</TableRow>
+									<TableRowAmount>{card.total}</TableRowAmount>
 									<TableRow>
 										<div className="flex flex-row gap-1">
 											{card.cards?.id && (

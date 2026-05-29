@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../db/db.ts";
 import { cards } from "../db/schema.ts";
-import { seedDataAccounts, seedDataCards } from "../db/seed.ts";
+import { seedDataCards } from "../db/seed.ts";
 import app from "../index.ts";
 import { jsonHeader, testUser } from "../lib/test.utils.ts";
 
