@@ -393,7 +393,12 @@ export const uiRoute = new Hono()
 			const queryRes = db
 				.select({ totalAmount: sql<number>`sum(${transactions.amount})` })
 				.from(transactions)
-				.where(eq(transactions.cardId, row.user_cards.cardId))
+				.where(
+					and(
+						eq(transactions.cardId, row.user_cards.cardId),
+						eq(transactions.userId, row.user_cards.userId),
+					),
+				)
 				.all();
 			return {
 				...row,
@@ -419,7 +424,12 @@ export const uiRoute = new Hono()
 			const queryRes = db
 				.select({ totalAmount: sql<number>`sum(${transactions.amount})` })
 				.from(transactions)
-				.where(eq(transactions.accountId, row.user_accounts.accountId))
+				.where(
+					and(
+						eq(transactions.accountId, row.user_accounts.accountId),
+						eq(transactions.userId, row.user_accounts.userId),
+					),
+				)
 				.all();
 			return {
 				...row,
