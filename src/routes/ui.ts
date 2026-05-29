@@ -51,7 +51,7 @@ const fileUploadPayloadZ = z.object({
 		.file()
 		.mime(["application/pdf"])
 		.min(1 * 1000) //1kb
-		.max(300 * 1000),
+		.max(600 * 1000),
 });
 
 const LinkStatementPayloadZ = z.object({
