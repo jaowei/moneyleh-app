@@ -4,6 +4,7 @@ import { AccountCardChart } from "../../components/AccountCardChart.tsx";
 import { AccountCardStats } from "../../components/AccountCardStats.tsx";
 import { AccountCardTransactionRow } from "../../components/AccountCardTransactionRow.tsx";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
+import { DismissableAlert } from "../../components/DismissableAlert.tsx";
 import { TagPickerModal, type UiTag } from "../../components/TagPicker.tsx";
 import { EditableTransactionsTableHeader } from "../../components/TransactionsTableHeader.tsx";
 import { useTagModal } from "../../hooks/useTagModal.ts";
@@ -66,6 +67,8 @@ function InventoryDataComponent() {
 	const [editableTransactions, setEditableTransactions] = useState(
 		data.transactions,
 	);
+	const [rowActionError, setRowActionError] = useState("");
+	const [rowActionSuccess, setRowActionSuccess] = useState("");
 
 	const handleTagChange = (tags: UiTag[]) => {
 		setEditableTransactions((existing) =>
@@ -81,6 +84,16 @@ function InventoryDataComponent() {
 			}),
 		);
 		handleTagEditorChange(tags);
+	};
+	const handleRowActionError = (msg: string) => {
+		setRowActionError(msg);
+	};
+	const handleRowActionSuccess = (msg: string) => {
+		setRowActionSuccess(msg);
+	};
+	const handleAlertDismiss = () => {
+		setRowActionError("");
+		setRowActionSuccess("");
 	};
 
 	return (
@@ -106,6 +119,20 @@ function InventoryDataComponent() {
 				</div>
 				<AccountCardChart chartData={data.chartData} />
 			</div>
+			{rowActionError && (
+				<DismissableAlert
+					type="error"
+					message={rowActionError}
+					onDismiss={handleAlertDismiss}
+				/>
+			)}
+			{rowActionSuccess && (
+				<DismissableAlert
+					type="success"
+					message={rowActionSuccess}
+					onDismiss={handleAlertDismiss}
+				/>
+			)}
 			<div className="w-[85vw] max-h-[45vh] overflow-auto border rounded-sm border-neutral-content">
 				{data.transactions.length > 0 && (
 					<table className="table table-zebra table-xs table-pin-rows">
@@ -119,6 +146,8 @@ function InventoryDataComponent() {
 									transactionIndex={idx}
 									onTagEditorOpen={handleTagEditorOpen}
 									setTransactions={setEditableTransactions}
+									onActionError={handleRowActionError}
+									onActionSuccess={handleRowActionSuccess}
 								/>
 							))}
 						</tbody>

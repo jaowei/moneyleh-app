@@ -694,4 +694,22 @@ export const transactionRoute = new Hono()
 			});
 			return c.text(`Updated ${transactions.length} transactions`);
 		},
-	);
+	)
+	.delete("/:userId/:transactionId", async (c) => {
+		const { userId, transactionId } = c.req.param();
+		const txnIdInt = parseInt(transactionId, 10);
+		db.transaction((tx) => {
+			tx.delete(transactionTagsDb)
+				.where(eq(transactionTagsDb.transactionId, txnIdInt))
+				.all();
+			tx.delete(transactionsDb)
+				.where(
+					and(
+						eq(transactionsDb.userId, userId),
+						eq(transactionsDb.id, txnIdInt),
+					),
+				)
+				.all();
+		});
+		return c.text("deleted!");
+	});

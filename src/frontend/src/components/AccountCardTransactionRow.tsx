@@ -1,6 +1,5 @@
 import { useRouter } from "@tanstack/react-router";
 import { type Dispatch, type SetStateAction, useState } from "react";
-import { useRequestState } from "../hooks/useRequestState";
 import {
 	backendRouteClient,
 	type GetTransactionDataRes,
@@ -17,6 +16,8 @@ interface TransactionRowProps {
 	transactionIndex: number;
 	onTagEditorOpen: (tags: UiTag[], currentIdx: number) => void;
 	setTransactions: Dispatch<SetStateAction<Transaction[]>>;
+	onActionError: (msg: string) => void;
+	onActionSuccess: (msg: string) => void;
 }
 
 const getUpdater = (
@@ -51,9 +52,10 @@ export const AccountCardTransactionRow = ({
 	onTagEditorOpen,
 	setTransactions,
 	userId,
+	onActionError,
+	onActionSuccess,
 }: TransactionRowProps) => {
 	const [editRow, setEditRow] = useState(false);
-	const { onError, onSuccess, reset } = useRequestState();
 	const router = useRouter();
 
 	const date = new Date(transaction.transactionDate);
@@ -87,28 +89,50 @@ export const AccountCardTransactionRow = ({
 	};
 	const handleSaveRowClick = async () => {
 		try {
-			const res = await backendRouteClient.api.transaction[":userId"]["$patch"](
-				{
-					param: { userId },
-					json: {
-						transactions: [transaction],
-					},
+			const res = await backendRouteClient.api.transaction[":userId"].$patch({
+				param: { userId },
+				json: {
+					transactions: [transaction],
 				},
-			);
+			});
 			if (res.ok) {
-				onSuccess();
 				router.invalidate();
 				setEditRow(false);
+				onActionSuccess(`Row edited!`);
 			} else {
-				onError(await res.text());
+				const errText = await res.text();
+				onActionError(`Failed to edit: ${errText}`);
 			}
 		} catch (error) {
-			onError(error);
+			onActionError(`Failed to edit: ${error}`);
 		}
-		reset();
 	};
 	const handleTagPickerClick = () => {
 		onTagEditorOpen(transaction.tags, transactionIndex);
+	};
+	const handleDeleteRowClick = async () => {
+		try {
+			const res = await backendRouteClient.api.transaction[":userId"][
+				":transactionId"
+			].$delete({
+				param: {
+					userId,
+					transactionId: `${transaction.id}`,
+				},
+			});
+			if (res.ok) {
+				router.invalidate();
+				setTransactions((existing) => {
+					return existing.filter((t) => t.id !== transaction.id);
+				});
+				onActionSuccess("Row deleted!");
+			} else {
+				const errText = await res.text();
+				onActionError(`Error deleting row: ${errText}`);
+			}
+		} catch (error) {
+			onActionError(`Error deleting row: ${error}`);
+		}
 	};
 	return (
 		<tr>
@@ -142,23 +166,32 @@ export const AccountCardTransactionRow = ({
 				/>
 			</td>
 			<td>
-				{editRow ? (
+				<div className="flex flex-row gap-2">
+					{editRow ? (
+						<button
+							type="button"
+							className="btn btn-xs btn-secondary"
+							onClick={handleSaveRowClick}
+						>
+							save
+						</button>
+					) : (
+						<button
+							type="button"
+							className="btn btn-xs btn-primary"
+							onClick={handleEditClick}
+						>
+							edit
+						</button>
+					)}
 					<button
 						type="button"
-						className="btn btn-xs btn-secondary"
-						onClick={handleSaveRowClick}
+						className="btn btn-xs btn-error"
+						onClick={handleDeleteRowClick}
 					>
-						save
+						delete
 					</button>
-				) : (
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={handleEditClick}
-					>
-						edit
-					</button>
-				)}
+				</div>
 			</td>
 		</tr>
 	);
