@@ -5,7 +5,7 @@ import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
 export type UiTag = Pick<Tag, "id" | "description">;
 
 interface TagModalProps {
-	ref: React.Ref<HTMLDialogElement>;
+	ref: React.RefObject<HTMLDialogElement | null>;
 	onTagChange: (selectedTags: UiTag[]) => void;
 	onModalClose: () => void;
 	selectedTags: UiTag[];

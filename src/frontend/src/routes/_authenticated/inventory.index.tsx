@@ -1,11 +1,15 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	AccountCardDialog,
 	type Entities,
 } from "../../components/AccountCardDialog.tsx";
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
+import {
+	DeleteAccountCardButton,
+	DeleteAccountCardModal,
+} from "../../components/DeleteAccountCard.tsx";
 import { DismissableAlert } from "../../components/DismissableAlert.tsx";
 import { useAccountCardModal } from "../../hooks/useAccountCardModal.ts";
 import {
@@ -46,6 +50,7 @@ export const Route = createFileRoute("/_authenticated/inventory/")({
 			inventory,
 			tagData,
 			companyData,
+			userId,
 		};
 	},
 });
@@ -213,8 +218,17 @@ const TableRowAmount = ({ children }: { children: number }) => {
 };
 
 function InventoryComponent() {
-	const { inventory, tagData, companyData } = Route.useLoaderData();
+	const { inventory, tagData, companyData, userId } = Route.useLoaderData();
 	const [bulkUploadAlert, setBulkUploadAlert] = useState<string | undefined>();
+	const [deleteMsgError, setDeleteMsgError] = useState<string | undefined>();
+	const [deleteMsgSuccess, setDeleteMsgSuccess] = useState<
+		string | undefined
+	>();
+	const [cardIdToDelete, setCardIdToDelete] = useState<number | undefined>();
+	const [accountIdToDelete, setAccountIdToDelete] = useState<
+		number | undefined
+	>();
+	const warningModalRef = useRef<null | HTMLDialogElement>(null);
 
 	const handleBulkUploadSuccess = (name?: string) => {
 		if (name) {
@@ -222,8 +236,24 @@ function InventoryComponent() {
 		}
 	};
 
-	const handleAlertDismiss = () => {
+	const handleBulkUploadAlertDismiss = () => {
 		setBulkUploadAlert(undefined);
+	};
+	const handleDeleteAlertDismiss = () => {
+		setDeleteMsgError(undefined);
+		setDeleteMsgSuccess(undefined);
+	};
+
+	const handleDeleteSuccess = (msg: string) => {
+		setDeleteMsgSuccess(msg);
+	};
+	const handleDeleteError = (msg: string) => {
+		setDeleteMsgError(msg);
+	};
+	const handleDelete = (cardId?: number, accountId?: number) => {
+		warningModalRef.current?.showModal();
+		setCardIdToDelete(cardId);
+		setAccountIdToDelete(accountId);
 	};
 
 	return (
@@ -233,7 +263,25 @@ function InventoryComponent() {
 					<div className="p-2">
 						<DismissableAlert
 							message={bulkUploadAlert}
-							onDismiss={handleAlertDismiss}
+							onDismiss={handleBulkUploadAlertDismiss}
+							type="success"
+						/>
+					</div>
+				)}
+				{deleteMsgError && (
+					<div className="p-2">
+						<DismissableAlert
+							message={deleteMsgError}
+							onDismiss={handleDeleteAlertDismiss}
+							type="error"
+						/>
+					</div>
+				)}
+				{deleteMsgSuccess && (
+					<div className="p-2">
+						<DismissableAlert
+							message={deleteMsgSuccess}
+							onDismiss={handleDeleteAlertDismiss}
 							type="success"
 						/>
 					</div>
@@ -291,6 +339,12 @@ function InventoryComponent() {
 												tagData={tagData}
 												onAddSuccess={handleBulkUploadSuccess}
 											/>
+											{acc.accounts?.id && (
+												<DeleteAccountCardButton
+													accountId={acc.accounts.id}
+													onDelete={handleDelete}
+												/>
+											)}
 										</div>
 									</TableRow>
 								</tr>
@@ -349,6 +403,12 @@ function InventoryComponent() {
 												tagData={tagData}
 												onAddSuccess={handleBulkUploadSuccess}
 											/>
+											{card.cards?.id && (
+												<DeleteAccountCardButton
+													cardId={card.cards.id}
+													onDelete={handleDelete}
+												/>
+											)}
 										</div>
 									</TableRow>
 								</tr>
@@ -356,6 +416,14 @@ function InventoryComponent() {
 						</tbody>
 					</table>
 				</div>
+				<DeleteAccountCardModal
+					ref={warningModalRef}
+					userId={userId}
+					accountId={accountIdToDelete}
+					cardId={cardIdToDelete}
+					onError={handleDeleteError}
+					onSuccess={handleDeleteSuccess}
+				/>
 			</div>
 		</div>
 	);
