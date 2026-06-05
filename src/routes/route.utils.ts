@@ -71,22 +71,49 @@ export const removeUserAssignments = ({
 
 		const transactionIds = existingTransactionsRes.map((t) => t.id);
 
+		deleteTransactions(transactionIds, userId);
+	});
+};
+
+export const deleteTransactions = (
+	transactionIds: number[],
+	userId: string,
+) => {
+	db.transaction((tx) => {
 		tx.delete(transactionTags)
 			.where(inArray(transactionTags.transactionId, transactionIds))
 			.all();
-
-		const statementRes = tx
-			.delete(transactionStatements)
-			.where(inArray(transactionStatements.transactionId, transactionIds))
-			.returning()
+		const associatedStatementQuery = tx
+			.select()
+			.from(transactionStatements)
+			.innerJoin(
+				statements,
+				eq(statements.id, transactionStatements.statementId),
+			)
+			.where(
+				and(
+					inArray(transactionStatements.transactionId, transactionIds),
+					eq(statements.userId, userId),
+				),
+			)
 			.all();
-
-		const statementIds = statementRes.map((s) => s.statementId);
-
-		tx.delete(statements).where(inArray(statements.id, statementIds)).all();
-
+		if (associatedStatementQuery.length) {
+			tx.delete(transactionStatements)
+				.where(
+					inArray(
+						transactionStatements.statementId,
+						associatedStatementQuery.map((res) => res.statements.id),
+					),
+				)
+				.all();
+		}
 		tx.delete(transactions)
-			.where(inArray(transactions.id, transactionIds))
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					inArray(transactions.id, transactionIds),
+				),
+			)
 			.all();
 	});
 };

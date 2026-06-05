@@ -27,7 +27,7 @@ import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
 import type { DocumentToAdd } from "../lib/descriptionTagger/base-classifier.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
-import { findUserOrThrow } from "./route.utils.ts";
+import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";
 import { runTrainer } from "./transaction.utils.ts";
 import { statementInfoZ } from "./ui.ts";
 
@@ -698,18 +698,6 @@ export const transactionRoute = new Hono()
 	.delete("/:userId/:transactionId", async (c) => {
 		const { userId, transactionId } = c.req.param();
 		const txnIdInt = parseInt(transactionId, 10);
-		db.transaction((tx) => {
-			tx.delete(transactionTagsDb)
-				.where(eq(transactionTagsDb.transactionId, txnIdInt))
-				.all();
-			tx.delete(transactionsDb)
-				.where(
-					and(
-						eq(transactionsDb.userId, userId),
-						eq(transactionsDb.id, txnIdInt),
-					),
-				)
-				.all();
-		});
+		deleteTransactions([txnIdInt], userId);
 		return c.text("deleted!");
 	});
