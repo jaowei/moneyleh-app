@@ -13,7 +13,7 @@ export const parseDateString = (
 	dateToParse: string,
 	format: string | string[],
 ) => {
-	const date = extendedDayjs(dateToParse, format, true);
+	const date = extendedDayjs(dateToParse, format, true).utc(true);
 	if (date.isValid()) {
 		return date.toISOString();
 	}

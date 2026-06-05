@@ -22,7 +22,7 @@ export const parseTxnDate = (dateStr: string, statementDate: string) => {
 		const parsed = parseDateString(date, ["DD MMM YYYY", "D MMM YYYY"]);
 		return parsed;
 	} else {
-		const txnDate = extendedDayjs(dateStr, ["D MMM", "DD MMM"]);
+		const txnDate = extendedDayjs(dateStr, ["D MMM", "DD MMM"]).utc(true);
 		if (txnDate.isValid()) {
 			if (isJanStatement && txnDate.month() === 11) {
 				txnYear -= 1;

@@ -37,13 +37,24 @@ const parseTxn = (account: string, amountStr?: string) => {
 };
 
 const getStatementDate = (blocks: MuPdfStructuredTextBlock[]) => {
-	const dateBlock = blocks.find((block) =>
+	const dateBlockIdx = blocks.findIndex((block) =>
 		block.lines.find((line) => line.text === "Transaction history"),
 	);
+	const dateBlock = blocks.at(dateBlockIdx);
 	if (!dateBlock) {
 		throw ParsingErrors.statementDate;
 	}
-	const statementPeriod = dateBlock.lines[1]?.text;
+	let statementPeriod = dateBlock.lines[1]?.text;
+	if (!statementPeriod) {
+		// dates are not in the same block, should be in next block
+		const nextBlock = blocks.at(dateBlockIdx + 1);
+		const value = nextBlock?.lines[0]?.text;
+		if (!value) {
+			appLogger("WARN: Date block has shifted format may have been edited");
+			throw ParsingErrors.statementDate;
+		}
+		statementPeriod = value;
+	}
 	const matches = statementPeriod?.match(/\d{2} \w{3} \d{4}/);
 	if (matches?.[0]) {
 		const parsed = parseDateString(matches[0], "DD MMM YYYY");
