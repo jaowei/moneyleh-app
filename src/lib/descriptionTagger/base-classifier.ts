@@ -1,5 +1,5 @@
 import { BayesClassifier, WordTokenizer } from "natural";
-import { appLogger } from "../..";
+import { appLogger } from "../logger";
 import { KnnClassifier } from "./knn-classifier";
 import { NaiveBayesClassifier } from "./naive-bayes-classifier";
 

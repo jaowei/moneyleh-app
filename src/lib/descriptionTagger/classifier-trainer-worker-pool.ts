@@ -4,6 +4,7 @@
 import { AsyncResource } from "node:async_hooks";
 import { EventEmitter } from "node:events";
 import { Worker } from "node:worker_threads";
+import { appLogger } from "../logger.ts";
 import type { WorkerTaskObj } from "./classifier-trainer-worker.ts";
 
 const kTaskInfo = Symbol("kTaskInfo");
@@ -30,13 +31,14 @@ class WorkerPoolTaskInfo extends AsyncResource {
 	}
 }
 
-export default class WorkerPool extends EventEmitter {
+export default class DocTrainerWorkerPool extends EventEmitter {
 	numThreads: number;
 	workers: ExtendedWorker[];
 	freeWorkers: ExtendedWorker[];
 	tasks: { task: WorkerTaskObj; callback: WorkerCallback }[];
 
 	constructor(numThreads: number) {
+		appLogger(`DocTrainerWorkerPool starting with ${numThreads} threads`);
 		super();
 		this.numThreads = numThreads;
 		this.workers = [];
@@ -60,6 +62,7 @@ export default class WorkerPool extends EventEmitter {
 				this.emit(kPoolFreeEvent);
 			}
 		});
+		appLogger("Started pool");
 	}
 
 	addNewWorker() {

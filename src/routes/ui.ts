@@ -16,11 +16,11 @@ import {
 	userCards,
 	userCompanies,
 } from "../db/schema.ts";
-import { appLogger } from "../index.ts";
 import {
 	type TaggedTransaction,
 	tagTransactions,
 } from "../lib/descriptionTagger/descriptionTagger.ts";
+import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { pdfParser } from "../lib/pdf/pdf.ts";
 import type { PdfParser } from "../lib/pdf/pdf.type.ts";

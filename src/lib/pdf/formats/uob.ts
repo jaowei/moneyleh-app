@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
-import { appLogger } from "../../..";
 import type { TransactionsInsertSchema } from "../../../db/schema";
 import { parseDateString } from "../../dayjs";
+import { appLogger } from "../../logger";
 import type {
 	AccountStatementData,
 	CardStatementData,

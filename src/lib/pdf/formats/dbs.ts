@@ -1,5 +1,5 @@
-import { appLogger } from "../../../index.ts";
 import { parseDateString } from "../../dayjs.ts";
+import { appLogger } from "../../logger.ts";
 import type {
 	AccountStatementData,
 	CardStatementData,

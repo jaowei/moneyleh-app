@@ -22,9 +22,9 @@ import {
 	userCards,
 	userCompanies,
 } from "../db/schema.ts";
-import { appLogger } from "../index.ts";
 import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
 import type { DocumentToAdd } from "../lib/descriptionTagger/base-classifier.ts";
+import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";

@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
-import { appLogger } from "../../..";
 import { ParsingErrors } from "../../../errors";
 import { parseDateString } from "../../dayjs";
+import { appLogger } from "../../logger";
 import type {
 	CardStatementData,
 	PdfFormat,

@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import { appLogger } from "../../index.ts";
+import { appLogger } from "../logger.ts";
 import { BaseClassifier, type DocumentToAdd } from "./base-classifier.ts";
 
 export type WorkerTaskObj = {

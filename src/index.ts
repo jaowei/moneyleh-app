@@ -1,10 +1,13 @@
-import dayjs from "dayjs";
+import os from "node:os";
+import process from "node:process";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { alreadyExistsResponse } from "./errors";
 import { auth } from "./lib/auth";
+import DocTrainerWorkerPool from "./lib/descriptionTagger/classifier-trainer-worker-pool.ts";
+import { appLogger } from "./lib/logger.ts";
 import { accountRoute } from "./routes/account.ts";
 import { cardRoute } from "./routes/card.ts";
 import { companyRoute } from "./routes/company";
@@ -12,11 +15,11 @@ import { tagRoute } from "./routes/tag.ts";
 import { transactionRoute } from "./routes/transaction.ts";
 import { uiRoute } from "./routes/ui.ts";
 
-const app = new Hono();
+export const docTrainerPool = new DocTrainerWorkerPool(
+	Math.max(1, os.cpus().length - 2),
+);
 
-export const appLogger = (message: string, ...rest: string[]) => {
-	console.log(`[${dayjs().toISOString()}] ${message}`, ...rest);
-};
+const app = new Hono();
 
 app.use(logger(appLogger));
 
@@ -64,6 +67,11 @@ app.onError((err) => {
 		status: 500,
 		statusText: errMsg,
 	});
+});
+
+process.on("exit", () => {
+	appLogger("Shutting down");
+	docTrainerPool.close();
 });
 
 export default {

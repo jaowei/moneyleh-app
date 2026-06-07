@@ -1,7 +1,7 @@
 import { like } from "drizzle-orm";
 import { db } from "../../db/db.ts";
 import { type TransactionsInsertSchema, tags } from "../../db/schema.ts";
-import { appLogger } from "../../index.ts";
+import { appLogger } from "../logger.ts";
 import { BaseClassifier } from "./base-classifier.ts";
 
 export interface TaggedTransaction extends TransactionsInsertSchema {
