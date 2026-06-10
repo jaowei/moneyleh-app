@@ -11,6 +11,7 @@ import { appLogger } from "./lib/logger.ts";
 import { accountRoute } from "./routes/account.ts";
 import { cardRoute } from "./routes/card.ts";
 import { companyRoute } from "./routes/company";
+import { statementRoute } from "./routes/statement.ts";
 import { tagRoute } from "./routes/tag.ts";
 import { transactionRoute } from "./routes/transaction.ts";
 import { uiRoute } from "./routes/ui.ts";
@@ -36,6 +37,7 @@ const routes = app
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute);
+app.route("/api/admin/statement", statementRoute);
 
 // serve the frontend SPA build
 // hack to serve SPA
