@@ -16,9 +16,7 @@ import { tagRoute } from "./routes/tag.ts";
 import { transactionRoute } from "./routes/transaction.ts";
 import { uiRoute } from "./routes/ui.ts";
 
-// TODO: the env var is typed via bun but not in tsc for frontend build
 export const docTrainerPool = new DocTrainerWorkerPool(
-	// @ts-expect-error
 	process.env.NUM_CLASSIFIER_WORKERS || Math.max(1, os.cpus().length - 2),
 );
 
