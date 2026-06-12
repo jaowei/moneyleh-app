@@ -39,7 +39,7 @@ const getDaisyColors = (prop: string = "--color-primary") => {
 export const AccountCardChart = ({ chartData }: AccountCardChartProps) => {
 	const maxView = 6;
 	return (
-		<div className="w-1/2">
+		<div className="relative w-[35vw] xl:w-1/2">
 			{Object.entries(chartData).map(([currency, valuesLabels]) => {
 				const data = {
 					labels: valuesLabels.labels.slice(maxView * -1),
@@ -58,7 +58,21 @@ export const AccountCardChart = ({ chartData }: AccountCardChartProps) => {
 						},
 					],
 				};
-				return <Chart key={currency} type="bar" data={data} />;
+				return (
+					<Chart
+						key={currency}
+						type="bar"
+						data={data}
+						updateMode="resize"
+						options={{
+							plugins: {
+								legend: {
+									display: false,
+								},
+							},
+						}}
+					/>
+				);
 			})}
 		</div>
 	);

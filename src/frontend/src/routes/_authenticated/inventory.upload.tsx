@@ -78,22 +78,32 @@ function RouteComponent() {
 						<legend className="fieldset-legend">Upload a statement</legend>
 						<input
 							type="file"
-							className="file-input"
+							className="file-input input-sm"
 							accept=".csv, .pdf, .xls, .xlsx"
 							onChange={handleFileStatementUploadInput}
 						/>
-						<p className="label">Upload your monthly bank/account statements</p>
+						<p className="fieldset-label">
+							Upload your monthly bank/account statements
+						</p>
 						{uploadError && (
 							<div className="alert alert-error">{uploadError}</div>
 						)}
 					</fieldset>
-					<button type="button" className="btn" onClick={handleClearClick}>
-						Clear data
-					</button>
+					<fieldset className="fieldset">
+						<legend className="fieldset-legend"></legend>
+						<button
+							type="button"
+							className="btn btn-sm"
+							onClick={handleClearClick}
+						>
+							Clear data
+						</button>
+						<p className="fieldset-label"></p>
+					</fieldset>
 				</div>
 				{uploadInfo && uploadInfo.taggedTransactions?.length > 0 && (
 					<div className="p-3">
-						<h2 className="text-2xl font-bold">
+						<h2 className="text:xl xl:text-2xl font-bold">
 							Statement Date: {uploadInfo.statementInfo.statementDate}
 						</h2>
 						<UploadViewer

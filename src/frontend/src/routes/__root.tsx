@@ -13,7 +13,7 @@ interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
 	component: () => (
 		<div>
-			<div className="navbar h-[8vh] p-0 bg-base-100 shadow-sm">
+			<div className="navbar h-[8vh] p-0 bg-base-100 shadow-sm min-h-0">
 				<div className="navbar-start">
 					<Link to="/" className="btn btn-ghost text-xl">
 						MoneyLeh

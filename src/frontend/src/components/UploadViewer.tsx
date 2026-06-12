@@ -177,7 +177,7 @@ const TransactionViewerTable = ({
 		<div className="flex flex-col w-full h-full items-center justify-center gap-4">
 			<button
 				type="button"
-				className="btn btn-primary"
+				className="btn btn-primary btn-sm xl:btn-md "
 				disabled={
 					saveDisabled || requestSuccess || !editableTransactions.length
 				}
@@ -190,7 +190,7 @@ const TransactionViewerTable = ({
 					<span>{error}</span>
 				</div>
 			)}
-			<table className="table table-zebra table-xs">
+			<table className="table table-zebra table-xs border border-base-300 rounded">
 				<thead>
 					<tr>
 						<th>Transaction Date</th>
@@ -317,10 +317,10 @@ const TabContent = ({
 				aria-label={`${name}`}
 				defaultChecked={idx === 0}
 			/>
-			<div className="tab-content border-base-300 bg-base-100 p-10 max-h-[65vh] overflow-auto">
+			<div className="tab-content border-base-300 bg-base-100 p-4 max-h-[58vh] xl:max-h-[65vh] overflow-auto">
 				{isUnlinked && (
 					<div>
-						<h2 className="text-2xl">New {title} detected</h2>
+						<h2 className="text-xl xl:text-2xl">New {title} detected</h2>
 						<p>
 							{name} is not associated with any {title}, link to existing or
 							create a new {title}

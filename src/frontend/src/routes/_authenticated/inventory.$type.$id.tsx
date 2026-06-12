@@ -14,6 +14,7 @@ import {
 	type GetTransactionDataRes,
 } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
+import { capitalise } from "../../lib/text-utils.ts";
 
 export const Route = createFileRoute("/_authenticated/inventory/$type/$id")({
 	component: InventoryDataComponent,
@@ -97,10 +98,12 @@ function InventoryDataComponent() {
 	};
 
 	return (
-		<div className="flex flex-col gap-3 items-center">
-			<div className="text-7xl">{data.displayName}</div>
-			<div className="flex flex-row justify-center gap-5 w-full items-center">
-				<div className="flex flex-col items-center gap-5">
+		<div className="flex flex-col gap-3 px-6">
+			<div className="text-2xl xl:text-5xl font-bold">
+				{capitalise(type)} name: {data.displayName}
+			</div>
+			<div className="flex flex-row gap-2 xl:gap-5 w-full items-center">
+				<div className="flex flex-col items-center gap-5 ">
 					<AccountCardStats
 						numTransactions={data.transactionCount}
 						currentBalance={data.valueByCurrency}
@@ -133,7 +136,7 @@ function InventoryDataComponent() {
 					onDismiss={handleAlertDismiss}
 				/>
 			)}
-			<div className="w-[85vw] max-h-[45vh] overflow-auto border rounded-sm border-neutral-content">
+			<div className="self-center w-full max-h-[53vh] xl:max-h-[46vh] overflow-auto border rounded-sm border-neutral-content">
 				{data.transactions.length > 0 && (
 					<table className="table table-zebra table-xs table-pin-rows">
 						<EditableTransactionsTableHeader />

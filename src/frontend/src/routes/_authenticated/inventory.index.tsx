@@ -258,7 +258,7 @@ function InventoryComponent() {
 
 	return (
 		<div className="flex flex-col items-center p-4">
-			<div className="w-4/5">
+			<div className="w-full xl:w-4/5">
 				{bulkUploadAlert && (
 					<div className="p-2">
 						<DismissableAlert

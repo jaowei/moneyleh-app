@@ -17,27 +17,32 @@ export const AccountCardStats = ({
 	latestTransactionDate,
 }: AccountCardStatsProps) => {
 	return (
-		<div className="stats bg-base-100 border-base-300 border max-h-[10vh]">
-			<div className="stat">
-				<div className="stat-title text-sm">Total transactions</div>
-				<div className="stat-value text-sm text-secondary">
-					{numTransactions}
-				</div>
-			</div>
-			<div className="stat">
-				<div className="stat-title text-sm">Latest Transaction</div>
-				<div className="stat-value text-secondary text-sm">
-					{latestTransactionDate || "N/A"}
-				</div>
-			</div>
-			{Object.entries(currentBalance).map(([curr, value]) => (
-				<div key={value} className="stat">
-					<div className="stat-title text-sm">Current balance</div>
-					<div className="stat-value text-primary text-sm">
-						{curr} {currencyFormatter(value, curr)}
-					</div>
-				</div>
-			))}
+		<div className="bg-base-100 border-base-300 border rounded-sm">
+			<table className="table table-xs">
+				<thead className="bg-base-300">
+					<tr>
+						<th>Total transactions</th>
+						<th>Latest transactions</th>
+						<th>Current balance</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>{numTransactions}</td>
+						<td>{latestTransactionDate || "N/A"}</td>
+						<td>
+							{Object.entries(currentBalance).map(([curr, value]) => (
+								<div
+									key={`${curr}-${value}`}
+									className="text-primary text-sm fond-bold"
+								>
+									{curr} {currencyFormatter(value, curr)}
+								</div>
+							))}
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 	);
 };

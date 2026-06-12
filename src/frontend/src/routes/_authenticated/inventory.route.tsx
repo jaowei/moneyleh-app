@@ -15,10 +15,11 @@ function InventoryLayoutComponent() {
 	const matches = useMatches();
 
 	const crumbs = matches.filter((match) => isMatch(match, "loaderData.crumb"));
+	console.log(matches);
 
 	return (
 		<div className="flex flex-row h-full">
-			<ul className="menu h-full bg-base-200 rounded-box min-w-40">
+			<ul className="menu h-full bg-base-200 rounded-box xl:min-w-40 min-2-30">
 				<li>
 					<Link to="/inventory">Summary</Link>
 				</li>
@@ -30,7 +31,7 @@ function InventoryLayoutComponent() {
 				<div className="breadcrumbs pl-4">
 					<ul>
 						{crumbs.map((match) => (
-							<li key={match.id}>
+							<li key={match.id} className="font-bold text-accent-content">
 								<Link to={match.fullPath}>{match.loaderData?.crumb}</Link>
 							</li>
 						))}
