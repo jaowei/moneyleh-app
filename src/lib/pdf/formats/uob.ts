@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import type { TransactionsInsertSchema } from "../../../db/schema";
+import { ParsingErrors } from "../../../errors";
 import { parseDateString } from "../../dayjs";
 import { appLogger } from "../../logger";
 import type {
@@ -32,15 +33,23 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 			} else {
 				return -1 * parseFloat(cleanAmt);
 			}
-		} catch (error) {
+		} catch {
 			return undefined;
 		}
 	};
 
-	const parseTxnAmountLine = (amountLine: MuPdfStructuredLine) => {
+	const parseTxnAmountLines = (amountLines: MuPdfStructuredLine[]) => {
 		try {
-			return parseFloat(amountLine.text);
-		} catch (error) {
+			let sign = -1;
+			if (amountLines.at(-1)?.text.includes("CR")) {
+				sign = 1;
+			}
+			if (amountLines[0]) {
+				return (
+					sign * parseFloat(amountLines[0].text.replaceAll(",", "").trim())
+				);
+			}
+		} catch {
 			return undefined;
 		}
 	};
@@ -51,6 +60,51 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 			/[A-Z]{3}/,
 			(match) => match.at(0) + match.slice(1).toLowerCase(),
 		);
+	};
+
+	const getStatementDate = (blocks: MuPdfStructuredTextBlock[]) => {
+		const dateBlock = blocks.find((block) =>
+			block.lines.find((line) => line.text.includes("Statement Date")),
+		);
+		if (!dateBlock?.lines[1]) {
+			throw ParsingErrors.statementDate;
+		}
+		const parsableDate = getParsableUOBDate(dateBlock.lines[1].text);
+		const parsedDate = parseDateString(parsableDate, "DD  MMM  YYYY");
+		if (parsedDate) {
+			return parsedDate;
+		} else {
+			throw ParsingErrors.statementDate;
+		}
+	};
+	const getTotalCreditLimit = (blocks: MuPdfStructuredTextBlock[]) => {
+		const creditLimitBlock = blocks.find((block) =>
+			block.lines.find((line) => line.text.includes("Total Credit Limit")),
+		);
+		if (!creditLimitBlock?.lines[1]) {
+			throw ParsingErrors.creditLimit;
+		}
+		const parsedLimt = parseCreditLimitAmount(creditLimitBlock.lines[1].text);
+		if (parsedLimt) {
+			return parsedLimt;
+		} else {
+			throw ParsingErrors.creditLimit;
+		}
+	};
+	const getDueDate = (blocks: MuPdfStructuredTextBlock[]) => {
+		const dateBlock = blocks.find((block) =>
+			block.lines.find((line) => line.text.includes("Due Date")),
+		);
+		if (!dateBlock?.lines[1]) {
+			throw ParsingErrors.dueDate;
+		}
+		const parsableDate = getParsableUOBDate(dateBlock.lines[1].text);
+		const parsedDate = parseDateString(parsableDate, "DD  MMM  YYYY");
+		if (parsedDate) {
+			return parsedDate;
+		} else {
+			throw ParsingErrors.dueDate;
+		}
 	};
 
 	const extractedData: CardStatementData = {
@@ -64,39 +118,18 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 	let currentCard: string | undefined;
 	let currency = "SGD";
 
-	dataToExtract.forEach((page, pageNum) => {
+	const firstPageBlocks = dataToExtract[0]?.blocks;
+	if (!firstPageBlocks) {
+		throw ParsingErrors.page;
+	}
+	extractedData.statementDate = getStatementDate(firstPageBlocks);
+	extractedData.creditLimit = getTotalCreditLimit(firstPageBlocks);
+	extractedData.dueDate = getDueDate(firstPageBlocks);
+
+	dataToExtract.forEach((page) => {
 		page.blocks.forEach((block, blockIdx) => {
 			const firstLine = block.lines[0];
 			if (!firstLine) return;
-
-			if (pageNum === 0 && blockIdx < 10) {
-				if (firstLine.text.includes("Statement Date") && block.lines[1]) {
-					const parsableDate = getParsableUOBDate(block.lines[1].text);
-					const parsedDate = parseDateString(parsableDate, "DD  MMM  YYYY");
-					if (parsedDate) {
-						extractedData.statementDate = parsedDate;
-					} else {
-						appLogger("WARN: Could not parse statement date");
-					}
-				}
-				if (firstLine.text.includes("Total Credit Limit") && block.lines[1]) {
-					const parsedLimt = parseCreditLimitAmount(block.lines[1].text);
-					if (parsedLimt) {
-						extractedData.creditLimit = parsedLimt;
-					} else {
-						appLogger("WARN: Could not parse credit limit");
-					}
-				}
-				if (firstLine.text.includes("Due Date") && block.lines[1]) {
-					const parsableDate = getParsableUOBDate(block.lines[1].text);
-					const parsedDate = parseDateString(parsableDate, "DD  MMM  YYYY");
-					if (parsedDate) {
-						extractedData.dueDate = parsedDate;
-					} else {
-						appLogger("WARN: Could not parse due date");
-					}
-				}
-			}
 
 			const startOfTxnBlock =
 				block.lines.length === 2 && firstLine.text === "Post";
@@ -146,7 +179,9 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 					secondLine.text,
 					extractedData.statementDate,
 				);
-				const blockHasNoAmount = block.lines.at(-1)?.text.includes("Ref");
+				const blockHasNoAmount = block.lines.find((l) =>
+					l.text.includes("Ref"),
+				);
 
 				let amount = 0;
 				let description = "";
@@ -160,9 +195,9 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 						.join(" ");
 				} else {
 					description = block.lines[2]?.text || "";
-					const amountBlock = block.lines.at(-1);
-					if (!amountBlock) return;
-					amount = parseTxnAmountLine(amountBlock) || 0;
+					const amountLines = block.lines.slice(3);
+					if (!amountLines) return;
+					amount = parseTxnAmountLines(amountLines) || 0;
 				}
 
 				const cardData = extractedData.cards[currentCard];
@@ -288,11 +323,7 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
 		appLogger("WARN: No first page!");
 	} else {
 		const accountDetails = getAccountDetails(firstPage);
-		if (
-			accountDetails &&
-			accountDetails?.accountName &&
-			accountDetails?.accountNumber
-		) {
+		if (accountDetails?.accountName && accountDetails?.accountNumber) {
 			extractedData.accounts[accountDetails.accountName] = {
 				transactions: [],
 				accountNumber: accountDetails.accountNumber,
