@@ -148,11 +148,12 @@ const processCardTransactions = (
 		const txn = walkLines(block);
 
 		try {
-			const desc = txn[1] || "";
+			const desc = txn.slice(1, txn.length - 1).join(" ") || "";
 			let amount = 0;
-			if (txn[2]) {
-				const sign = txn[2].includes("(") ? 1 : -1;
-				const cleanStr = txn[2]
+			const amountItem = txn.at(-1);
+			if (amountItem) {
+				const sign = amountItem.includes("(") ? 1 : -1;
+				const cleanStr = amountItem
 					.replace(",", "")
 					.replace("(", "")
 					.replace(")", "");
@@ -162,7 +163,7 @@ const processCardTransactions = (
 				desc,
 				amount,
 			};
-		} catch (e) {
+		} catch {
 			throw ParsingErrors.transactionAmt;
 		}
 	};
@@ -181,16 +182,14 @@ const processCardTransactions = (
 				const txnDate = parseTxnDate(block.text.slice(0, 6), statementDate);
 				if (!txnDate) return prev;
 				const { desc, amount } = splitBlockToTxn(block);
-				return [
-					...prev,
-					{
-						transactionDate: txnDate,
-						description: desc,
-						currency,
-						amount,
-						userId,
-					},
-				];
+				prev.push({
+					transactionDate: txnDate,
+					description: desc,
+					currency,
+					amount,
+					userId,
+				});
+				return prev;
 			},
 			[] as CardStatementData["cards"][0]["transactions"],
 		);
