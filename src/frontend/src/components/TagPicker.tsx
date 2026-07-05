@@ -17,11 +17,38 @@ interface TagPickerProps {
 	disabled?: boolean;
 }
 
+const tagTableStyle = "table table-zebra table-xs border border-base";
+
 const tagFilter = (searchQuery: string) => {
 	return (tag: UiTag) => {
 		const cleanStr = tag.description.toLowerCase().trim();
 		return cleanStr.includes(searchQuery);
 	};
+};
+
+const TableHeader = ({ title }: { title: string }) => {
+	return (
+		<thead>
+			<tr>
+				<th className="font-bold">{title}</th>
+			</tr>
+			<tr>
+				<th>Tag Name</th>
+				<th>Selected</th>
+			</tr>
+		</thead>
+	);
+};
+
+const sortRemainingTags = (
+	tags: UiTag[],
+	lastTouchedIds: Set<number>,
+): UiTag[] => {
+	const remaining = tags.filter((tag) => !lastTouchedIds.has(tag.id));
+	const lastTouched = tags
+		.filter((tag) => lastTouchedIds.has(tag.id))
+		.reverse();
+	return [...lastTouched, ...remaining];
 };
 
 export const TagPickerModal = ({
@@ -34,18 +61,25 @@ export const TagPickerModal = ({
 	const [newTagName, setNewTagName] = useState("");
 	const [tagSearchQuery, setTagSearchQuery] = useState("");
 	const [tagCreationError, setTagCreationError] = useState("");
+	const [lastTouchedTagIds, setLastTouchedTagIds] = useState<Set<number>>(
+		new Set(),
+	);
 
 	const router = useRouter();
 
 	const remainingTags = availableTags.filter(
 		(tag) => !selectedTags.find((t) => t.id === tag.id),
 	);
+	const sortedRemainingTags = sortRemainingTags(
+		remainingTags,
+		lastTouchedTagIds,
+	);
 	const filteredSelectedTags = tagSearchQuery
 		? selectedTags.filter(tagFilter(tagSearchQuery))
 		: selectedTags;
 	const filteredRemainingTags = tagSearchQuery
-		? remainingTags.filter(tagFilter(tagSearchQuery))
-		: remainingTags;
+		? sortedRemainingTags.filter(tagFilter(tagSearchQuery))
+		: sortedRemainingTags;
 
 	const handleCreateTagClick = async () => {
 		const res = await backendRouteClient.api.tag.$post({
@@ -67,6 +101,16 @@ export const TagPickerModal = ({
 
 	const handleCheckboxSelect = (tag: UiTag) => {
 		return (e: ChangeEvent<HTMLInputElement>) => {
+			setLastTouchedTagIds((prev) => {
+				if (prev.size >= 5) {
+					const lastItem = [...prev].shift();
+					if (lastItem) {
+						prev.delete(lastItem);
+					}
+				}
+				prev.add(tag.id);
+				return prev;
+			});
 			if (!e.target.checked) {
 				// unchecking, remove tag
 				const newTags = selectedTags.filter(
@@ -123,14 +167,9 @@ export const TagPickerModal = ({
 							/>
 						</fieldset>
 					</div>
-					<div className="max-h-[70vh] overflow-auto">
-						<table className="table table-zebra table-xs">
-							<thead>
-								<tr>
-									<th>Tag Name</th>
-									<th>Selected</th>
-								</tr>
-							</thead>
+					<div className="flex flex-col gap-3 max-h-[70vh] overflow-auto">
+						<table className={tagTableStyle}>
+							<TableHeader title={"Selected"} />
 							<tbody>
 								{filteredSelectedTags.map((tag) => (
 									<tr key={tag.id}>
@@ -145,6 +184,11 @@ export const TagPickerModal = ({
 										</td>
 									</tr>
 								))}
+							</tbody>
+						</table>
+						<table className={tagTableStyle}>
+							<TableHeader title={"Unselected"} />
+							<tbody>
 								{filteredRemainingTags.map((tag) => (
 									<tr key={tag.id}>
 										<td>{tag.description}</td>

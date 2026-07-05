@@ -15,7 +15,6 @@ function InventoryLayoutComponent() {
 	const matches = useMatches();
 
 	const crumbs = matches.filter((match) => isMatch(match, "loaderData.crumb"));
-	console.log(matches);
 
 	return (
 		<div className="flex flex-row h-full">
