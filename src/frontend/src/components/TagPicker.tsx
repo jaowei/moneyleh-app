@@ -15,6 +15,7 @@ interface TagModalProps {
 interface TagPickerProps {
 	onTagPickerClick: () => void;
 	disabled?: boolean;
+	forTable?: boolean;
 }
 
 const tagTableStyle = "table table-zebra table-xs border border-base";
@@ -224,15 +225,17 @@ export const TagPickerModal = ({
 export const TagPicker = ({
 	onTagPickerClick,
 	disabled = false,
+	forTable = false,
 }: TagPickerProps) => {
 	return (
 		<div className="flex items-center justify-center flex-wrap gap-2 max-w-[35vw]">
 			<button
 				type="button"
-				className="btn btn-xs btn-accent"
+				className={`btn ${forTable ? "btn-xs" : "btn-sm"} btn-accent`}
 				disabled={disabled}
 				onClick={onTagPickerClick}
 			>
+				{!forTable && "Apply Tags"}
 				<span className="icon-[fluent--tag-48-regular]"></span>
 			</button>
 		</div>

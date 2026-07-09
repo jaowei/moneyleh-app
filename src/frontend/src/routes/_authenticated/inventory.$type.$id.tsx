@@ -59,7 +59,7 @@ function InventoryDataComponent() {
 	const router = useRouter();
 	const {
 		tagModalRef,
-		indexEditing,
+		indexsEditing,
 		selectedTags,
 		handleTagEditorClose,
 		handleTagEditorOpen,
@@ -74,7 +74,7 @@ function InventoryDataComponent() {
 	const handleTagChange = (tags: UiTag[]) => {
 		setEditableTransactions((existing) =>
 			existing.map((txn, idx) => {
-				if (indexEditing === idx) {
+				if (indexsEditing.includes(idx)) {
 					return {
 						...txn,
 						tags,

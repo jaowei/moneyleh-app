@@ -1,5 +1,10 @@
 import { useRouter } from "@tanstack/react-router";
-import { type Dispatch, type SetStateAction, useState } from "react";
+import React, {
+	type ChangeEvent,
+	type Dispatch,
+	type SetStateAction,
+	useState,
+} from "react";
 import { useAuth } from "../context/auth.tsx";
 import { useAccountCardModal } from "../hooks/useAccountCardModal.ts";
 import { useRequestState } from "../hooks/useRequestState.ts";
@@ -47,10 +52,12 @@ interface TransactionRowProps {
 	transaction: FileUploadRes["taggedTransactions"][0][0];
 	transactionIndex: number;
 	canEdit: boolean;
-	onTagEditorOpen: (tags: UiTag[], currentIdx: number) => void;
+	onTagEditorOpen: (tags: UiTag[], currentIdx: number[]) => void;
 	setTransactions: Dispatch<
 		SetStateAction<FileUploadRes["taggedTransactions"][0]>
 	>;
+	isSelected: boolean;
+	onCheckboxChange: (txnId: number) => React.ChangeEventHandler;
 }
 
 const TransactionViewerRow = ({
@@ -59,6 +66,8 @@ const TransactionViewerRow = ({
 	transactionIndex,
 	canEdit,
 	onTagEditorOpen,
+	onCheckboxChange,
+	isSelected,
 }: TransactionRowProps) => {
 	const date = new Date(transaction.transactionDate);
 	const handleTagChange = (selectedTags: UiTag[]) => {
@@ -76,10 +85,20 @@ const TransactionViewerRow = ({
 		);
 	};
 	const handleTagPickerClick = () => {
-		onTagEditorOpen(transaction.tags, transactionIndex);
+		onTagEditorOpen(transaction.tags, [transactionIndex]);
 	};
 	return (
 		<tr>
+			<td>
+				<label>
+					<input
+						type="checkbox"
+						className="checkbox checkbox-sm"
+						checked={isSelected}
+						onChange={onCheckboxChange(transactionIndex)}
+					/>
+				</label>
+			</td>
 			<td>{date.toLocaleDateString()}</td>
 			<td>{transaction.description}</td>
 			<td>{transaction.currency}</td>
@@ -92,7 +111,11 @@ const TransactionViewerRow = ({
 				/>
 			</td>
 			<td>
-				<TagPicker onTagPickerClick={handleTagPickerClick} />
+				<TagPicker
+					onTagPickerClick={handleTagPickerClick}
+					disabled={!canEdit}
+					forTable
+				/>
 			</td>
 		</tr>
 	);
@@ -111,6 +134,9 @@ const TransactionViewerTable = ({
 	const { user } = useAuth();
 	const [editableTransactions, setEditableTransactions] =
 		useState(transactions);
+	const [selectState, setSelectState] = useState(
+		Array(transactions.length).fill(false),
+	);
 	const { requestSuccess, error, onSuccess, onError, reset } =
 		useRequestState();
 	const {
@@ -119,7 +145,7 @@ const TransactionViewerTable = ({
 		handleTagEditorChange,
 		handleTagEditorClose,
 		handleTagEditorOpen,
-		indexEditing,
+		indexsEditing,
 	} = useTagModal();
 
 	const userId = user?.id;
@@ -127,6 +153,8 @@ const TransactionViewerTable = ({
 		transactions[0]?.accountName ||
 		accountInfo?.accountName ||
 		cardInfo?.cardName;
+	const hasMultiSelect = selectState.some((val) => val === true);
+
 	const handleSaveTransactionsClick = async () => {
 		if (!statementInfo.statementOwnershipId) throw new Error();
 		reset();
@@ -160,7 +188,7 @@ const TransactionViewerTable = ({
 	const handleTagChange = (selectedTags: UiTag[]) => {
 		setEditableTransactions((existing) =>
 			existing.map((txn, idx) => {
-				if (indexEditing === idx) {
+				if (indexsEditing.includes(idx)) {
 					return {
 						...txn,
 						tags: selectedTags,
@@ -171,6 +199,34 @@ const TransactionViewerTable = ({
 			}),
 		);
 		handleTagEditorChange(selectedTags);
+	};
+
+	const handleRowCheckboxChange = (txnIndex: number) => {
+		return (e: ChangeEvent<HTMLInputElement>) => {
+			setSelectState((prev) => {
+				if (!e.target.checked) {
+					return prev.toSpliced(txnIndex, 1, false);
+				}
+				return prev.toSpliced(txnIndex, 1, true);
+			});
+		};
+	};
+
+	const handleMultiSelectTagPickerOpen = () => {
+		const selectedIdxs = [];
+		let idx = selectState.indexOf(true);
+		while (idx !== -1) {
+			selectedIdxs.push(idx);
+			idx = selectState.indexOf(true, idx + 1);
+		}
+		handleTagEditorOpen([], selectedIdxs);
+	};
+
+	const handleTagPickerClose = () => {
+		if (hasMultiSelect) {
+			setSelectState((prev) => Array(prev.length).fill(false));
+		}
+		handleTagEditorClose();
 	};
 
 	return (
@@ -190,9 +246,19 @@ const TransactionViewerTable = ({
 					<span>{error}</span>
 				</div>
 			)}
+			{hasMultiSelect && (
+				<div className="flex flex-row gap-2 items-center">
+					<TagPicker onTagPickerClick={handleMultiSelectTagPickerOpen} />
+					<p className="text-sm text-warning-content">
+						Note: You are in multi-select mode, tag selections will override
+						values
+					</p>
+				</div>
+			)}
 			<table className="table table-zebra table-xs border border-base-300 rounded">
 				<thead>
 					<tr>
+						<th></th>
 						<th>Transaction Date</th>
 						<th>Description</th>
 						<th>Currency</th>
@@ -209,8 +275,10 @@ const TransactionViewerTable = ({
 								transaction={t}
 								setTransactions={setEditableTransactions}
 								transactionIndex={idx}
-								canEdit={!requestSuccess}
+								canEdit={!requestSuccess && !hasMultiSelect}
 								onTagEditorOpen={handleTagEditorOpen}
+								onCheckboxChange={handleRowCheckboxChange}
+								isSelected={selectState[idx]}
 							/>
 						);
 					})}
@@ -220,7 +288,7 @@ const TransactionViewerTable = ({
 				ref={tagModalRef}
 				availableTags={tagData}
 				selectedTags={selectedTags}
-				onModalClose={handleTagEditorClose}
+				onModalClose={handleTagPickerClose}
 				onTagChange={handleTagChange}
 			/>
 		</div>

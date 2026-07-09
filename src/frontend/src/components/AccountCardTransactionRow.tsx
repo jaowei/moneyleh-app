@@ -14,7 +14,7 @@ interface TransactionRowProps {
 	userId: string;
 	transaction: Transaction;
 	transactionIndex: number;
-	onTagEditorOpen: (tags: UiTag[], currentIdx: number) => void;
+	onTagEditorOpen: (tags: UiTag[], currentIdxs: number[]) => void;
 	setTransactions: Dispatch<SetStateAction<Transaction[]>>;
 	onActionError: (msg: string) => void;
 	onActionSuccess: (msg: string) => void;
@@ -108,7 +108,7 @@ export const AccountCardTransactionRow = ({
 		}
 	};
 	const handleTagPickerClick = () => {
-		onTagEditorOpen(transaction.tags, transactionIndex);
+		onTagEditorOpen(transaction.tags, [transactionIndex]);
 	};
 	const handleDeleteRowClick = async () => {
 		try {
@@ -163,6 +163,7 @@ export const AccountCardTransactionRow = ({
 				<TagPicker
 					onTagPickerClick={handleTagPickerClick}
 					disabled={!editRow}
+					forTable
 				/>
 			</td>
 			<td>

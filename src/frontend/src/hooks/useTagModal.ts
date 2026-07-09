@@ -4,15 +4,15 @@ import type { UiTag } from "../components/TagPicker";
 export const useTagModal = () => {
 	const tagModalRef = useRef<null | HTMLDialogElement>(null);
 	const [selectedTags, setSelectedTags] = useState<UiTag[]>([]);
-	const [indexEditing, setIndexEditing] = useState<number | undefined>();
-	const handleTagEditorOpen = (tags: UiTag[], transactionIdx: number) => {
-		setIndexEditing(transactionIdx);
+	const [indexsEditing, setIndexsEditing] = useState<number[]>([]);
+	const handleTagEditorOpen = (tags: UiTag[], transactionIdxs: number[]) => {
+		setIndexsEditing(transactionIdxs);
 		setSelectedTags(tags);
 		tagModalRef.current?.showModal();
 	};
 
 	const handleTagEditorClose = () => {
-		setIndexEditing(undefined);
+		setIndexsEditing([]);
 		setSelectedTags([]);
 		tagModalRef.current?.close();
 	};
@@ -22,7 +22,7 @@ export const useTagModal = () => {
 	return {
 		tagModalRef,
 		selectedTags,
-		indexEditing,
+		indexsEditing,
 		handleTagEditorClose,
 		handleTagEditorOpen,
 		handleTagEditorChange,
