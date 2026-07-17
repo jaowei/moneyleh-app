@@ -260,14 +260,19 @@ console.log("===Seed statement owners: Done!");
 console.log("===Seed test user: Start!");
 // add test user for UI
 try {
-	await auth.api.signUpEmail({
-		body: testUser,
+	await auth.api.createUser({
+		body: {
+			name: testUser.name,
+			email: testUser.email,
+			password: testUser.password,
+			role: "admin",
+		},
 	});
 } catch (e) {
 	console.log(e);
 }
 // add test user for backend tests
-await db.insert(authSchema.user).values(testUser).onConflictDoNothing();
+await db.insert(authSchema.user).values([testUser]).onConflictDoNothing();
 console.log("===Seed test user: Done!");
 
 console.log(`===Seeding complete.`);

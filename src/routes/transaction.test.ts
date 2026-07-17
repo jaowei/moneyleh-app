@@ -12,6 +12,7 @@ import {
 	statements,
 	type TransactionsUpdateSchema,
 	tags,
+	transactionShares,
 	transactionStatements,
 	transactions,
 	transactionTags,
@@ -52,6 +53,9 @@ describe("/api/transaction", () => {
 					await db
 						.delete(transactionStatements)
 						.where(eq(transactionStatements.transactionId, target.id));
+					await db
+						.delete(transactionShares)
+						.where(eq(transactionShares.transactionId, target.id));
 				}
 				await db
 					.delete(transactions)
@@ -273,6 +277,35 @@ describe("/api/transaction", () => {
 			expect(res.status).toBe(400);
 			expect(await res.text()).toInclude("both cannot be empty and filled");
 		});
+
+		// TODO: complete tests, need another user to test with?
+		test.skip("inserts into db: with split and no tags", async () => {
+			const testTransactions: PostTransactionPayload = {
+				transactions: [
+					{
+						...testTransaction,
+						tags: [],
+						split: {
+							share: 50,
+							shareUserId: "",
+						},
+						cardId: 1,
+					},
+				],
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
+				cardInfo: { cardId: 1, cardName: "test-card" },
+				companyId: 1,
+			};
+			const res = await app.request("/api/transaction", {
+				method: "POST",
+				body: JSON.stringify(testTransactions),
+				...jsonHeader,
+			});
+		});
+		test("inserts into db: with split and tags", () => {});
 	});
 
 	describe("create then get", () => {

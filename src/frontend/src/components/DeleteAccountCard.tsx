@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { backendRouteClient } from "../lib/backend-clients";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalCloseTopRightButton } from "./ModalCloseButton";
 
 interface DeleteAccountCardModalProps {
 	ref: React.RefObject<HTMLDialogElement | null>;
@@ -75,7 +75,7 @@ export const DeleteAccountCardModal = ({
 						Confirm deletion
 					</button>
 				</div>
-				<ModalCloseButton onModalClose={handleModalClose} />
+				<ModalCloseTopRightButton onModalClose={handleModalClose} />
 			</div>
 		</dialog>
 	);

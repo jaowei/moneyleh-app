@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import React, { type ChangeEvent, useState } from "react";
 import { backendRouteClient, type Tag } from "../lib/backend-clients.ts";
+import { ModalCloseFooterButton } from "./ModalCloseButton.tsx";
 
 export type UiTag = Pick<Tag, "id" | "description">;
 
@@ -207,15 +208,7 @@ export const TagPickerModal = ({
 					</div>
 				</div>
 				<div className="modal-action">
-					<form method="dialog">
-						<button
-							type="button"
-							className="btn btn-error"
-							onClick={onModalClose}
-						>
-							Close
-						</button>
-					</form>
+					<ModalCloseFooterButton onModalClose={onModalClose} />
 				</div>
 			</div>
 		</dialog>

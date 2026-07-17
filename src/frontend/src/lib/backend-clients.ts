@@ -23,9 +23,13 @@ export const backendRouteClient = hc<AppType>("");
 export type Tag = InferResponseType<
 	(typeof backendRouteClient.api.tag)[":tagId"]["$get"]
 >;
-export type TransactionsReq = InferRequestType<
+export type PostTransactionsReq = InferRequestType<
 	typeof backendRouteClient.api.transaction.$post
->["json"]["transactions"];
+>["json"];
+export type TransactionSplitUI = Exclude<
+	PostTransactionsReq["transactions"][0]["split"],
+	undefined
+>;
 export type GetTransactionDataRes = InferResponseType<
 	(typeof backendRouteClient.api.transaction)[":userId"]["$get"]
 >;

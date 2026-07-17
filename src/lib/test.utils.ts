@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 import type { TransactionsInsertSchema } from "../db/schema.ts";
 import { extendedDayjs } from "./dayjs.ts";
-
 export const jsonHeader = {
 	headers: new Headers({ "Content-Type": "application/json" }),
 };
@@ -19,6 +18,8 @@ export const testUser = {
 	name: "testUser1",
 	email: "testUser1@test.com",
 	password: "testUser1pw",
+	createdAt: new Date(),
+	role: "admin",
 };
 
 export const getFile = async (path: string): Promise<File> => {

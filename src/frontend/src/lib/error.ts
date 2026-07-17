@@ -1,5 +1,6 @@
 export const ERROR_MESSAGES = {
 	GENERIC: "Something goofed! Please contact developer",
+	NOT_AUTHORISED: "You are not authorised, please login again",
 };
 
 export const getBackendErrorResponse = async (res: Response) => {

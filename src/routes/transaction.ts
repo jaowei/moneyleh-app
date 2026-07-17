@@ -28,7 +28,7 @@ import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";
-import { runTrainer } from "./transaction.utils.ts";
+import { insertTransactionShares, runTrainer } from "./transaction.utils.ts";
 import { statementInfoZ } from "./ui.ts";
 
 const allowOnlyAccountOrCardIdErrMsg =
@@ -42,6 +42,12 @@ const transactionFromUIZ = transactionsInsertSchemaZ
 	.extend({
 		tags: z.array(UiTagZ).optional(),
 		userId: z.string(),
+		split: z
+			.object({
+				share: z.number().min(1).max(100),
+				shareUserId: z.string(),
+			})
+			.optional(),
 	})
 	.refine((data) => refineAccountOrCardId(data), {
 		error: allowOnlyAccountOrCardIdErrMsg,
@@ -205,7 +211,7 @@ export const transactionRoute = new Hono()
 
 				appLogger("Processing transactions...");
 				for (const t of transactions) {
-					const { tags, ...rest } = t;
+					const { tags, split, ...rest } = t;
 
 					const findRes = tx
 						.select()
@@ -259,50 +265,63 @@ export const transactionRoute = new Hono()
 						);
 					}
 
-					if (!tags?.length) continue;
-
-					const tagIds = tags.map((tag) => tag.id);
 					insertedTransactionIds.push(...txnId.map((txn) => txn.id));
-					const queryRes = tx
-						.select({
-							id: tagsDb.id,
-							description: tagsDb.description,
-						})
-						.from(tagsDb)
-						.where(inArray(tagsDb.id, tagIds))
-						.all();
-
-					if (queryRes.length !== tagIds.length) {
-						appLogger(
-							`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`,
-						);
-						appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`);
-						appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`);
-						throw new Error("Tag does not exist!");
-					} else {
-						const transactionTagsToInsert = queryRes.map((foundTag) => {
-							documentsToAdd.push({
-								description: t.description,
-								tag: foundTag.description,
-								transactionId: insertedTxn.id,
-							});
-							return {
-								transactionId: insertedTxn.id,
-								tagId: foundTag.id,
-							};
-						});
-						const ids = tx
-							.insert(transactionTagsDb)
-							.values(transactionTagsToInsert)
-							.returning({ id: transactionTagsDb.tagId })
+					if (tags?.length) {
+						const tagIds = tags.map((tag) => tag.id);
+						const queryRes = tx
+							.select({
+								id: tagsDb.id,
+								description: tagsDb.description,
+							})
+							.from(tagsDb)
+							.where(inArray(tagsDb.id, tagIds))
 							.all();
-						if (ids.length !== queryRes.length) {
-							appLogger(`WARN: Not all tags inserted`);
-							tx.rollback();
+
+						if (queryRes.length !== tagIds.length) {
+							appLogger(
+								`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`,
+							);
+							appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`);
+							appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`);
+							throw new Error("Tag does not exist!");
 						} else {
-							appLogger(`Inserted ${ids.length} tags`);
-							shouldTrain = true;
+							const transactionTagsToInsert = queryRes.map((foundTag) => {
+								documentsToAdd.push({
+									description: t.description,
+									tag: foundTag.description,
+									transactionId: insertedTxn.id,
+								});
+								return {
+									transactionId: insertedTxn.id,
+									tagId: foundTag.id,
+								};
+							});
+							const ids = tx
+								.insert(transactionTagsDb)
+								.values(transactionTagsToInsert)
+								.returning({ id: transactionTagsDb.tagId })
+								.all();
+							if (ids.length !== queryRes.length) {
+								appLogger(`WARN: Not all tags inserted`);
+								tx.rollback();
+							} else {
+								appLogger(`Inserted ${ids.length} tags`);
+								shouldTrain = true;
+							}
 						}
+					}
+
+					if (split) {
+						insertTransactionShares(
+							[
+								{
+									transactionId: insertedTxn.id,
+									userId: split.shareUserId,
+									share: split.share,
+								},
+							],
+							userId,
+						);
 					}
 				}
 			});

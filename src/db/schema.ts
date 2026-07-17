@@ -221,6 +221,30 @@ export type TransactionTagsInsertSchema = z.infer<
 	typeof transactionTagsInsertSchemaZ
 >;
 
+export const transactionShares = sqliteTable(
+	"transaction_shares",
+	{
+		transactionId: integer("transaction_id")
+			.notNull()
+			.references(() => transactions.id),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id),
+		share: real().notNull(),
+		...timestamps,
+	},
+	(table) => [primaryKey({ columns: [table.transactionId, table.userId] })],
+);
+export const transactionSharesInsertSchemaZ = createInsertSchema(
+	transactionShares,
+	{
+		share: z.number().positive().lte(1),
+	},
+);
+export type TransactionSharesInsertSchema = z.infer<
+	typeof transactionSharesInsertSchemaZ
+>;
+
 export const userCompanies = sqliteTable(
 	"user_companies",
 	{

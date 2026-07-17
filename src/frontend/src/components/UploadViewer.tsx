@@ -9,6 +9,8 @@ import { useAuth } from "../context/auth.tsx";
 import { useAccountCardModal } from "../hooks/useAccountCardModal.ts";
 import { useRequestState } from "../hooks/useRequestState.ts";
 import { useTagModal } from "../hooks/useTagModal.ts";
+import { useTransactionSplitModal } from "../hooks/useTransactionSplitModal.ts";
+import type { UsersResponse } from "../lib/auth-client.ts";
 import {
 	backendRouteClient,
 	type FileUploadRes,
@@ -16,18 +18,24 @@ import {
 	type PostAccountRes,
 	type PostCardRes,
 	type Tag,
+	type TransactionSplitUI,
 	uiRouteClient,
 } from "../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../lib/error.ts";
 import { AccountCardDialog } from "./AccountCardDialog.tsx";
 import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
+import {
+	TransactionSplitButton,
+	TransactionSplitModal,
+} from "./TransactionSplit.tsx";
 
 interface TransactionViewerProps {
 	userId: string;
 	fileUploadRes: FileUploadRes;
 	tagData: Tag[];
 	companies: GetCompanyRes["data"];
+	usersRes: UsersResponse;
 }
 
 interface TransactionViewerTabContentProps extends TransactionViewerProps {
@@ -42,32 +50,37 @@ interface TransactionsTableProps {
 	};
 	accountInfo?: FileUploadRes["accountInfo"][0];
 	cardInfo?: FileUploadRes["cardInfo"][0];
-	onSaveSuccess?: () => void;
 	tagData: Tag[];
 	saveDisabled: boolean;
 	companyId: number;
+	usersRes: UsersResponse;
+	onSaveSuccess?: () => void;
 }
 
 interface TransactionRowProps {
 	transaction: FileUploadRes["taggedTransactions"][0][0];
 	transactionIndex: number;
 	canEdit: boolean;
+	isSelected: boolean;
+	hasSplit: boolean;
 	onTagEditorOpen: (tags: UiTag[], currentIdx: number[]) => void;
+	onSplitModalOpen: (currentIdx: number[]) => void;
 	setTransactions: Dispatch<
 		SetStateAction<FileUploadRes["taggedTransactions"][0]>
 	>;
-	isSelected: boolean;
 	onCheckboxChange: (txnId: number) => React.ChangeEventHandler;
 }
 
 const TransactionViewerRow = ({
 	transaction,
-	setTransactions,
 	transactionIndex,
 	canEdit,
+	isSelected,
+	hasSplit,
+	setTransactions,
 	onTagEditorOpen,
 	onCheckboxChange,
-	isSelected,
+	onSplitModalOpen,
 }: TransactionRowProps) => {
 	const date = new Date(transaction.transactionDate);
 	const handleTagChange = (selectedTags: UiTag[]) => {
@@ -86,6 +99,9 @@ const TransactionViewerRow = ({
 	};
 	const handleTagPickerClick = () => {
 		onTagEditorOpen(transaction.tags, [transactionIndex]);
+	};
+	const handleSplitModalClick = () => {
+		onSplitModalOpen([transactionIndex]);
 	};
 	return (
 		<tr>
@@ -117,6 +133,14 @@ const TransactionViewerRow = ({
 					forTable
 				/>
 			</td>
+			<td>
+				<TransactionSplitButton
+					onClick={handleSplitModalClick}
+					disabled={!canEdit}
+					hasSplit={hasSplit}
+					forTable
+				/>
+			</td>
 		</tr>
 	);
 };
@@ -127,9 +151,10 @@ const TransactionViewerTable = ({
 	accountInfo,
 	cardInfo,
 	tagData,
-	onSaveSuccess,
 	saveDisabled,
 	companyId,
+	usersRes,
+	onSaveSuccess,
 }: TransactionsTableProps) => {
 	const { user } = useAuth();
 	const [editableTransactions, setEditableTransactions] =
@@ -142,11 +167,20 @@ const TransactionViewerTable = ({
 	const {
 		tagModalRef,
 		selectedTags,
+		indexsEditing,
 		handleTagEditorChange,
 		handleTagEditorClose,
 		handleTagEditorOpen,
-		indexsEditing,
 	} = useTagModal();
+	const {
+		splitModalRef,
+		currentSplit,
+		txnSplitIdx,
+		transactionSplits,
+		handleSplitEditorChange,
+		handleSplitEditorClose,
+		handleSplitEditorOpen,
+	} = useTransactionSplitModal();
 
 	const userId = user?.id;
 	const name =
@@ -201,6 +235,22 @@ const TransactionViewerTable = ({
 		handleTagEditorChange(selectedTags);
 	};
 
+	const handleSplitChange = (newShare?: TransactionSplitUI) => {
+		setEditableTransactions((existing) =>
+			existing.map((txn, idx) => {
+				if (txnSplitIdx.includes(idx)) {
+					return {
+						...txn,
+						split: newShare,
+					};
+				} else {
+					return txn;
+				}
+			}),
+		);
+		handleSplitEditorChange(newShare);
+	};
+
 	const handleRowCheckboxChange = (txnIndex: number) => {
 		return (e: ChangeEvent<HTMLInputElement>) => {
 			setSelectState((prev) => {
@@ -212,14 +262,24 @@ const TransactionViewerTable = ({
 		};
 	};
 
-	const handleMultiSelectTagPickerOpen = () => {
+	const getMultiSelectIdxs = () => {
 		const selectedIdxs = [];
 		let idx = selectState.indexOf(true);
 		while (idx !== -1) {
 			selectedIdxs.push(idx);
 			idx = selectState.indexOf(true, idx + 1);
 		}
+		return selectedIdxs;
+	};
+
+	const handleMultiSelectTagPickerOpen = () => {
+		const selectedIdxs = getMultiSelectIdxs();
 		handleTagEditorOpen([], selectedIdxs);
+	};
+
+	const handleMultiSelectSplitOpen = () => {
+		const selectedIdxs = getMultiSelectIdxs();
+		handleSplitEditorOpen(selectedIdxs);
 	};
 
 	const handleTagPickerClose = () => {
@@ -227,6 +287,13 @@ const TransactionViewerTable = ({
 			setSelectState((prev) => Array(prev.length).fill(false));
 		}
 		handleTagEditorClose();
+	};
+
+	const handleSplitClose = () => {
+		if (hasMultiSelect) {
+			setSelectState((prev) => Array(prev.length).fill(false));
+		}
+		handleSplitEditorClose();
 	};
 
 	return (
@@ -247,11 +314,14 @@ const TransactionViewerTable = ({
 				</div>
 			)}
 			{hasMultiSelect && (
-				<div className="flex flex-row gap-2 items-center">
-					<TagPicker onTagPickerClick={handleMultiSelectTagPickerOpen} />
+				<div className="flex flex-col gap-2 items-center">
+					<div className="flex flex-row gap-3 items-center">
+						<TagPicker onTagPickerClick={handleMultiSelectTagPickerOpen} />
+						<TransactionSplitButton onClick={handleMultiSelectSplitOpen} />
+					</div>
 					<p className="text-sm text-warning-content">
-						Note: You are in multi-select mode, tag selections will override
-						values
+						Note: You are in multi-select mode, tag/split selections will
+						override values
 					</p>
 				</div>
 			)}
@@ -265,6 +335,7 @@ const TransactionViewerTable = ({
 						<th>Amount</th>
 						<th>Tag</th>
 						<th>Edit Tags</th>
+						<th>Split Transaction</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -276,9 +347,11 @@ const TransactionViewerTable = ({
 								setTransactions={setEditableTransactions}
 								transactionIndex={idx}
 								canEdit={!requestSuccess && !hasMultiSelect}
+								hasSplit={!!transactionSplits.get(idx)}
 								onTagEditorOpen={handleTagEditorOpen}
 								onCheckboxChange={handleRowCheckboxChange}
 								isSelected={selectState[idx]}
+								onSplitModalOpen={handleSplitEditorOpen}
 							/>
 						);
 					})}
@@ -291,6 +364,13 @@ const TransactionViewerTable = ({
 				onModalClose={handleTagPickerClose}
 				onTagChange={handleTagChange}
 			/>
+			<TransactionSplitModal
+				usersRes={usersRes}
+				ref={splitModalRef}
+				split={currentSplit}
+				onSplitChange={handleSplitChange}
+				onModalClose={handleSplitClose}
+			/>
 		</div>
 	);
 };
@@ -301,6 +381,7 @@ const TabContent = ({
 	transactions,
 	companies,
 	tagData,
+	usersRes: users,
 	userId,
 }: TransactionViewerTabContentProps) => {
 	const router = useRouter();
@@ -315,8 +396,8 @@ const TabContent = ({
 
 	const {
 		dialogRef,
-		setAddingError,
 		addingError,
+		setAddingError,
 		handleModalClose,
 		handleModalOpen,
 	} = useAccountCardModal();
@@ -414,6 +495,7 @@ const TabContent = ({
 					tagData={tagData}
 					saveDisabled={isUnlinked}
 					companyId={companyId}
+					usersRes={users}
 				/>
 				<AccountCardDialog
 					ref={dialogRef}
@@ -437,6 +519,7 @@ export default function UploadViewer({
 	tagData,
 	companies,
 	userId,
+	usersRes,
 }: TransactionViewerProps) {
 	return (
 		<div className="tabs tabs-border">
@@ -451,6 +534,7 @@ export default function UploadViewer({
 						tagData={tagData}
 						companies={companies}
 						userId={userId}
+						usersRes={usersRes}
 						transactions={transactionsPerAccount}
 						idx={idx}
 					/>

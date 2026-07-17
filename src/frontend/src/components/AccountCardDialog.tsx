@@ -11,7 +11,7 @@ import {
 	AddCardForm,
 } from "./AddAccountCardForm";
 import { AddButton } from "./AddButton";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalCloseTopRightButton } from "./ModalCloseButton";
 
 export type Entities = {
 	id: number;
@@ -75,7 +75,7 @@ export const AccountCardDialog = ({
 	return (
 		<dialog ref={ref} className="modal">
 			<AllListModalBox>
-				<ModalCloseButton onModalClose={onModalClose} />
+				<ModalCloseTopRightButton onModalClose={onModalClose} />
 				<input
 					className="input"
 					placeholder="search accounts"

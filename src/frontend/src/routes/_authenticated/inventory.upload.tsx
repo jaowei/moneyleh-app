@@ -2,30 +2,41 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type ChangeEventHandler, useState } from "react";
 import UploadViewer from "../../components/UploadViewer";
 import { useAuth } from "../../context/auth";
+import { fetchAllUsers } from "../../lib/auth-client";
 import {
 	type FileUploadRes,
 	fetchCompanies,
 	fetchTagData,
 	uiRouteClient,
 } from "../../lib/backend-clients";
-import { getBackendErrorResponse } from "../../lib/error";
+import { ERROR_MESSAGES, getBackendErrorResponse } from "../../lib/error";
 
 export const Route = createFileRoute("/_authenticated/inventory/upload")({
 	component: RouteComponent,
-	loader: async () => {
+	loader: async ({ context: { auth } }) => {
+		const userId = auth.user?.id;
+
+		if (!userId) throw new Error(ERROR_MESSAGES.NOT_AUTHORISED);
+
 		const tagData = await fetchTagData();
 		const companyData = await fetchCompanies();
+		const { data, error } = await fetchAllUsers(userId);
+
+		if (error) {
+			throw error;
+		}
 
 		return {
 			tagData,
 			companyData,
+			usersRes: data,
 			crumb: "Upload",
 		};
 	},
 });
 
 function RouteComponent() {
-	const { tagData, companyData } = Route.useLoaderData();
+	const { tagData, companyData, usersRes } = Route.useLoaderData();
 	const { user } = useAuth();
 
 	const [uploadInfo, setUploadInfo] = useState<FileUploadRes | undefined>();
@@ -108,6 +119,7 @@ function RouteComponent() {
 						</h2>
 						<UploadViewer
 							fileUploadRes={uploadInfo}
+							usersRes={usersRes}
 							userId={user.id}
 							tagData={tagData}
 							companies={companyData}

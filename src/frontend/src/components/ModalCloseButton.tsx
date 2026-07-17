@@ -1,8 +1,10 @@
-export const ModalCloseButton = ({
-	onModalClose,
-}: {
+interface ModalCloseButtonProps {
 	onModalClose: () => void;
-}) => (
+}
+
+export const ModalCloseTopRightButton = ({
+	onModalClose,
+}: ModalCloseButtonProps) => (
 	<form method="dialog">
 		<button
 			type="button"
@@ -10,6 +12,16 @@ export const ModalCloseButton = ({
 			onClick={onModalClose}
 		>
 			✕
+		</button>
+	</form>
+);
+
+export const ModalCloseFooterButton = ({
+	onModalClose,
+}: ModalCloseButtonProps) => (
+	<form method="dialog">
+		<button type="button" className="btn btn-error" onClick={onModalClose}>
+			Close
 		</button>
 	</form>
 );

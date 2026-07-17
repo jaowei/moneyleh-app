@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
+import { admin, magicLink } from "better-auth/plugins";
 import * as authSchema from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
 import { resend } from "./email";
+import { ac, adminRole, userRole } from "./permissions.ts";
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, {
@@ -14,6 +15,13 @@ export const auth = betterAuth({
 		enabled: true,
 	},
 	plugins: [
+		admin({
+			ac,
+			roles: {
+				user: userRole,
+				admin: adminRole,
+			},
+		}),
 		magicLink({
 			sendMagicLink: async ({ email, url }) => {
 				await resend.emails.send({

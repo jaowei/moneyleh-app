@@ -21,14 +21,14 @@ import {
 	type GetCompanyRes,
 	uiRouteClient,
 } from "../../lib/backend-clients.ts";
-import { getBackendErrorResponse } from "../../lib/error.ts";
+import { ERROR_MESSAGES, getBackendErrorResponse } from "../../lib/error.ts";
 
 export const Route = createFileRoute("/_authenticated/inventory/")({
 	component: InventoryComponent,
 	loader: async ({ context: { auth } }) => {
 		const userId = auth?.user?.id;
 
-		if (!userId) throw new Error();
+		if (!userId) throw new Error(ERROR_MESSAGES.NOT_AUTHORISED);
 
 		let inventory: AvailableInventoryResponse;
 
