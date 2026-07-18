@@ -22,6 +22,15 @@ export const testUser = {
 	role: "admin",
 };
 
+export const testUser2 = {
+	id: "testUser2Id",
+	name: "testUser2",
+	email: "testUser2@test.com",
+	password: "testUser2pw",
+	createdAt: new Date(),
+	role: "admin",
+};
+
 export const getFile = async (path: string): Promise<File> => {
 	const file = Bun.file(path);
 	const buf = await file.arrayBuffer();

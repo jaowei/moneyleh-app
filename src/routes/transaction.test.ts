@@ -7,6 +7,7 @@ import {
 	test,
 } from "bun:test";
 import { and, eq, inArray, like } from "drizzle-orm";
+import { user } from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
 import {
 	statements,
@@ -20,7 +21,7 @@ import {
 	userCards,
 } from "../db/schema.ts";
 import app from "../index.ts";
-import { jsonHeader, testUser } from "../lib/test.utils.ts";
+import { jsonHeader, testUser, testUser2 } from "../lib/test.utils.ts";
 import type {
 	PatchTransactionPayload,
 	PostTransactionPayload,
@@ -87,6 +88,27 @@ describe("/api/transaction", () => {
 	};
 
 	describe("create", () => {
+		let splitTestTag: { id: number; description: string };
+		beforeAll(async () => {
+			await db.insert(user).values(testUser2).onConflictDoNothing();
+			const inserted = await db
+				.insert(tags)
+				.values({ description: "split-test-tag" })
+				.onConflictDoNothing()
+				.returning();
+			if (inserted[0]) {
+				splitTestTag = inserted[0];
+			} else {
+				const existing = await db
+					.select()
+					.from(tags)
+					.where(eq(tags.description, "split-test-tag"));
+				splitTestTag = existing[0]!;
+			}
+		});
+		afterAll(async () => {
+			await db.delete(tags).where(eq(tags.id, splitTestTag.id));
+		});
 		afterEach(async () => {
 			await transactionCleanup();
 			await statementCleanup();
@@ -278,8 +300,7 @@ describe("/api/transaction", () => {
 			expect(await res.text()).toInclude("both cannot be empty and filled");
 		});
 
-		// TODO: complete tests, need another user to test with?
-		test.skip("inserts into db: with split and no tags", async () => {
+		test("inserts into db: with split and no tags", async () => {
 			const testTransactions: PostTransactionPayload = {
 				transactions: [
 					{
@@ -287,16 +308,15 @@ describe("/api/transaction", () => {
 						tags: [],
 						split: {
 							share: 50,
-							shareUserId: "",
+							shareUserId: testUser2.id,
 						},
-						cardId: 1,
 					},
 				],
 				statementInfo: {
 					statementDate: new Date().toISOString(),
 					statementOwnershipId: 1,
 				},
-				cardInfo: { cardId: 1, cardName: "test-card" },
+				accountInfo: { accountId: 1, accountName: "test-account" },
 				companyId: 1,
 			};
 			const res = await app.request("/api/transaction", {
@@ -304,8 +324,97 @@ describe("/api/transaction", () => {
 				body: JSON.stringify(testTransactions),
 				...jsonHeader,
 			});
+			expect(res.status).toBe(201);
+
+			const insertedTxns = await db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.userId, testUser.id),
+						eq(transactions.description, testTransaction.description),
+					),
+				);
+			expect(insertedTxns.length).toBe(1);
+
+			if (!insertedTxns[0]) throw new Error();
+
+			const shares = await db
+				.select()
+				.from(transactionShares)
+				.where(eq(transactionShares.transactionId, insertedTxns[0].id));
+			expect(shares.length).toBe(2);
+
+			const otherUserShare = shares.find((s) => s.userId === testUser2.id);
+			expect(otherUserShare).toBeDefined();
+			expect(otherUserShare?.share).toBe(50);
+
+			const insertingUserShare = shares.find((s) => s.userId === testUser.id);
+			expect(insertingUserShare).toBeDefined();
+			expect(insertingUserShare?.share).toBe(50);
 		});
-		test("inserts into db: with split and tags", () => {});
+
+		test("inserts into db: with split and tags", async () => {
+			const testTransactions: PostTransactionPayload = {
+				transactions: [
+					{
+						...testTransaction,
+						split: {
+							share: 70,
+							shareUserId: testUser2.id,
+						},
+						tags: [
+							{ id: splitTestTag.id, description: splitTestTag.description },
+						],
+					},
+				],
+				statementInfo: {
+					statementDate: new Date().toISOString(),
+					statementOwnershipId: 1,
+				},
+				accountInfo: { accountId: 1, accountName: "test-account" },
+				companyId: 1,
+			};
+			const res = await app.request("/api/transaction", {
+				method: "POST",
+				body: JSON.stringify(testTransactions),
+				...jsonHeader,
+			});
+			expect(res.status).toBe(201);
+
+			const insertedTxns = await db
+				.select()
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.userId, testUser.id),
+						eq(transactions.description, testTransaction.description),
+					),
+				);
+			expect(insertedTxns.length).toBe(1);
+			if (!insertedTxns[0]) throw new Error();
+
+			const shares = await db
+				.select()
+				.from(transactionShares)
+				.where(eq(transactionShares.transactionId, insertedTxns[0].id));
+			expect(shares.length).toBe(2);
+
+			const otherUserShare = shares.find((s) => s.userId === testUser2.id);
+			expect(otherUserShare).toBeDefined();
+			expect(otherUserShare?.share).toBe(70);
+
+			const insertingUserShare = shares.find((s) => s.userId === testUser.id);
+			expect(insertingUserShare).toBeDefined();
+			expect(insertingUserShare?.share).toBe(30);
+
+			const txnTags = await db
+				.select()
+				.from(transactionTags)
+				.where(eq(transactionTags.transactionId, insertedTxns[0].id));
+			expect(txnTags.length).toBe(1);
+			expect(txnTags[0]?.tagId).toBe(splitTestTag.id);
+		});
 	});
 
 	describe("create then get", () => {
