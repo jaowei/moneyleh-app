@@ -126,7 +126,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 			} else if (
 				startingLineText.text.toLowerCase().includes("points summary")
 			) {
-				dataIdx.pointsSummary = blockIdx + 1;
+				dataIdx.pointsSummary = blockIdx + 4;
 			} else if (startingLineText.text.toLowerCase() === "date") {
 				if (block.lines[2]?.text.toLowerCase().includes("s$")) {
 					currency = "SGD";

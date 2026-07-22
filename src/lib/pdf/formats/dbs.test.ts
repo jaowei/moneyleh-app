@@ -7,6 +7,7 @@ describe("pdf: dbs formats", () => {
 		test("use statement with re issued card and fx transactions", async () => {
 			const file = await getFile("./test-files/dbsCard-fx-reissue.pdf");
 			const { data } = await pdfParser(file, testUser.id);
+			// console.log(data);
 			if ("cards" in data) {
 				const cardsArr = Object.entries(data.cards);
 				expect(cardsArr.length).toBe(2);

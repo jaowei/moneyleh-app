@@ -7,7 +7,7 @@ const directUploadFormatZ = z.object({
 		.transform((val) => (!val ? [] : val.toLowerCase().split("_"))),
 	currency: z.string().length(3),
 	amount: z.string().pipe(
-		z.preprocess((val, ctx) => {
+		z.transform((val, ctx) => {
 			try {
 				let sign = 1;
 				if (val.includes("(")) {
@@ -29,7 +29,7 @@ const directUploadFormatZ = z.object({
 				});
 				return z.NEVER;
 			}
-		}, z.number()),
+		}),
 	),
 	description: z.string().default(""),
 	// TODO: remove these once all migrated

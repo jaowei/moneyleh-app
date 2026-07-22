@@ -550,7 +550,7 @@ describe("/api/transaction", () => {
 				},
 			);
 			expect(res.status).toBe(400);
-			expect(await res.text()).toInclude("Invalid input");
+			expect(await res.text()).toInclude("Invalid discriminator value");
 		});
 
 		test("get per user no transactions per filter", async () => {
