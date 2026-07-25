@@ -9,7 +9,10 @@ import { useAuth } from "../context/auth.tsx";
 import { useAccountCardModal } from "../hooks/useAccountCardModal.ts";
 import { useRequestState } from "../hooks/useRequestState.ts";
 import { useTagModal } from "../hooks/useTagModal.ts";
-import { useTransactionSplitModal } from "../hooks/useTransactionSplitModal.ts";
+import {
+	type SplitEditorOpenHandler,
+	useTransactionSplitModal,
+} from "../hooks/useTransactionSplitModal.ts";
 import type { UsersResponse } from "../lib/auth-client.ts";
 import {
 	backendRouteClient,
@@ -64,7 +67,7 @@ interface TransactionRowProps {
 	isSelected: boolean;
 	hasSplit: boolean;
 	onTagEditorOpen: (tags: UiTag[], currentIdx: number[]) => void;
-	onSplitModalOpen: (currentIdx: number[]) => void;
+	onSplitModalOpen: SplitEditorOpenHandler;
 	setTransactions: Dispatch<
 		SetStateAction<FileUploadRes["taggedTransactions"][0]>
 	>;

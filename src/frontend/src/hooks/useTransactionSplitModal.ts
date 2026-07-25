@@ -3,6 +3,7 @@ import type { TransactionSplitUI } from "../lib/backend-clients";
 
 export const useTransactionSplitModal = () => {
 	const splitModalRef = useRef<null | HTMLDialogElement>(null);
+	// use this if the backend does not send any splits, e.g. when uploading statements
 	const [transactionSplits, setTransactionSplits] = useState<
 		Map<number, TransactionSplitUI>
 	>(new Map());
@@ -15,9 +16,16 @@ export const useTransactionSplitModal = () => {
 		setCurrentSplit(undefined);
 		splitModalRef.current?.close();
 	};
-	const handleSplitEditorOpen = (transactionIdxs: number[]) => {
+	const handleSplitEditorOpen = (
+		transactionIdxs: number[],
+		split?: TransactionSplitUI,
+	) => {
 		if (transactionIdxs.length === 1) {
-			setCurrentSplit(transactionSplits.get(transactionIdxs[0]));
+			if (split) {
+				setCurrentSplit(split);
+			} else {
+				setCurrentSplit(transactionSplits.get(transactionIdxs[0]));
+			}
 			setTxnSplitIdx((prev) => {
 				prev.push(transactionIdxs[0]);
 				return prev;
@@ -36,6 +44,7 @@ export const useTransactionSplitModal = () => {
 			});
 			return prev;
 		});
+		setCurrentSplit(newShare);
 	};
 	return {
 		splitModalRef,
@@ -47,3 +56,7 @@ export const useTransactionSplitModal = () => {
 		handleSplitEditorOpen,
 	};
 };
+
+export type SplitEditorOpenHandler = ReturnType<
+	typeof useTransactionSplitModal
+>["handleSplitEditorOpen"];

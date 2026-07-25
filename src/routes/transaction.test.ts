@@ -308,7 +308,7 @@ describe("/api/transaction", () => {
 						tags: [],
 						split: {
 							share: 50,
-							shareUserId: testUser2.id,
+							userId: testUser2.id,
 						},
 					},
 				],
@@ -361,7 +361,7 @@ describe("/api/transaction", () => {
 						...testTransaction,
 						split: {
 							share: 70,
-							shareUserId: testUser2.id,
+							userId: testUser2.id,
 						},
 						tags: [
 							{ id: splitTestTag.id, description: splitTestTag.description },

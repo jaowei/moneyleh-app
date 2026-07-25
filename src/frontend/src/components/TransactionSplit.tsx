@@ -41,14 +41,14 @@ export const TransactionSplitModal = ({
 						onSubmit={onSubmit}
 						initialValues={{
 							share: split?.share,
-							shareUserId: split?.shareUserId,
+							userId: split?.userId,
 						}}
 						render={({ handleSubmit, errors, form, values }) => {
 							const handleClearClick = () => {
 								onSplitChange(undefined);
 								form.reset({
 									share: undefined,
-									shareUserId: undefined,
+									userId: undefined,
 								});
 							};
 							return (
@@ -61,7 +61,7 @@ export const TransactionSplitModal = ({
 											User to split with
 										</label>
 										<Field<string>
-											name="shareUserId"
+											name="userId"
 											component="select"
 											className="select"
 											validate={(value) => (!value ? "Required" : undefined)}

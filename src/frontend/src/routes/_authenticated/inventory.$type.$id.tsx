@@ -6,12 +6,16 @@ import { AccountCardTransactionRow } from "../../components/AccountCardTransacti
 import BulkUploadModal from "../../components/BulkUploadModal.tsx";
 import { DismissableAlert } from "../../components/DismissableAlert.tsx";
 import { TagPickerModal, type UiTag } from "../../components/TagPicker.tsx";
+import { TransactionSplitModal } from "../../components/TransactionSplit.tsx";
 import { EditableTransactionsTableHeader } from "../../components/TransactionsTableHeader.tsx";
 import { useTagModal } from "../../hooks/useTagModal.ts";
+import { useTransactionSplitModal } from "../../hooks/useTransactionSplitModal.ts";
+import { fetchAllUsers } from "../../lib/auth-client.ts";
 import {
 	backendRouteClient,
 	fetchTagData,
 	type GetTransactionDataRes,
+	type TransactionSplitUI,
 } from "../../lib/backend-clients.ts";
 import { getBackendErrorResponse } from "../../lib/error.ts";
 import { capitalise } from "../../lib/text-utils.ts";
@@ -43,18 +47,23 @@ export const Route = createFileRoute("/_authenticated/inventory/$type/$id")({
 		}
 
 		const tagData = await fetchTagData();
+		const { data: userData, error } = await fetchAllUsers(auth.user.id);
+		if (error) {
+			throw error;
+		}
 
 		return {
 			data,
 			tagData,
 			crumb: data.displayName,
 			userId: auth.user.id,
+			usersRes: userData,
 		};
 	},
 });
 
 function InventoryDataComponent() {
-	const { data, tagData, userId } = Route.useLoaderData();
+	const { data, tagData, userId, usersRes } = Route.useLoaderData();
 	const { id, type } = Route.useParams();
 	const router = useRouter();
 	const {
@@ -65,6 +74,14 @@ function InventoryDataComponent() {
 		handleTagEditorOpen,
 		handleTagEditorChange,
 	} = useTagModal();
+	const {
+		splitModalRef,
+		currentSplit,
+		txnSplitIdx,
+		handleSplitEditorChange,
+		handleSplitEditorClose,
+		handleSplitEditorOpen,
+	} = useTransactionSplitModal();
 	const [editableTransactions, setEditableTransactions] = useState(
 		data.transactions,
 	);
@@ -85,6 +102,21 @@ function InventoryDataComponent() {
 			}),
 		);
 		handleTagEditorChange(tags);
+	};
+	const handleTransactionSplitChange = (newShare?: TransactionSplitUI) => {
+		setEditableTransactions((existing) =>
+			existing.map((txn, idx) => {
+				if (txnSplitIdx.includes(idx)) {
+					return {
+						...txn,
+						split: newShare,
+					};
+				} else {
+					return txn;
+				}
+			}),
+		);
+		handleSplitEditorChange(newShare);
 	};
 	const handleRowActionError = (msg: string) => {
 		setRowActionError(msg);
@@ -148,6 +180,7 @@ function InventoryDataComponent() {
 									transaction={t}
 									transactionIndex={idx}
 									onTagEditorOpen={handleTagEditorOpen}
+									onTransactionSplitOpen={handleSplitEditorOpen}
 									setTransactions={setEditableTransactions}
 									onActionError={handleRowActionError}
 									onActionSuccess={handleRowActionSuccess}
@@ -163,6 +196,13 @@ function InventoryDataComponent() {
 				selectedTags={selectedTags}
 				onModalClose={handleTagEditorClose}
 				onTagChange={handleTagChange}
+			/>
+			<TransactionSplitModal
+				usersRes={usersRes}
+				ref={splitModalRef}
+				split={currentSplit}
+				onSplitChange={handleTransactionSplitChange}
+				onModalClose={handleSplitEditorClose}
 			/>
 		</div>
 	);

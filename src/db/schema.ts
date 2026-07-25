@@ -238,11 +238,15 @@ export const transactionShares = sqliteTable(
 export const transactionSharesInsertSchemaZ = createInsertSchema(
 	transactionShares,
 	{
-		share: z.number().positive().lte(1),
+		share: z.number().min(1).max(100),
 	},
 );
 export type TransactionSharesInsertSchema = z.infer<
 	typeof transactionSharesInsertSchemaZ
+>;
+const transactionSharesSelectSchemaZ = createSelectSchema(transactionShares);
+export type transactionSharesSelectSchema = z.infer<
+	typeof transactionSharesSelectSchemaZ
 >;
 
 export const userCompanies = sqliteTable(

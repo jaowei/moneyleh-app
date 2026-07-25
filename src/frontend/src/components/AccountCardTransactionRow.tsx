@@ -1,5 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { type Dispatch, type SetStateAction, useState } from "react";
+import type { SplitEditorOpenHandler } from "../hooks/useTransactionSplitModal";
 import {
 	backendRouteClient,
 	type GetTransactionDataRes,
@@ -7,6 +8,7 @@ import {
 import { EditableCell } from "./EditableCell";
 import { TagPicker, type UiTag } from "./TagPicker";
 import { TagTableViewer } from "./TagTableViewer";
+import { TransactionSplitButton } from "./TransactionSplit";
 
 type Transaction = GetTransactionDataRes["transactions"][0];
 
@@ -15,6 +17,7 @@ interface TransactionRowProps {
 	transaction: Transaction;
 	transactionIndex: number;
 	onTagEditorOpen: (tags: UiTag[], currentIdxs: number[]) => void;
+	onTransactionSplitOpen: SplitEditorOpenHandler;
 	setTransactions: Dispatch<SetStateAction<Transaction[]>>;
 	onActionError: (msg: string) => void;
 	onActionSuccess: (msg: string) => void;
@@ -47,11 +50,12 @@ const getUpdater = (
 };
 
 export const AccountCardTransactionRow = ({
+	userId,
 	transaction,
 	transactionIndex,
 	onTagEditorOpen,
+	onTransactionSplitOpen,
 	setTransactions,
-	userId,
 	onActionError,
 	onActionSuccess,
 }: TransactionRowProps) => {
@@ -110,6 +114,9 @@ export const AccountCardTransactionRow = ({
 	const handleTagPickerClick = () => {
 		onTagEditorOpen(transaction.tags, [transactionIndex]);
 	};
+	const handleSplitModalClick = () => {
+		onTransactionSplitOpen([transactionIndex], transaction.split);
+	};
 	const handleDeleteRowClick = async () => {
 		try {
 			const res = await backendRouteClient.api.transaction[":userId"][
@@ -163,6 +170,14 @@ export const AccountCardTransactionRow = ({
 				<TagPicker
 					onTagPickerClick={handleTagPickerClick}
 					disabled={!editRow}
+					forTable
+				/>
+			</td>
+			<td>
+				<TransactionSplitButton
+					onClick={handleSplitModalClick}
+					disabled={!editRow}
+					hasSplit={!!transaction.split?.share}
 					forTable
 				/>
 			</td>

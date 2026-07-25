@@ -13,6 +13,9 @@ import {
 	type TransactionTagsInsertSchema,
 	tagSelectSchemaZ,
 	tags as tagsDb,
+	transactionShares,
+	transactionSharesInsertSchemaZ,
+	type transactionSharesSelectSchema,
 	transactionStatements,
 	transactions as transactionsDb,
 	transactionsInsertSchemaZ,
@@ -28,26 +31,28 @@ import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";
-import { insertTransactionShares, runTrainer } from "./transaction.utils.ts";
+import {
+	insertTransactionShares,
+	runTrainer,
+	upsertTransactionShare,
+} from "./transaction.utils.ts";
 import { statementInfoZ } from "./ui.ts";
 
 const allowOnlyAccountOrCardIdErrMsg =
 	"An account id or card id is required, both cannot be empty and filled in the same transaction";
 
-const UiTagZ = tagSelectSchemaZ.partial().extend({
+const uiTagZ = tagSelectSchemaZ.partial().extend({
 	id: z.number(),
 	description: z.string().min(1),
 });
+const transactionShareZ = transactionSharesInsertSchemaZ
+	.pick({ share: true, userId: true })
+	.optional();
 const transactionFromUIZ = transactionsInsertSchemaZ
 	.extend({
-		tags: z.array(UiTagZ).optional(),
+		tags: z.array(uiTagZ).optional(),
 		userId: z.string(),
-		split: z
-			.object({
-				share: z.number().min(1).max(100),
-				shareUserId: z.string(),
-			})
-			.optional(),
+		split: transactionShareZ,
 	})
 	.refine((data) => refineAccountOrCardId(data), {
 		error: allowOnlyAccountOrCardIdErrMsg,
@@ -99,7 +104,8 @@ const transactionsPatchPayloadZ = z.object({
 		.array(
 			transactionsUpdateSchemaZ.extend({
 				id: z.number(),
-				tags: z.array(UiTagZ).optional(),
+				tags: z.array(uiTagZ).optional(),
+				split: transactionShareZ,
 			}),
 		)
 		.min(1),
@@ -316,8 +322,7 @@ export const transactionRoute = new Hono()
 							[
 								{
 									transactionId: insertedTxn.id,
-									userId: split.shareUserId,
-									share: split.share,
+									...split,
 								},
 							],
 							userId,
@@ -543,6 +548,10 @@ export const transactionRoute = new Hono()
 				.leftJoin(tagsDb, eq(transactionTagsDb.tagId, tagsDb.id))
 				.leftJoin(accounts, eq(accounts.id, transactionsDb.accountId))
 				.leftJoin(cards, eq(cards.id, transactionsDb.cardId))
+				.leftJoin(
+					transactionShares,
+					eq(transactionShares.transactionId, transactionsDb.id),
+				)
 				.orderBy(desc(transactionsDb.transactionDate))
 				.limit(limit)
 				.offset(offset);
@@ -550,6 +559,7 @@ export const transactionRoute = new Hono()
 			const processedTransactions = queryRes.map((row) => {
 				const txn = row.transactions;
 				const tag = row.tags;
+				const split = row.transaction_shares;
 				return {
 					...txn,
 					tags: tag ? [tag] : [],
@@ -557,6 +567,7 @@ export const transactionRoute = new Hono()
 					cardName: row.cards
 						? `${row.cards.name} ${row.cards.cardNetwork}`
 						: undefined,
+					split: split ? split : undefined,
 				};
 			});
 
@@ -566,6 +577,7 @@ export const transactionRoute = new Hono()
 					tags: Pick<TagSelectSchema, "id" | "description">[];
 					accountName?: string;
 					cardName?: string;
+					split?: Pick<transactionSharesSelectSchema, "share" | "userId">;
 				}
 			>();
 			processedTransactions.forEach((t) => {
@@ -675,6 +687,7 @@ export const transactionRoute = new Hono()
 		zodValidator("json", transactionsPatchPayloadZ),
 		async (c) => {
 			const { transactions } = c.req.valid("json");
+			const { userId } = c.req.param();
 			db.transaction((tx) => {
 				for (const t of transactions) {
 					const updateRes = tx
@@ -708,6 +721,15 @@ export const transactionRoute = new Hono()
 								});
 							}
 						}
+					}
+					if (t.split) {
+						upsertTransactionShare(
+							{
+								transactionId: t.id,
+								...t.split,
+							},
+							userId,
+						);
 					}
 				}
 			});
