@@ -62,7 +62,7 @@ const LinkStatementPayloadZ = z.object({
 });
 
 export const statementInfoZ = z.object({
-	statementDate: z.string(),
+	statementDate: z.iso.datetime(),
 	statementOwnerIds: z.array(z.number().or(z.undefined())),
 });
 export type StatementInfo = z.infer<typeof statementInfoZ>;

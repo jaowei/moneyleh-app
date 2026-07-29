@@ -61,11 +61,12 @@ interface AccountData extends AccountDataBase {
 	accountNumber: string;
 }
 
-interface StatementDataBase {
-	statementDate: string;
-}
+export const statementDataBaseSchemaZ = z.object({
+	statementDate: z.iso.datetime(),
+});
+type StatementDataBaseSchema = z.infer<typeof statementDataBaseSchemaZ>;
 
-export interface CardStatementData extends StatementDataBase {
+export interface CardStatementData extends StatementDataBaseSchema {
 	type: "card";
 	cards: Record<string, CardData>; // key is card name
 	points: Record<string, PointsData>;
@@ -73,12 +74,12 @@ export interface CardStatementData extends StatementDataBase {
 	creditLimit?: number;
 }
 
-export interface AccountStatementData extends StatementDataBase {
+export interface AccountStatementData extends StatementDataBaseSchema {
 	type: "account";
 	accounts: Record<string, AccountData>; // key is account name
 }
 
-export interface CPFStatementData extends StatementDataBase {
+export interface CPFStatementData extends StatementDataBaseSchema {
 	type: "cpf";
 	accounts: {
 		ordinaryAccount: AccountDataBase;

@@ -14,6 +14,7 @@ import {
 	MuPdfStructuredTextPageZ,
 	type PdfFormatExtractor,
 	type PdfParser,
+	statementDataBaseSchemaZ,
 } from "./pdf.type.ts";
 
 const parseStatementPages = (document: mupdf.Document) => {
@@ -80,7 +81,10 @@ export const pdfParser: PdfParser = async (file, userId) => {
 	const { extractor, companyName } = getDataExtractorForFormat(doc);
 	if (extractor) {
 		const dataToExtract = parseStatementPages(doc);
-		return { data: extractor(dataToExtract, userId), companyName };
+		const data = extractor(dataToExtract, userId);
+		// checks if statement date is an iso string
+		statementDataBaseSchemaZ.parse(data);
+		return { data, companyName };
 	} else {
 		throw new Error(`Cannot determine format for file: ${file.name}`);
 	}

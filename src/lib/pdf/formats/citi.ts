@@ -1,5 +1,5 @@
 import { ParsingErrors } from "../../../errors";
-import { parseDateString } from "../../dayjs";
+import { extendedDayjs, parseDateString } from "../../dayjs";
 import type {
 	CardStatementData,
 	MuPdfStructuredTextBlock,
@@ -276,6 +276,7 @@ const getCardDetailsNoHeader = (processed: ProcessedPdfBlockCiti[]) => {
 	);
 	const cardDetails: CardStatementData["cards"] = {};
 	let dueDate = "";
+	let statementDate = "";
 	if (matched?.[1] && matched?.[2]) {
 		cardDetails[matched[1]] = {
 			transactions: [],
@@ -289,11 +290,12 @@ const getCardDetailsNoHeader = (processed: ProcessedPdfBlockCiti[]) => {
 		const date = parseCitiStatementDate(matched[3]);
 		if (date) {
 			dueDate = date;
+			statementDate = extendedDayjs(date).subtract(25, "d").utc().toISOString();
 		} else {
 			throw ParsingErrors.dueDate;
 		}
 	}
-	return { cardDetails, dueDate };
+	return { cardDetails, dueDate, statementDate };
 };
 
 const extractDataCardNoHeader: PdfFormatExtractor = (dataToExtract, userId) => {
@@ -313,9 +315,11 @@ const extractDataCardNoHeader: PdfFormatExtractor = (dataToExtract, userId) => {
 		data.blocks.map(consolidateBlockLines),
 	);
 
-	const { cardDetails, dueDate } = getCardDetailsNoHeader(processed);
+	const { cardDetails, dueDate, statementDate } =
+		getCardDetailsNoHeader(processed);
 	extractedData.cards = cardDetails;
 	extractedData.dueDate = dueDate;
+	extractedData.statementDate = statementDate;
 
 	processCardTransactions(
 		processed,

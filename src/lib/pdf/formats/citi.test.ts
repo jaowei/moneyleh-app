@@ -38,7 +38,7 @@ describe("pdf: Citibank statements", () => {
 				testATransaction(t);
 			});
 			expect(data.creditLimit).toBe(0);
-			expect(data.statementDate).toBe("");
+			expect(data.statementDate).toBe("2026-04-28T00:00:00.000Z");
 			expect(data.dueDate).toBe("2026-05-23T00:00:00.000Z");
 		} else {
 			throw new Error();
