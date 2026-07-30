@@ -130,10 +130,11 @@ export const transactionRoute = new Hono()
 		const { transactions, statementInfo, cardInfo, accountInfo, companyId } =
 			c.req.valid("json");
 
-		const name = cardInfo?.cardName || accountInfo?.accountName;
+		const accountCardName = cardInfo?.cardName || accountInfo?.accountName;
 
 		const addStatementOrThrow = async (
 			statementInfo: StatementInfoPayload,
+			userId: string,
 			name?: string,
 		) => {
 			const existingStatementQuery = await db
@@ -145,6 +146,7 @@ export const transactionRoute = new Hono()
 				)
 				.where(
 					and(
+						eq(statements.userId, userId),
 						eq(statements.statementDate, statementInfo.statementDate),
 						eq(
 							statements.statementOwnershipId,
@@ -160,12 +162,16 @@ export const transactionRoute = new Hono()
 			}
 		};
 
-		await addStatementOrThrow(statementInfo, name);
-
 		let shouldTrain = false;
 		const documentsToAdd: DocumentToAdd[] = [];
 		const insertedTransactionIds: number[] = [];
-		const userId = transactions[0]?.userId || ""; // user id always exists
+		const userId = transactions[0]?.userId;
+		if (!userId) {
+			throw new HTTPException(400, {
+				message: "User id is not provided!",
+			});
+		}
+		await addStatementOrThrow(statementInfo, userId, accountCardName);
 		try {
 			db.transaction((tx) => {
 				appLogger("Checking statement details...");
@@ -181,10 +187,10 @@ export const transactionRoute = new Hono()
 				if (!insertedStatement[0]) {
 					tx.rollback();
 					throw new Error(
-						`Error persisting statement for user ${userId}, ${name}`,
+						`Error persisting statement for user ${userId}, ${accountCardName}`,
 					);
 				}
-				appLogger(`Inserted statement for user ${userId}, ${name}`);
+				appLogger(`Inserted statement for user ${userId}, ${accountCardName}`);
 
 				appLogger("Check assignment of card/account to user");
 				const insertCompanyQuery = tx
