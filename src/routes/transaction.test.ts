@@ -6,7 +6,7 @@ import {
 	expect,
 	test,
 } from "bun:test";
-import { and, eq, inArray, like } from "drizzle-orm";
+import { and, eq, inArray, like, or } from "drizzle-orm";
 import { user } from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
 import {
@@ -21,7 +21,12 @@ import {
 	userCards,
 } from "../db/schema.ts";
 import app from "../index.ts";
-import { jsonHeader, testUser, testUser2 } from "../lib/test.utils.ts";
+import {
+	getTestUserDetails,
+	jsonHeader,
+	testUser,
+	testUser2,
+} from "../lib/test.utils.ts";
 import type {
 	PatchTransactionPayload,
 	PostTransactionPayload,
@@ -912,6 +917,130 @@ describe("/api/transaction", () => {
 					.all();
 				expect(sampleTxns?.[0]?.userId).toBe(testUser.id);
 			});
+		});
+	});
+
+	describe("get splits", () => {
+		beforeAll(async () => {
+			await db.insert(user).values(testUser2).onConflictDoNothing();
+			await db
+				.insert(user)
+				.values(getTestUserDetails("3"))
+				.onConflictDoNothing();
+		});
+		afterAll(async () => {
+			const txns = await db
+				.select()
+				.from(transactions)
+				.where(
+					or(
+						eq(transactions.userId, testUser.id),
+						eq(transactions.userId, testUser2.id),
+						eq(transactions.userId, getTestUserDetails("3").id),
+					),
+				);
+			const txnIds = txns.map((t) => t.id);
+			if (txnIds.length) {
+				await db
+					.delete(transactionShares)
+					.where(inArray(transactionShares.transactionId, txnIds));
+			}
+			await db.delete(transactions).where(inArray(transactions.id, txnIds));
+		});
+
+		test("returns splits for a user", async () => {
+			const baseTxn = {
+				transactionDate: "2024-01-15T00:00:00.000Z",
+				description: "split-test-txn",
+				currency: "SGD",
+				accountId: 1,
+			};
+			const testUser3 = getTestUserDetails("3");
+			const user1Txn = await db
+				.insert(transactions)
+				.values([
+					{
+						...baseTxn,
+						amount: 200,
+						userId: testUser.id,
+					},
+					{
+						...baseTxn,
+						amount: 100,
+						userId: testUser.id,
+						transactionDate: "2024-01-16T00:00:00.000Z",
+					},
+				])
+				.returning();
+			const user2Txn = await db
+				.insert(transactions)
+				.values([
+					{
+						...baseTxn,
+						amount: 100,
+						userId: testUser2.id,
+					},
+					{ ...baseTxn, amount: 50, userId: testUser2.id },
+				])
+				.returning();
+			const user3Txn = await db
+				.insert(transactions)
+				.values([
+					{
+						...baseTxn,
+						amount: 100,
+						userId: testUser3.id,
+					},
+				])
+				.returning();
+			expect(user1Txn[0]).toBeDefined();
+			const txnId1User1 = user1Txn[0]?.id;
+			const txnId2User1 = user1Txn[1]?.id;
+			const txnIdUser2 = user2Txn[0]?.id;
+			const txnIdUser3 = user3Txn[0]?.id;
+			if (!txnId1User1 || !txnIdUser2 || !txnId2User1 || !txnIdUser3)
+				throw new Error();
+
+			await db.insert(transactionShares).values([
+				{ transactionId: txnId1User1, userId: testUser.id, share: 60 },
+				{ transactionId: txnId1User1, userId: testUser2.id, share: 40 },
+				{ transactionId: txnId2User1, userId: testUser.id, share: 60 },
+				{ transactionId: txnId2User1, userId: testUser2.id, share: 40 },
+				{ transactionId: txnIdUser2, userId: testUser.id, share: 60 },
+				{ transactionId: txnIdUser2, userId: testUser2.id, share: 40 },
+				{ transactionId: txnIdUser3, userId: testUser3.id, share: 60 },
+				{ transactionId: txnIdUser3, userId: testUser.id, share: 40 },
+			]);
+
+			const res = await app.request(
+				`/api/transaction/split/${testUser.id}/summary`,
+				{
+					method: "GET",
+				},
+			);
+
+			expect(res.status).toBe(200);
+			const body: any = await res.json();
+			expect(body.userDetails).toBeArrayOfSize(2);
+			expect(body.totalAmountToPay).toBe(100);
+			expect(body.totalAmountToReceive).toBe(120);
+
+			const paginatedRes = await app.request(
+				`/api/transaction/split/${testUser.id}/transactions?offset=0&limit=1`,
+				{
+					method: "GET",
+				},
+			);
+			expect(paginatedRes.status).toBe(200);
+			const paginatedBody: any = await paginatedRes.json();
+			const totalToPayRows = paginatedBody.transactionsToPayByUser.reduce(
+				(acc: number, txns: any[]) => acc + txns.length,
+				0,
+			);
+			expect(paginatedBody.transactionsToReceive).toHaveLength(1);
+			expect(totalToPayRows).toBe(1);
+			expect(paginatedBody.totalTransactionsToPay).toBe(2);
+			expect(paginatedBody.totalTransactionsToReceive).toBe(2);
 		});
 	});
 });

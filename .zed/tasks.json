@@ -1,0 +1,20 @@
+[
+  {
+    "label": "bun test",
+    "command": "bun",
+    "args": ["test"],
+    "tags": ["js-test", "ts-test", "bun-test", "tsx-test"]
+  },
+  {
+    "label": "bun test: current file",
+    "command": "bun",
+    "args": ["test", "$ZED_FILE"],
+    "tags": ["js-test", "ts-test", "bun-test", "tsx-test"]
+  },
+  {
+    "label": "bun test: symbol",
+    "command": "bun",
+    "args": ["test", "-t", "$ZED_SYMBOL", "$ZED_FILE"],
+    "tags": ["js-test", "ts-test", "bun-test", "tsx-test"]
+  }
+]

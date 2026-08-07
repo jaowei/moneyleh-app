@@ -1,4 +1,5 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
+import type { SQLiteColumn, SQLiteSelect } from "drizzle-orm/sqlite-core";
 import { HTTPException } from "hono/http-exception";
 import { user } from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
@@ -117,3 +118,15 @@ export const deleteTransactions = (
 			.all();
 	});
 };
+
+export function withPagination<T extends SQLiteSelect>(
+	qb: T,
+	orderByColumn: SQLiteColumn | SQL,
+	page = 1,
+	pageSize = 3,
+) {
+	return qb
+		.orderBy(orderByColumn)
+		.limit(pageSize)
+		.offset((page - 1) * pageSize);
+}

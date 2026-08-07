@@ -1,15 +1,10 @@
+import { currencyFormatter } from "../lib/text-utils";
+
 interface AccountCardStatsProps {
 	numTransactions: number;
 	currentBalance: Record<string, number>;
 	latestTransactionDate?: string;
 }
-
-const currencyFormatter = (value: number, currencyCode: string) => {
-	return new Intl.NumberFormat("en-sg", {
-		style: "currency",
-		currency: currencyCode,
-	}).format(value);
-};
 
 export const AccountCardStats = ({
 	numTransactions,

@@ -71,3 +71,47 @@ export const fetchCompanies = async () => {
 		throw await getBackendErrorResponse(companyRes);
 	}
 };
+
+export const fetchTransactionSplitSummary = async (userId: string) => {
+	const res = await backendRouteClient.api.transaction.split[
+		":userId"
+	].summary.$get({
+		param: {
+			userId,
+		},
+	});
+	if (res.ok) {
+		return await res.json();
+	} else {
+		throw await getBackendErrorResponse(res);
+	}
+};
+
+export const fetchTransactionSplitTransactions = async (
+	userId: string,
+	offset: number,
+	limit: number,
+) => {
+	const res = await backendRouteClient.api.transaction.split[
+		":userId"
+	].transactions.$get({
+		param: {
+			userId,
+		},
+		query: {
+			offset: `${offset}`,
+			limit: `${limit}`,
+		},
+	});
+	if (res.ok) {
+		return await res.json();
+	} else {
+		throw await getBackendErrorResponse(res);
+	}
+};
+export type TransactionSplit = Awaited<
+	ReturnType<typeof fetchTransactionSplitTransactions>
+>["transactionsToReceive"][0];
+export type SplitSummary = Awaited<
+	ReturnType<typeof fetchTransactionSplitSummary>
+>;

@@ -1,12 +1,16 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { docTrainerPool } from "..";
+import { user } from "../db/auth-schema";
 import { db } from "../db/db";
 import {
 	type TransactionSharesInsertSchema,
+	transactionShares,
 	transactionShares as transactionSharesDb,
+	transactions,
 } from "../db/schema";
 import type { DocumentToAdd } from "../lib/descriptionTagger/base-classifier";
 import { appLogger } from "../lib/logger";
+import { withPagination } from "./route.utils";
 
 export const runTrainer = (
 	documentsToAdd: DocumentToAdd[],
@@ -149,4 +153,142 @@ export const upsertTransactionShare = (
 	} catch (error) {
 		appLogger(`Could not insert transaction shares: ${error}`);
 	}
+};
+
+export const getSplitTransactions = async (
+	userId: string,
+	pagination?: { offset: number; limit: number },
+) => {
+	appLogger(`Getting transaction splits for user ${userId}`);
+	const sharedTxnIdsQuery = await db
+		.select({ transactionId: transactionShares.transactionId })
+		.from(transactionShares)
+		.where(eq(transactionShares.userId, userId));
+	const sharedTxnIds = sharedTxnIdsQuery.map((q) => q.transactionId);
+	appLogger(
+		`Found ${sharedTxnIds.length} transactions related to user ${userId}`,
+	);
+
+	const relatedUsers = await db
+		.selectDistinct({ id: user.id, name: user.name, email: user.email })
+		.from(user)
+		.innerJoin(transactionShares, eq(transactionShares.userId, user.id))
+		.where(
+			and(
+				inArray(transactionShares.transactionId, sharedTxnIds),
+				ne(transactionShares.userId, userId),
+			),
+		)
+		.groupBy(user.id);
+	const relatedUserIds = relatedUsers.map((q) => q.id);
+	appLogger(`${relatedUsers.length} other related users found`);
+
+	const splitTxnColumns = {
+		id: transactions.id,
+		user: transactions.userId,
+		transactionDate: transactions.transactionDate,
+		description: transactions.description,
+		transactionAmount: transactions.amount,
+		share: transactionShares.share,
+		// credit card transactions are credits i.e. negative
+		amountOwed: sql<number>`(100 - ${transactionShares.share})/100 * abs(${transactions.amount})`,
+	};
+
+	const toPayFilter = and(
+		inArray(transactionShares.transactionId, sharedTxnIds),
+		inArray(transactionShares.userId, relatedUserIds),
+		ne(transactions.userId, userId),
+	);
+	const toReceiveFilter = and(
+		eq(transactions.userId, userId),
+		eq(transactionShares.userId, userId),
+	);
+
+	appLogger(`Getting transactions to pay`);
+	const txnToPayQuery = db
+		.select(splitTxnColumns)
+		.from(transactionShares)
+		.innerJoin(
+			transactions,
+			eq(transactionShares.transactionId, transactions.id),
+		)
+		.where(toPayFilter);
+
+	const countToPay = () =>
+		db
+			.select({ value: count() })
+			.from(transactionShares)
+			.innerJoin(
+				transactions,
+				eq(transactionShares.transactionId, transactions.id),
+			)
+			.where(toPayFilter);
+
+	appLogger(`Getting transactions to receive`);
+	const txnToReceiveQuery = db
+		.select(splitTxnColumns)
+		.from(transactions)
+		.leftJoin(
+			transactionShares,
+			eq(transactionShares.transactionId, transactions.id),
+		)
+		.where(toReceiveFilter)
+		.orderBy();
+
+	const countToReceive = () =>
+		db
+			.select({ value: count() })
+			.from(transactions)
+			.leftJoin(
+				transactionShares,
+				eq(transactionShares.transactionId, transactions.id),
+			)
+			.where(toReceiveFilter);
+
+	let txnsToPay = [];
+	let txnsToReceive = [];
+	let totalTransactionsToPay = 0;
+	let totalTransactionsToReceive = 0;
+
+	if (pagination) {
+		const [toPayPage, toReceivePage, toPayCount, toReceiveCount] =
+			await Promise.all([
+				withPagination(
+					txnToPayQuery.$dynamic(),
+					desc(transactions.transactionDate),
+					pagination.offset + 1,
+					pagination.limit,
+				),
+				withPagination(
+					txnToReceiveQuery.$dynamic(),
+					desc(transactions.transactionDate),
+					pagination.offset + 1,
+					pagination.limit,
+				),
+				countToPay(),
+				countToReceive(),
+			]);
+		txnsToPay = toPayPage;
+		txnsToReceive = toReceivePage;
+		totalTransactionsToPay = toPayCount[0]?.value ?? 0;
+		totalTransactionsToReceive = toReceiveCount[0]?.value ?? 0;
+	} else {
+		txnsToPay = await txnToPayQuery;
+		txnsToReceive = await txnToReceiveQuery;
+		totalTransactionsToPay = txnsToPay.length;
+		totalTransactionsToReceive = txnsToReceive.length;
+	}
+
+	const txnToPayByUser = relatedUserIds.map((userId) => {
+		return txnsToPay.filter((txn) => txn.user === userId);
+	});
+
+	return {
+		transactionsToPayByUser: txnToPayByUser,
+		transactionsToReceive: txnsToReceive,
+		relatedUsers,
+		transactionsToPay: txnsToPay,
+		totalTransactionsToPay,
+		totalTransactionsToReceive,
+	};
 };

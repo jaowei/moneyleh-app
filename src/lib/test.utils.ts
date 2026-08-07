@@ -31,6 +31,17 @@ export const testUser2 = {
 	role: "admin",
 };
 
+export const getTestUserDetails = (suffix: string) => {
+	return {
+		id: `testUser${suffix}Id`,
+		name: `testUser${suffix}`,
+		email: `testUser${suffix}@test.com`,
+		password: `testUser${suffix}pw`,
+		createdAt: new Date(),
+		role: "admin",
+	};
+};
+
 export const getFile = async (path: string): Promise<File> => {
 	const file = Bun.file(path);
 	const buf = await file.arrayBuffer();

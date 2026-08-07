@@ -32,6 +32,7 @@ import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";
 import {
+	getSplitTransactions,
 	insertTransactionShares,
 	runTrainer,
 	upsertTransactionShare,
@@ -747,4 +748,52 @@ export const transactionRoute = new Hono()
 		const txnIdInt = parseInt(transactionId, 10);
 		deleteTransactions([txnIdInt], userId);
 		return c.text("deleted!");
-	});
+	})
+	.get("/split/:userId/summary", async (c) => {
+		const { userId } = c.req.param();
+
+		const { transactionsToPay, transactionsToReceive, relatedUsers } =
+			await getSplitTransactions(userId);
+
+		const totalAmountToPay = transactionsToPay.reduce(
+			(prev, curr) => prev + curr.amountOwed,
+			0,
+		);
+		const totalAmountToReceive = transactionsToReceive.reduce(
+			(prev, curr) => prev + curr.amountOwed,
+			0,
+		);
+
+		return c.json({
+			userDetails: relatedUsers,
+			totalAmountToPay,
+			totalAmountToReceive,
+		});
+	})
+	.get(
+		"/split/:userId/transactions",
+		zodValidator("query", paginationZ),
+		async (c) => {
+			const { userId } = c.req.param();
+			const { offset, limit } = c.req.valid("query");
+
+			const {
+				transactionsToPayByUser,
+				transactionsToReceive,
+				relatedUsers,
+				totalTransactionsToPay,
+				totalTransactionsToReceive,
+			} = await getSplitTransactions(userId, {
+				offset,
+				limit,
+			});
+
+			return c.json({
+				transactionsToPayByUser,
+				transactionsToReceive,
+				relatedUsers,
+				totalTransactionsToPay,
+				totalTransactionsToReceive,
+			});
+		},
+	);

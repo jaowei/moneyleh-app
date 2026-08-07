@@ -16,6 +16,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedInventoryRouteRouteImport } from './routes/_authenticated/inventory.route'
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated/inventory.index'
 import { Route as AuthenticatedInventoryUploadRouteImport } from './routes/_authenticated/inventory.upload'
+import { Route as AuthenticatedSplitIndexRouteImport } from './routes/_authenticated/split.index'
 import { Route as AuthenticatedInventoryTypeIdRouteImport } from './routes/_authenticated/inventory.$type.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -55,6 +56,11 @@ const AuthenticatedInventoryUploadRoute =
     path: '/upload',
     getParentRoute: () => AuthenticatedInventoryRouteRoute,
   } as any)
+const AuthenticatedSplitIndexRoute = AuthenticatedSplitIndexRouteImport.update({
+  id: '/split/',
+  path: '/split/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInventoryTypeIdRoute =
   AuthenticatedInventoryTypeIdRouteImport.update({
     id: '/$type/$id',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
+  '/split/': typeof AuthenticatedSplitIndexRoute
   '/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
+  '/split': typeof AuthenticatedSplitIndexRoute
   '/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
+  '/_authenticated/split/': typeof AuthenticatedSplitIndexRoute
   '/_authenticated/inventory/$type/$id': typeof AuthenticatedInventoryTypeIdRoute
 }
 export interface FileRouteTypes {
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inventory/upload'
     | '/inventory/'
+    | '/split/'
     | '/inventory/$type/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inventory/upload'
     | '/inventory'
+    | '/split'
     | '/inventory/$type/$id'
   id:
     | '__root__'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/inventory/upload'
     | '/_authenticated/inventory/'
+    | '/_authenticated/split/'
     | '/_authenticated/inventory/$type/$id'
   fileRoutesById: FileRoutesById
 }
@@ -177,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryUploadRouteImport
       parentRoute: typeof AuthenticatedInventoryRouteRoute
     }
+    '/_authenticated/split/': {
+      id: '/_authenticated/split/'
+      path: '/split'
+      fullPath: '/split/'
+      preLoaderRoute: typeof AuthenticatedSplitIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/inventory/$type/$id': {
       id: '/_authenticated/inventory/$type/$id'
       path: '/$type/$id'
@@ -208,12 +227,14 @@ const AuthenticatedInventoryRouteRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedInventoryRouteRoute: typeof AuthenticatedInventoryRouteRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedSplitIndexRoute: typeof AuthenticatedSplitIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInventoryRouteRoute:
     AuthenticatedInventoryRouteRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedSplitIndexRoute: AuthenticatedSplitIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

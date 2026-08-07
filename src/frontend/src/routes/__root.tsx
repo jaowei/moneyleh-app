@@ -29,6 +29,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 								Inventory
 							</Link>
 						</li>
+						<li>
+							<Link
+								to="/split"
+								activeProps={{ className: "font-bold" }}
+								search={{ offset: 0, limit: 100 }}
+							>
+								Split
+							</Link>
+						</li>
 					</ul>
 				</div>
 			</div>
