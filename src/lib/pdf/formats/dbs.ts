@@ -1,3 +1,4 @@
+import { ParsingErrors } from "../../../errors.ts";
 import { parseDateString } from "../../dayjs.ts";
 import { appLogger } from "../../logger.ts";
 import type {
@@ -7,49 +8,94 @@ import type {
 	MuPdfStructuredTextBlock,
 	PdfFormat,
 	PdfFormatExtractor,
+	PointsData,
 } from "../pdf.type.ts";
 import { parseTxnDate } from "../pdf.utils.ts";
 
-const extractStatementMetadataCard = (block: MuPdfStructuredTextBlock) => {
-	const data = {
-		statementDate: "",
-		creditLimit: -1,
-		dueDate: "",
-	};
-	if (block.lines[0]) {
-		const parsed = parseDateString(block.lines[0].text, "DD MMM YYYY");
-		if (parsed) {
-			data.statementDate = parsed;
-		} else {
-			appLogger("WARN: Unable to parse statement date format");
-		}
-	} else {
-		appLogger(`WARN: Unable to detect statement date`);
+const getStatementDateCard = (blocks: MuPdfStructuredTextBlock[]) => {
+	const statementDataTableHeaderIdx = blocks.findIndex((block) =>
+		block.lines.find((line) => line.text.toLowerCase() === "statement date"),
+	);
+	const dateBlock = blocks[statementDataTableHeaderIdx + 1];
+	if (!dateBlock?.lines[0]) {
+		throw ParsingErrors.statementDate;
 	}
-	if (block.lines[1]) {
-		if (block.lines[1].text.startsWith("$")) {
-			try {
-				const cleanValue = block.lines[1].text
-					.replaceAll(",", "")
-					.replaceAll("$", "");
-				data.creditLimit = parseInt(cleanValue);
-			} catch (e) {
-				appLogger(`WARN: Unable to parse credit limit value: ${e}`);
-			}
-		}
+	const parsed = parseDateString(dateBlock.lines[0].text, "DD MMM YYYY");
+	if (parsed) {
+		return parsed;
 	} else {
-		appLogger(`WARN: Unable to detect credit limit`);
+		throw ParsingErrors.statementDate;
 	}
-	if (block.lines[3]) {
-		const parsed = parseDateString(block.lines[3].text, "DD MMM YYYY");
-		if (parsed) {
-			data.dueDate = parsed;
-		} else {
-			appLogger("WARN: Unable to parse due date format");
+};
+
+const getCreditLimitCard = (blocks: MuPdfStructuredTextBlock[]) => {
+	const statementDataTableHeaderIdx = blocks.findIndex((block) =>
+		block.lines.find((line) => line.text.toLowerCase() === "statement date"),
+	);
+	const creditLimitBlock = blocks[statementDataTableHeaderIdx + 1];
+	if (!creditLimitBlock?.lines[1]) {
+		throw ParsingErrors.statementDate;
+	}
+	if (creditLimitBlock.lines[1].text.startsWith("$")) {
+		try {
+			const cleanValue = creditLimitBlock.lines[1].text
+				.replaceAll(",", "")
+				.replaceAll("$", "");
+			return parseInt(cleanValue, 10);
+		} catch (e) {
+			appLogger(`WARN: Credit limit parsing error: ${e}`);
+			throw ParsingErrors.creditLimit;
 		}
-	} else {
-		appLogger(`WARN: Unable to detect statement due date`);
 	}
+};
+
+const getDueDateCard = (blocks: MuPdfStructuredTextBlock[]) => {
+	const statementDataTableHeaderIdx = blocks.findIndex((block) =>
+		block.lines.find((line) => line.text.toLowerCase() === "statement date"),
+	);
+	const dueDateBlock = blocks[statementDataTableHeaderIdx + 1];
+	if (!dueDateBlock?.lines[3]) {
+		throw ParsingErrors.statementDate;
+	}
+	const parsed = parseDateString(dueDateBlock.lines[3].text, "DD MMM YYYY");
+	if (parsed) {
+		return parsed;
+	} else {
+		throw ParsingErrors.dueDate;
+	}
+};
+
+const getCurrency = (blocks: MuPdfStructuredTextBlock[]) => {
+	const transactionsHeaderBlock = blocks.find((block) =>
+		block.lines.find((line) => line.text.toLowerCase() === "date"),
+	);
+	if (transactionsHeaderBlock?.lines[2]?.text.toLowerCase().includes("s$")) {
+		return "SGD";
+	} else {
+		appLogger(`WARN: No currency detected!`);
+	}
+};
+
+const processPointsSummary = (blocks: MuPdfStructuredTextBlock[]) => {
+	const pointSummaryTableHeaderIdx = blocks.findIndex((block) =>
+		block.lines.find((line) =>
+			line.text.toLowerCase().includes("points summary"),
+		),
+	);
+	if (pointSummaryTableHeaderIdx < 0) {
+		throw ParsingErrors.points;
+	}
+	const pointsStartIdx = pointSummaryTableHeaderIdx + 5;
+	const pointSummaryTableEndIdx = blocks.findIndex(
+		(block, idx) =>
+			idx > pointsStartIdx &&
+			block.lines.find((line) => line.text.toLowerCase() === "total"),
+	);
+	const data: Record<string, PointsData> = {};
+	blocks.slice(pointsStartIdx, pointSummaryTableEndIdx).forEach((block) => {
+		const { cardNum, ...rest } = extractPointsDataCard(block);
+		data[cardNum] = { ...rest };
+	});
 	return data;
 };
 
@@ -60,7 +106,7 @@ const parsePointsSummaryLineCard = (pointLine?: MuPdfStructuredLine) => {
 	if (value.toLowerCase().includes("no expiry")) {
 		return 0;
 	}
-	return parseInt(value);
+	return parseInt(value, 10);
 };
 
 const extractPointsDataCard = (block: MuPdfStructuredTextBlock) => {
@@ -89,133 +135,98 @@ const parseAmountCard = (amountLine: MuPdfStructuredLine) => {
 		appLogger(`WARN: Unable to parse transaction amount`);
 	}
 };
-
-const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
-	const dataIdx = {
-		statementDate: -1,
-		pointsSummary: -1,
-	};
+const processTransactions = (
+	blocks: MuPdfStructuredTextBlock[],
+	currency: string,
+	userId: string,
+	statementDate: string,
+) => {
+	const data: CardStatementData["cards"] = {};
 	let currentCardName = "";
-	const data: CardStatementData = {
-		type: "card",
-		statementDate: "",
-		dueDate: "",
-		creditLimit: -1,
-		cards: {},
-		points: {},
-	};
-	let inCardTxn = false;
-	let currency: string = "";
-	dataToExtract.forEach((pageData) => {
-		const { blocks } = pageData;
-		blocks.forEach((block, blockIdx) => {
-			if (block.type === "image") {
-				appLogger(`WARN: Image detected, ignoring...`);
-				return;
+	let cardTxnIdx = -1;
+	for (const [currIdx, block] of blocks.entries()) {
+		const startingLineText = block.lines.at(0);
+		if (!startingLineText) continue;
+		const matchRes = startingLineText.text.match(
+			/(.+) CARD NO\.: ([0-9]{4} [0-9]{4} [0-9]{4} [0-9]{4})/,
+		);
+		if (matchRes?.length) {
+			appLogger(`Card found! (${matchRes[1]})`);
+			const cardName = matchRes[1];
+			const cardNumber = matchRes[2];
+			if (cardName && cardNumber) {
+				currentCardName = cardName;
+				data[cardName] = {
+					transactions: [],
+					total: 0,
+					cardNumber,
+				};
+				cardTxnIdx = currIdx + 1;
+			} else {
+				appLogger(`WARN: Card name could not be found`);
 			}
-
-			if (!block.lines.length) {
-				appLogger(`WARN: Empty block detected, ignoring...`);
-				return;
+		}
+		if (currIdx > cardTxnIdx && cardTxnIdx > 0) {
+			if (block.lines[0]?.text.includes("SUB-TOTAL:")) {
+				const cardData = data[currentCardName];
+				// TODO: Figure out how to check for discrepancy rather than taking the statement value
+				// have to match even with the credit card payment transaction line
+				if (cardData && block.lines[1]) {
+					cardData.total = parseAmountCard(block.lines[1]) || 0;
+				}
+				continue;
+			} else if (block.lines[0]?.text.toLowerCase() === "total:") {
+				appLogger(`End of card transactions!`);
+				cardTxnIdx = -1;
+				continue;
 			}
-
-			const startingLineText = block.lines.at(0);
-			if (!startingLineText) return;
-			if (startingLineText.text.toLowerCase().includes("statement date")) {
-				dataIdx.statementDate = blockIdx + 1;
-			} else if (
-				startingLineText.text.toLowerCase().includes("points summary")
-			) {
-				dataIdx.pointsSummary = blockIdx + 4;
-			} else if (startingLineText.text.toLowerCase() === "date") {
-				if (block.lines[2]?.text.toLowerCase().includes("s$")) {
-					currency = "SGD";
+			const transaction = {
+				transactionDate: "",
+				description: "",
+				amount: Number.NaN,
+				currency,
+				userId,
+			};
+			let descStartIdx = 1;
+			if (block.lines[0]) {
+				let txnDate = block.lines[0].text;
+				if (
+					block.lines[0].text.includes("NEW TRANSACTIONS") &&
+					block.lines[1]
+				) {
+					appLogger(
+						`Starting of transactions list for card (${currentCardName})`,
+					);
+					txnDate = block.lines[1].text;
+					descStartIdx += 1;
+				}
+				const parsedDate = parseTxnDate(txnDate, statementDate);
+				if (parsedDate) {
+					transaction.transactionDate = parsedDate;
 				} else {
-					appLogger(`WARN: No currency detected!`);
+					continue;
 				}
 			} else {
-				const matchRes = startingLineText.text.match(
-					/(.+) CARD NO\.: ([0-9]{4} [0-9]{4} [0-9]{4} [0-9]{4})/,
-				);
-				if (matchRes?.length) {
-					appLogger(`Card found! (${matchRes[1]})`);
-					const cardName = matchRes[1];
-					const cardNumber = matchRes[2];
-					if (cardName && cardNumber) {
-						currentCardName = cardName;
-						data.cards[cardName] = {
-							transactions: [],
-							total: 0,
-							cardNumber,
-						};
-						inCardTxn = true;
-					} else {
-						appLogger(`WARN: Card name could not be found`);
-					}
-				}
+				appLogger(`WARN: Invalid transaction block, has no lines`);
 			}
 
-			if (dataIdx.statementDate === blockIdx) {
-				const { statementDate, creditLimit, dueDate } =
-					extractStatementMetadataCard(block);
-				data.statementDate = statementDate;
-				data.creditLimit = creditLimit;
-				data.dueDate = dueDate;
-				// reset index
-				dataIdx.statementDate = -1;
-			}
-
-			if (dataIdx.pointsSummary > 0 && blockIdx > dataIdx.pointsSummary) {
-				if (block.lines.length > 6) return;
-				if (block.lines[0]?.text.toLowerCase() === "total") {
-					dataIdx.pointsSummary = -1;
-					return;
-				}
-				const { cardNum, ...rest } = extractPointsDataCard(block);
-				data.points[cardNum] = { ...rest };
-			}
-
-			if (inCardTxn) {
-				if (block.lines.length <= 2) {
-					if (block.lines[0]?.text.includes("SUB-TOTAL:")) {
-						const cardData = data.cards[currentCardName];
-						// TODO: Figure out how to check for discrepancy rather than taking the statement value
-						// have to match even with the credit card payment transaction line
-						if (cardData && block.lines[1]) {
-							cardData.total = parseAmountCard(block.lines[1]) || 0;
-						}
-					} else if (block.lines[0]?.text.toLowerCase() === "total:") {
-						appLogger(`End of card transactions!`);
-						inCardTxn = false;
-					}
-					return;
-				}
-				const transaction = {
-					transactionDate: "",
-					description: "",
-					amount: Number.NaN,
-					currency,
-					userId,
-				};
-				let descStartIdx = 1;
-				if (block.lines[0]) {
-					let txnDate = block.lines[0].text;
-					if (
-						block.lines[0].text.includes("NEW TRANSACTIONS") &&
-						block.lines[1]
-					) {
-						appLogger(
-							`Starting of transactions list for card (${currentCardName})`,
-						);
-						txnDate = block.lines[1].text;
-						descStartIdx += 1;
-					}
-					transaction.transactionDate =
-						parseTxnDate(txnDate, data.statementDate) || txnDate;
+			// Handles the bill payment transaction line that is split into 2 blocks
+			// this occurrs before the list of transactions
+			const secondLast = block.lines.at(-2)?.x || 0;
+			const xCoordDiff = block.lines.at(-1)?.x || 0 - secondLast;
+			if (xCoordDiff < 100) {
+				transaction.description = block.lines
+					.slice(descStartIdx)
+					.map((line) => line.text)
+					.join(" ");
+				const amountLine = blocks[currIdx + 1]?.lines[0];
+				console.log(amountLine?.text);
+				if (amountLine) {
+					transaction.amount = parseAmountCard(amountLine) || 0;
 				} else {
-					appLogger(`WARN: Invalid transaction block, has no lines`);
+					appLogger(`WARN: Bill payment transaction block, has no lines`);
 				}
-
+			} else {
 				transaction.description = block.lines
 					.slice(descStartIdx, block.lines.length - 1)
 					.map((line) => line.text)
@@ -227,16 +238,47 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 				} else {
 					appLogger(`WARN: Amount block could not be detected`);
 				}
-
-				const cardData = data.cards[currentCardName];
-				if (cardData) {
-					cardData.transactions.push(transaction);
-				} else {
-					appLogger(`WARN: Could not find card transactions store`);
-				}
 			}
-		});
-	});
+
+			const cardData = data[currentCardName];
+			if (cardData) {
+				cardData.transactions.push(transaction);
+			} else {
+				appLogger(`WARN: Could not find card transactions store`);
+			}
+		}
+	}
+	return data;
+};
+
+const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
+	const data: CardStatementData = {
+		type: "card",
+		statementDate: "",
+		dueDate: "",
+		creditLimit: -1,
+		cards: {},
+		points: {},
+	};
+	let currency: string = "";
+	const firstPage = dataToExtract.at(0);
+	if (!firstPage) {
+		throw ParsingErrors.page;
+	}
+	data.statementDate = getStatementDateCard(firstPage.blocks);
+	data.creditLimit = getCreditLimitCard(firstPage.blocks);
+	data.dueDate = getDueDateCard(firstPage.blocks);
+	currency = getCurrency(firstPage.blocks) || "SGD";
+
+	const allPages = dataToExtract.flatMap((page) => page.blocks);
+	data.points = processPointsSummary(allPages);
+	data.cards = processTransactions(
+		allPages,
+		currency,
+		userId,
+		data.statementDate,
+	);
+
 	return data;
 };
 

@@ -45,7 +45,7 @@ export interface CardData {
 	cardNumber: string;
 }
 
-interface PointsData {
+export interface PointsData {
 	startBalance: number;
 	earned: number;
 	redeemed: number;
