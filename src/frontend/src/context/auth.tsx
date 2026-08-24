@@ -20,7 +20,6 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const { data, isPending } = authClient.useSession();
 
-	console.log(data);
 	// Show loading state while checking auth
 	if (isPending) {
 		return (

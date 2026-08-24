@@ -144,7 +144,7 @@ export const TransactionSplitButton = ({
 				disabled={disabled}
 				onClick={onClick}
 			>
-				{!forTable && "Apply Tags"}
+				{!forTable && "Apply Splits"}
 				<span className="icon-[fluent--arrow-split-24-filled]"></span>
 			</button>
 		</div>

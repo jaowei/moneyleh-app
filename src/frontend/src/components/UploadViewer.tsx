@@ -300,34 +300,36 @@ const TransactionViewerTable = ({
 	};
 
 	return (
-		<div className="flex flex-col w-full h-full items-center justify-center gap-4">
-			<button
-				type="button"
-				className="btn btn-primary btn-sm xl:btn-md "
-				disabled={
-					saveDisabled || requestSuccess || !editableTransactions.length
-				}
-				onClick={handleSaveTransactionsClick}
-			>
-				Save transactions for {name}
-			</button>
-			{error && (
-				<div role="alert" className="alert alert-error">
-					<span>{error}</span>
-				</div>
-			)}
-			{hasMultiSelect && (
-				<div className="flex flex-col gap-2 items-center">
-					<div className="flex flex-row gap-3 items-center">
-						<TagPicker onTagPickerClick={handleMultiSelectTagPickerOpen} />
-						<TransactionSplitButton onClick={handleMultiSelectSplitOpen} />
+		<div className="flex flex-col w-full h-full items-center justify-center gap-4 pt-2">
+			<div className="flex flex-col items-center sticky top-0 bg-base-100 z-10 w-full py-2 shadow gap-2">
+				<button
+					type="button"
+					className="btn btn-primary btn-sm xl:btn-md "
+					disabled={
+						saveDisabled || requestSuccess || !editableTransactions.length
+					}
+					onClick={handleSaveTransactionsClick}
+				>
+					Save transactions for {name}
+				</button>
+				{error && (
+					<div role="alert" className="alert alert-error">
+						<span>{error}</span>
 					</div>
-					<p className="text-sm text-warning-content">
-						Note: You are in multi-select mode, tag/split selections will
-						override values
-					</p>
-				</div>
-			)}
+				)}
+				{hasMultiSelect && (
+					<div className="flex flex-col gap-2 items-center">
+						<div className="flex flex-row gap-3 items-center">
+							<TagPicker onTagPickerClick={handleMultiSelectTagPickerOpen} />
+							<TransactionSplitButton onClick={handleMultiSelectSplitOpen} />
+						</div>
+						<p className="text-sm text-warning-content">
+							Note: You are in multi-select mode, tag/split selections will
+							override values
+						</p>
+					</div>
+				)}
+			</div>
 			<table className="table table-zebra table-xs border border-base-300 rounded">
 				<thead>
 					<tr>
@@ -469,7 +471,7 @@ const TabContent = ({
 				aria-label={`${name}`}
 				defaultChecked={idx === 0}
 			/>
-			<div className="tab-content border-base-300 bg-base-100 p-4 max-h-[58vh] xl:max-h-[65vh] overflow-auto">
+			<div className="tab-content border-base-300 bg-base-100 max-h-[58vh] xl:max-h-[65vh] overflow-auto">
 				{isUnlinked && (
 					<div>
 						<h2 className="text-xl xl:text-2xl">New {title} detected</h2>

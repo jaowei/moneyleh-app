@@ -30,6 +30,8 @@ export const useTransactionSplitModal = () => {
 				prev.push(transactionIdxs[0]);
 				return prev;
 			});
+		} else {
+			setTxnSplitIdx(transactionIdxs);
 		}
 		splitModalRef.current?.showModal();
 	};
