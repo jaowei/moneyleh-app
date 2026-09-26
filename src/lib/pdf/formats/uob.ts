@@ -294,8 +294,12 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
 		let description: string;
 		let amount: number;
 		if (!splitOver2Blocks) {
-			description = block.lines[1]?.text || "";
-			amount = parseAmountLine(block.lines[2]);
+			description =
+				block.lines
+					.slice(1, block.lines.length - 3)
+					.map((l) => l.text)
+					.join(" ") || "";
+			amount = parseAmountLine(block.lines.at(-3));
 		} else {
 			description = block.lines
 				.slice(1)
