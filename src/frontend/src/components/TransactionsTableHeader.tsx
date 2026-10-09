@@ -8,6 +8,7 @@ export const EditableTransactionsTableHeader = () => {
 				<th>Amount</th>
 				<th>Tag</th>
 				<th>Edit Tags</th>
+				<th>Split Transaction</th>
 				<th>Actions</th>
 			</tr>
 		</thead>

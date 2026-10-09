@@ -24,8 +24,15 @@ import {
 	type TransactionSplitUI,
 	uiRouteClient,
 } from "../lib/backend-clients.ts";
+import {
+	type EditableTransactionField,
+	editableFields,
+	editableFieldTypes,
+	updateEditableField,
+} from "../lib/editable-fields.ts";
 import { getBackendErrorResponse } from "../lib/error.ts";
 import { AccountCardDialog } from "./AccountCardDialog.tsx";
+import { EditableCell } from "./EditableCell.tsx";
 import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
 import {
@@ -85,7 +92,18 @@ const TransactionViewerRow = ({
 	onCheckboxChange,
 	onSplitModalOpen,
 }: TransactionRowProps) => {
-	const date = new Date(transaction.transactionDate);
+	const handleCellChange = (
+		rawValue: string,
+		field: EditableTransactionField,
+	) => {
+		setTransactions((existing) =>
+			existing.map((txn, idx) =>
+				transactionIndex === idx
+					? updateEditableField(txn, field, rawValue)
+					: txn,
+			),
+		);
+	};
 	const handleTagChange = (selectedTags: UiTag[]) => {
 		setTransactions((existing) =>
 			existing.map((txn, idx) => {
@@ -118,10 +136,15 @@ const TransactionViewerRow = ({
 					/>
 				</label>
 			</td>
-			<td>{date.toLocaleDateString()}</td>
-			<td>{transaction.description}</td>
-			<td>{transaction.currency}</td>
-			<td>{transaction.amount}</td>
+			{editableFields.map((field) => (
+				<EditableCell
+					key={field}
+					editing={canEdit}
+					type={editableFieldTypes[field]}
+					value={transaction[field]}
+					onChange={(val) => handleCellChange(val, field)}
+				/>
+			))}
 			<td>
 				<TagTableViewer
 					selectedTags={transaction.tags}

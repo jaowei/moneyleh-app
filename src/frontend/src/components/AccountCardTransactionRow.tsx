@@ -5,6 +5,12 @@ import {
 	backendRouteClient,
 	type GetTransactionDataRes,
 } from "../lib/backend-clients";
+import {
+	type EditableTransactionField,
+	editableFields,
+	editableFieldTypes,
+	updateEditableField,
+} from "../lib/editable-fields";
 import { EditableCell } from "./EditableCell";
 import { TagPicker, type UiTag } from "./TagPicker";
 import { TagTableViewer } from "./TagTableViewer";
@@ -23,32 +29,6 @@ interface TransactionRowProps {
 	onActionSuccess: (msg: string) => void;
 }
 
-const getUpdater = (
-	property: keyof Transaction,
-	transaction: Transaction,
-	valueToUpdate: string,
-) => {
-	switch (property) {
-		case "transactionDate":
-			return {
-				...transaction,
-				transactionDate: valueToUpdate,
-			};
-		case "description":
-			return {
-				...transaction,
-				description: valueToUpdate,
-			};
-		case "amount":
-			return {
-				...transaction,
-				amount: parseFloat(valueToUpdate),
-			};
-		default:
-			throw new Error("Cannot update this property");
-	}
-};
-
 export const AccountCardTransactionRow = ({
 	userId,
 	transaction,
@@ -62,7 +42,6 @@ export const AccountCardTransactionRow = ({
 	const [editRow, setEditRow] = useState(false);
 	const router = useRouter();
 
-	const date = new Date(transaction.transactionDate);
 	const handleTagChange = (selectedTags: UiTag[]) => {
 		setTransactions((existing) =>
 			existing.map((txn, idx) => {
@@ -77,15 +56,16 @@ export const AccountCardTransactionRow = ({
 			}),
 		);
 	};
-	const handleCellChange = (newValue: string, property: keyof Transaction) => {
+	const handleCellChange = (
+		rawValue: string,
+		field: EditableTransactionField,
+	) => {
 		setTransactions((existing) =>
-			existing.map((txn, idx) => {
-				if (transactionIndex === idx) {
-					return getUpdater(property, txn, newValue);
-				} else {
-					return txn;
-				}
-			}),
+			existing.map((txn, idx) =>
+				transactionIndex === idx
+					? updateEditableField(txn, field, rawValue)
+					: txn,
+			),
 		);
 	};
 	const handleEditClick = () => {
@@ -143,22 +123,15 @@ export const AccountCardTransactionRow = ({
 	};
 	return (
 		<tr>
-			<EditableCell
-				editing={editRow}
-				value={date.toLocaleDateString()}
-				onChange={(val) => handleCellChange(val, "transactionDate")}
-			/>
-			<EditableCell
-				editing={editRow}
-				value={transaction.description}
-				onChange={(val) => handleCellChange(val, "description")}
-			/>
-			<td>{transaction.currency}</td>
-			<EditableCell
-				editing={editRow}
-				value={transaction.amount}
-				onChange={(val) => handleCellChange(val, "amount")}
-			/>
+			{editableFields.map((field) => (
+				<EditableCell
+					key={field}
+					editing={editRow}
+					type={editableFieldTypes[field]}
+					value={transaction[field]}
+					onChange={(val) => handleCellChange(val, field)}
+				/>
+			))}
 			<td>
 				<TagTableViewer
 					selectedTags={transaction.tags}
