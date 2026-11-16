@@ -126,6 +126,7 @@ export const AccountCardTransactionRow = ({
 			{editableFields.map((field) => (
 				<EditableCell
 					key={field}
+					field={field}
 					editing={editRow}
 					type={editableFieldTypes[field]}
 					value={transaction[field]}

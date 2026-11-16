@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useState } from "react";
 import { toDateInputValue, toLocaleDateString } from "../lib/date-utils.ts";
+import type { EditableTransactionField } from "../lib/editable-fields.ts";
 
 export type EditableCellType = "text" | "number" | "date";
 
@@ -11,6 +12,14 @@ interface EditableCellProps {
 	editing: boolean;
 	/** Defaults to `text`, or to `number` when `value` is a number. */
 	type?: EditableCellType;
+	/** Field name for field-specific styling and layout. */
+	field?: EditableTransactionField;
+	/** Whether to use subtle ghost input styling. */
+	subtle?: boolean;
+	/** Optional additional className for <td>. */
+	className?: string;
+	/** Optional additional className for <input>. */
+	inputClassName?: string;
 }
 
 const inputTypes = {
@@ -30,6 +39,10 @@ export const EditableCell = ({
 	editing,
 	onChange,
 	type,
+	field,
+	subtle = false,
+	className = "",
+	inputClassName = "",
 }: EditableCellProps) => {
 	const cellType = type ?? (typeof value === "number" ? "number" : "text");
 	// While editing, the input owns its own value so partial input ("12.",
@@ -47,12 +60,64 @@ export const EditableCell = ({
 		onChange(e.target.value);
 	};
 
+	const titleValue = draft ?? `${value}`;
+
+	const getFieldInputClasses = () => {
+		if (!subtle) {
+			return "input input-xs";
+		}
+		const base =
+			"input input-xs input-ghost hover:input-bordered focus:input-bordered transition-colors";
+		switch (field) {
+			case "description":
+				return `${base} w-full text-xs font-normal text-base-content`;
+			case "currency":
+				return `${base} w-full max-w-16 text-center font-medium text-xs text-base-content/80`;
+			case "amount": {
+				const numVal =
+					typeof value === "number" ? value : Number.parseFloat(`${value}`);
+				const isPositive = Number.isFinite(numVal) && numVal > 0;
+				return `${base} w-full max-w-28 text-right font-mono tabular-nums text-xs font-semibold ${
+					isPositive ? "text-success" : "text-base-content"
+				}`;
+			}
+			case "transactionDate":
+				return `${base} w-full max-w-28 font-mono text-xs`;
+			default:
+				return `${base} w-full`;
+		}
+	};
+
+	const getFieldTdClasses = () => {
+		switch (field) {
+			case "description":
+				return "min-w-[280px] max-w-xl";
+			case "currency":
+				return "w-16 text-center";
+			case "amount":
+				return "w-28 text-right";
+			case "transactionDate":
+				return "w-32";
+			default:
+				return "";
+		}
+	};
+
+	const tdClasses = [getFieldTdClasses(), className].filter(Boolean).join(" ");
+	const inputClasses = [getFieldInputClasses(), inputClassName]
+		.filter(Boolean)
+		.join(" ");
+
 	return (
-		<td>
+		<td
+			className={tdClasses || undefined}
+			title={field === "description" ? titleValue : undefined}
+		>
 			{editing ? (
 				<input
 					type={inputTypes[cellType]}
-					className="input input-xs"
+					className={inputClasses}
+					title={field === "description" ? titleValue : undefined}
 					value={draft ?? toEditValue(value, cellType)}
 					onChange={handleChange}
 				/>

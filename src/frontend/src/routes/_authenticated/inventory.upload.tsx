@@ -9,6 +9,7 @@ import {
 	fetchTagData,
 	uiRouteClient,
 } from "../../lib/backend-clients";
+import { toLocaleDateString } from "../../lib/date-utils";
 import { ERROR_MESSAGES, getBackendErrorResponse } from "../../lib/error";
 
 export const Route = createFileRoute("/_authenticated/inventory/upload")({
@@ -82,8 +83,8 @@ function RouteComponent() {
 	};
 
 	return (
-		<div className="flex flex-col items-center gap-4">
-			<div className="flex flex-col items-center gap-4">
+		<div className="flex flex-col items-center gap-4 w-full">
+			<div className="flex flex-col items-center gap-4 w-full">
 				<div className="flex flex-row items-center gap-4 content-center">
 					<fieldset className="fieldset">
 						<legend className="fieldset-legend">Upload a statement</legend>
@@ -113,9 +114,10 @@ function RouteComponent() {
 					</fieldset>
 				</div>
 				{uploadInfo && uploadInfo.taggedTransactions?.length > 0 && (
-					<div className="p-3">
-						<h2 className="text:xl xl:text-2xl font-bold">
-							Statement Date: {uploadInfo.statementInfo.statementDate}
+					<div className="p-3 w-full">
+						<h2 className="text-xl xl:text-2xl font-bold mb-2">
+							Statement Date:{" "}
+							{toLocaleDateString(uploadInfo.statementInfo.statementDate)}
 						</h2>
 						<UploadViewer
 							fileUploadRes={uploadInfo}

@@ -139,6 +139,8 @@ const TransactionViewerRow = ({
 			{editableFields.map((field) => (
 				<EditableCell
 					key={field}
+					field={field}
+					subtle={true}
 					editing={canEdit}
 					type={editableFieldTypes[field]}
 					value={transaction[field]}
@@ -353,17 +355,17 @@ const TransactionViewerTable = ({
 					</div>
 				)}
 			</div>
-			<table className="table table-zebra table-xs border border-base-300 rounded">
+			<table className="table table-zebra table-xs table-pin-rows border border-base-300 rounded w-full">
 				<thead>
 					<tr>
-						<th></th>
-						<th>Transaction Date</th>
-						<th>Description</th>
-						<th>Currency</th>
-						<th>Amount</th>
-						<th>Tag</th>
-						<th>Edit Tags</th>
-						<th>Split Transaction</th>
+						<th className="w-10"></th>
+						<th className="w-32">Transaction Date</th>
+						<th className="min-w-[280px]">Description</th>
+						<th className="w-16 text-center">Currency</th>
+						<th className="w-28 text-right">Amount</th>
+						<th className="min-w-48">Tag</th>
+						<th className="w-20 text-center">Edit Tags</th>
+						<th className="w-24 text-center">Split Transaction</th>
 					</tr>
 				</thead>
 				<tbody>
