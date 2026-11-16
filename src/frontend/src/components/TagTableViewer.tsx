@@ -5,6 +5,7 @@ interface TagTableViewerProps {
 	selectedTags: UiTag[];
 	canEdit: boolean;
 	onTagChange: (selectedTags: UiTag[]) => void;
+	onAddTagClick?: () => void;
 }
 
 interface TagActionButtonProps {
@@ -73,6 +74,7 @@ export const TagTableViewer = ({
 	selectedTags,
 	canEdit,
 	onTagChange,
+	onAddTagClick,
 }: TagTableViewerProps) => {
 	const handleTagRemoval = (tag: UiTag) => {
 		return () => {
@@ -82,8 +84,9 @@ export const TagTableViewer = ({
 			onTagChange(newTags);
 		};
 	};
+	const hasTags = selectedTags && selectedTags.length > 0;
 	return (
-		<div className="flex flex-row gap-0.5">
+		<div className="flex flex-row flex-wrap items-center gap-1">
 			{selectedTags?.map((t) => (
 				<TagTooltipWrapper key={t.id} tagDescription={t.description}>
 					<TagActionButton
@@ -93,6 +96,23 @@ export const TagTableViewer = ({
 					/>
 				</TagTooltipWrapper>
 			))}
+			{canEdit && onAddTagClick && (
+				<button
+					type="button"
+					className={`btn btn-ghost btn-outline border-dashed btn-xs ${
+						hasTags ? "px-1.5" : "px-2"
+					} text-base-content/60 hover:text-base-content transition-colors`}
+					onClick={onAddTagClick}
+					title={hasTags ? "Add more tags" : "Add tag"}
+				>
+					<span className="icon-[fluent--tag-20-regular] text-xs"></span>
+					{hasTags ? (
+						<span className="text-[10px] ml-0.5">+</span>
+					) : (
+						<span className="text-[11px] font-normal ml-1">Add Tag</span>
+					)}
+				</button>
+			)}
 		</div>
 	);
 };

@@ -12,7 +12,7 @@ import {
 	updateEditableField,
 } from "../lib/editable-fields";
 import { EditableCell } from "./EditableCell";
-import { TagPicker, type UiTag } from "./TagPicker";
+import type { UiTag } from "./TagPicker";
 import { TagTableViewer } from "./TagTableViewer";
 import { TransactionSplitButton } from "./TransactionSplit";
 
@@ -138,16 +138,10 @@ export const AccountCardTransactionRow = ({
 					selectedTags={transaction.tags}
 					canEdit={editRow}
 					onTagChange={handleTagChange}
+					onAddTagClick={handleTagPickerClick}
 				/>
 			</td>
-			<td>
-				<TagPicker
-					onTagPickerClick={handleTagPickerClick}
-					disabled={!editRow}
-					forTable
-				/>
-			</td>
-			<td>
+			<td className="text-center">
 				<TransactionSplitButton
 					onClick={handleSplitModalClick}
 					disabled={!editRow}

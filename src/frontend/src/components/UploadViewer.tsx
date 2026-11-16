@@ -152,16 +152,10 @@ const TransactionViewerRow = ({
 					selectedTags={transaction.tags}
 					canEdit={canEdit}
 					onTagChange={handleTagChange}
+					onAddTagClick={handleTagPickerClick}
 				/>
 			</td>
-			<td>
-				<TagPicker
-					onTagPickerClick={handleTagPickerClick}
-					disabled={!canEdit}
-					forTable
-				/>
-			</td>
-			<td>
+			<td className="text-center">
 				<TransactionSplitButton
 					onClick={handleSplitModalClick}
 					disabled={!canEdit}
@@ -363,8 +357,7 @@ const TransactionViewerTable = ({
 						<th className="min-w-[280px]">Description</th>
 						<th className="w-16 text-center">Currency</th>
 						<th className="w-28 text-right">Amount</th>
-						<th className="min-w-48">Tag</th>
-						<th className="w-20 text-center">Edit Tags</th>
+						<th className="min-w-[200px]">Tags</th>
 						<th className="w-24 text-center">Split Transaction</th>
 					</tr>
 				</thead>
