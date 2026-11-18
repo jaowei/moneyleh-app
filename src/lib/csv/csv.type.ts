@@ -20,7 +20,7 @@ const directUploadFormatZ = z.object({
 					.replaceAll("$", "")
 					.replaceAll(",", "")
 					.replace(/^-$/, "0");
-				return parseFloat(cleanStr) * sign;
+				return Number(cleanStr) * sign;
 			} catch (e) {
 				ctx.issues.push({
 					code: "custom",

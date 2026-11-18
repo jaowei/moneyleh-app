@@ -130,7 +130,7 @@ const parseAmountCard = (amountLine: MuPdfStructuredLine) => {
 		sign = 1;
 	}
 	try {
-		return parseFloat(clean) * sign;
+		return Number(clean) * sign;
 	} catch (e) {
 		appLogger(`WARN: Unable to parse transaction amount`);
 	}
@@ -289,7 +289,7 @@ const parseAmountAccount = (
 ) => {
 	const cleanAmt = line.text.trim().replaceAll(",", "");
 	try {
-		return isWithdrawal ? -1 * parseFloat(cleanAmt) : parseFloat(cleanAmt);
+		return isWithdrawal ? -1 * Number(cleanAmt) : Number(cleanAmt);
 	} catch {
 		appLogger(`ERROR: Error parsing amount block ${blockIdx}`);
 		return undefined;

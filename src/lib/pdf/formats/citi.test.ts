@@ -44,4 +44,32 @@ describe("pdf: Citibank statements", () => {
 			throw new Error();
 		}
 	});
+	// zero balance statements show "---" as the payment due date
+	test("incomplete card statement with no due date", async () => {
+		const file = await getFile(
+			"./test-files/citi_error_eStatement_Sep2026.pdf",
+		);
+		const { data } = await pdfParser(file, testUser.id);
+		if (data.type === "card") {
+			const cards = Object.values(data.cards);
+			expect(cards.length).toBe(1);
+			expect(cards[0]?.cardNumber).toBe("5425 5033 0100 4270");
+			expect(cards[0]?.transactions.length).toBe(1);
+			cards[0]?.transactions.forEach((t) => {
+				testATransaction(t);
+			});
+			expect(cards[0]?.transactions[0]?.amount).toBe(40.82);
+			// latest transaction date is used as the statement date
+			expect(data.statementDate).toMatch(/^\d{4}-09-16T00:00:00.000Z$/);
+			expect(new Date(data.statementDate).getTime()).toBeLessThanOrEqual(
+				Date.now(),
+			);
+			expect(cards[0]?.transactions[0]?.transactionDate).toBe(
+				data.statementDate,
+			);
+			expect(data.dueDate).toBe("");
+		} else {
+			throw new Error();
+		}
+	});
 });

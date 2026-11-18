@@ -13,7 +13,7 @@ import { parseTxnDate } from "../pdf.utils.ts";
 const parseAmount = (amountLine: string) => {
 	const clean = amountLine.replaceAll(",", "");
 	try {
-		return parseFloat(clean);
+		return Number(clean);
 	} catch {
 		throw ParsingErrors.transactionAmt;
 	}

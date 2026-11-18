@@ -51,7 +51,7 @@ const getCreditLimit = (processed: ProcessedPdfBlockCiti[]) => {
 		throw ParsingErrors.creditLimit;
 	}
 	try {
-		return parseFloat(limitToParse.replace("$", "").replace(",", ""));
+		return Number(limitToParse.replace("$", "").replace(",", ""));
 	} catch {
 		throw ParsingErrors.creditLimit;
 	}
@@ -78,9 +78,7 @@ const getCardDetails = (processed: ProcessedPdfBlockCiti[]) => {
 		}
 		try {
 			const cardName = matches[1];
-			const cardTotalDue = parseFloat(
-				matches[2].replace("$", "").replace(",", ""),
-			);
+			const cardTotalDue = Number(matches[2].replace("$", "").replace(",", ""));
 			const cardPoints = parseInt(matches[3].replace(",", ""), 10);
 			cardDetails[cardName] = {
 				transactions: [],
@@ -157,7 +155,7 @@ const processCardTransactions = (
 					.replace(",", "")
 					.replace("(", "")
 					.replace(")", "");
-				amount = parseFloat(cleanStr) * sign;
+				amount = Number(cleanStr) * sign;
 			}
 			return {
 				desc,
@@ -286,8 +284,10 @@ const getCardDetailsNoHeader = (processed: ProcessedPdfBlockCiti[]) => {
 	} else {
 		throw ParsingErrors.cardDetails;
 	}
-	if (matched?.[3]) {
-		const date = parseCitiStatementDate(matched[3]);
+	const dueDateText = matched?.[3]?.trim();
+	// Citi prints "---" when nothing is due, so there is no date to derive from
+	if (dueDateText && dueDateText !== "---") {
+		const date = parseCitiStatementDate(dueDateText);
 		if (date) {
 			dueDate = date;
 			statementDate = extendedDayjs(date).subtract(25, "d").utc().toISOString();
@@ -296,6 +296,25 @@ const getCardDetailsNoHeader = (processed: ProcessedPdfBlockCiti[]) => {
 		}
 	}
 	return { cardDetails, dueDate, statementDate };
+};
+
+// the statement has no year, so assume the latest past occurrence of each date
+const getLatestTransactionDate = (processed: ProcessedPdfBlockCiti[]) => {
+	const now = extendedDayjs().utc();
+	let latest: ReturnType<typeof extendedDayjs> | undefined;
+	for (const block of processed) {
+		if (!/^\d{1,2} [A-Z]{3}/.test(block.text)) continue;
+		const parsed = parseTxnDate(block.text.slice(0, 6), now.toISOString());
+		if (!parsed) continue;
+		let date = extendedDayjs(parsed).utc();
+		if (date.isAfter(now)) {
+			date = date.subtract(1, "year");
+		}
+		if (!latest || date.isAfter(latest)) {
+			latest = date;
+		}
+	}
+	return latest?.toISOString();
 };
 
 const extractDataCardNoHeader: PdfFormatExtractor = (dataToExtract, userId) => {
@@ -321,10 +340,19 @@ const extractDataCardNoHeader: PdfFormatExtractor = (dataToExtract, userId) => {
 	extractedData.dueDate = dueDate;
 	extractedData.statementDate = statementDate;
 
+	// no due date (e.g. zero balance): use the latest transaction date instead
+	if (!dueDate) {
+		const latestTxnDate = getLatestTransactionDate(processed);
+		if (!latestTxnDate) {
+			throw ParsingErrors.dueDate;
+		}
+		extractedData.statementDate = latestTxnDate;
+	}
+
 	processCardTransactions(
 		processed,
 		cardDetails,
-		extractedData.dueDate,
+		extractedData.dueDate || extractedData.statementDate,
 		userId,
 	);
 

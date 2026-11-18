@@ -92,7 +92,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 		const creditLimit = creditLimitAmountBlock?.lines[1]?.text;
 		if (creditLimit) {
 			try {
-				extractedData.creditLimit = parseFloat(
+				extractedData.creditLimit = Number(
 					creditLimit.trim().replaceAll(",", ""),
 				);
 			} catch (error) {
@@ -133,8 +133,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 			let amount = 0;
 			if (unformattedAmount) {
 				try {
-					amount =
-						parseFloat(unformattedAmount.trim().replaceAll(",", "")) * -1;
+					amount = Number(unformattedAmount.trim().replaceAll(",", "")) * -1;
 				} catch (error) {
 					appLogger(`Error parsing amount: ${error}`);
 				}

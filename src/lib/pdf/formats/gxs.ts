@@ -102,7 +102,7 @@ const getAccountTransactions = (
 			const sign = stringAmt.x > 420 ? 1 : -1;
 			let amount = 0;
 			try {
-				amount = parseFloat(stringAmt.text.replace(",", "").trim()) * sign;
+				amount = Number(stringAmt.text.replace(",", "").trim()) * sign;
 			} catch (e) {
 				throw ParsingErrors.transactionAmt;
 			}

@@ -18,7 +18,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 	const parseCreditLimitAmount = (amount: string) => {
 		const cleaned = amount.trim().replaceAll(",", "").slice(4);
 		try {
-			return parseFloat(cleaned);
+			return Number(cleaned);
 		} catch {
 			return undefined;
 		}
@@ -29,9 +29,9 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 			if (!amountBlock.lines[0]) return;
 			const cleanAmt = amountBlock.lines[0].text.replaceAll(",", "").trim();
 			if (amountBlock?.lines?.[1]?.text.includes("CR")) {
-				return parseFloat(cleanAmt);
+				return Number(cleanAmt);
 			} else {
-				return -1 * parseFloat(cleanAmt);
+				return -1 * Number(cleanAmt);
 			}
 		} catch {
 			return undefined;
@@ -45,9 +45,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 				sign = 1;
 			}
 			if (amountLines[0]) {
-				return (
-					sign * parseFloat(amountLines[0].text.replaceAll(",", "").trim())
-				);
+				return sign * Number(amountLines[0].text.replaceAll(",", "").trim());
 			}
 		} catch {
 			return undefined;
@@ -280,7 +278,7 @@ const extractDataAccount: PdfFormatExtractor = (dataToExtract, userId) => {
 
 			try {
 				const cleanStr = line.text.trim().replaceAll(",", "");
-				return parseFloat(cleanStr) * sign;
+				return Number(cleanStr) * sign;
 			} catch (error) {
 				appLogger(`Error parsing amount`);
 				return 0;

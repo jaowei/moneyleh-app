@@ -95,7 +95,7 @@ const extractDataCard: PdfFormatExtractor = (dataToExtract, userId) => {
 		const limit = creditLimitBlock.lines[1]?.text;
 		if (limit) {
 			const cleanStr = limit.trim().replaceAll(",", "").slice(2);
-			extractedData.creditLimit = parseFloat(cleanStr);
+			extractedData.creditLimit = Number(cleanStr);
 		}
 	}
 

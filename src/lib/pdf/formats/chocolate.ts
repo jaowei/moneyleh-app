@@ -65,9 +65,9 @@ const extractData: PdfFormatExtractor = (dataToExtract, userId) => {
 					}
 
 					if (block.lines[2].x > moneyOutXCoord) {
-						amount = -1 * parseFloat(cleanAmtStr);
+						amount = -1 * Number(cleanAmtStr);
 					} else {
-						amount = parseFloat(cleanAmtStr);
+						amount = Number(cleanAmtStr);
 					}
 
 					data.accounts.chocolateManagedAccount?.transactions.push({

@@ -10,3 +10,4 @@ test-files/
 *.csv
 *failed_training.json
 *failed-transactions-*
+.playwright-mcp
