@@ -81,6 +81,11 @@ interface TransactionRowProps {
 	onCheckboxChange: (txnId: number) => React.ChangeEventHandler;
 }
 
+const mergeTags = (baseTags: UiTag[], addedTags: UiTag[]): UiTag[] => {
+	const baseIds = new Set(baseTags.map((tag) => tag.id));
+	return [...baseTags, ...addedTags.filter((tag) => !baseIds.has(tag.id))];
+};
+
 const TransactionViewerRow = ({
 	transaction,
 	transactionIndex,
@@ -190,6 +195,7 @@ const TransactionViewerTable = ({
 		tagModalRef,
 		selectedTags,
 		indexsEditing,
+		baseTags,
 		handleTagEditorChange,
 		handleTagEditorClose,
 		handleTagEditorOpen,
@@ -210,6 +216,9 @@ const TransactionViewerTable = ({
 		accountInfo?.accountName ||
 		cardInfo?.cardName;
 	const hasMultiSelect = selectState.some((val) => val === true);
+	const allSelected =
+		selectState.length > 0 && selectState.every((val) => val === true);
+	const someSelected = hasMultiSelect && !allSelected;
 
 	const handleSaveTransactionsClick = async () => {
 		if (!statementInfo.statementOwnershipId) throw new Error();
@@ -242,12 +251,15 @@ const TransactionViewerTable = ({
 	}
 
 	const handleTagChange = (selectedTags: UiTag[]) => {
+		const isAppending = baseTags.size > 0;
 		setEditableTransactions((existing) =>
 			existing.map((txn, idx) => {
 				if (indexsEditing.includes(idx)) {
 					return {
 						...txn,
-						tags: selectedTags,
+						tags: isAppending
+							? mergeTags(baseTags.get(idx) ?? [], selectedTags)
+							: selectedTags,
 					};
 				} else {
 					return txn;
@@ -284,6 +296,10 @@ const TransactionViewerTable = ({
 		};
 	};
 
+	const handleSelectAllChange = (e: ChangeEvent<HTMLInputElement>) => {
+		setSelectState(Array(editableTransactions.length).fill(e.target.checked));
+	};
+
 	const getMultiSelectIdxs = () => {
 		const selectedIdxs = [];
 		let idx = selectState.indexOf(true);
@@ -296,7 +312,10 @@ const TransactionViewerTable = ({
 
 	const handleMultiSelectTagPickerOpen = () => {
 		const selectedIdxs = getMultiSelectIdxs();
-		handleTagEditorOpen([], selectedIdxs);
+		const originalTagsByIdx = new Map(
+			selectedIdxs.map((idx) => [idx, editableTransactions[idx].tags]),
+		);
+		handleTagEditorOpen([], selectedIdxs, originalTagsByIdx);
 	};
 
 	const handleMultiSelectSplitOpen = () => {
@@ -343,8 +362,8 @@ const TransactionViewerTable = ({
 							<TransactionSplitButton onClick={handleMultiSelectSplitOpen} />
 						</div>
 						<p className="text-sm text-warning-content">
-							Note: You are in multi-select mode, tag/split selections will
-							override values
+							Note: You are in multi-select mode, tag selections will be added
+							to existing tags while split selections will override values
 						</p>
 					</div>
 				)}
@@ -352,7 +371,21 @@ const TransactionViewerTable = ({
 			<table className="table table-zebra table-xs table-pin-rows border border-base-300 rounded w-full">
 				<thead>
 					<tr>
-						<th className="w-10"></th>
+						<th className="w-10">
+							<input
+								type="checkbox"
+								className="checkbox checkbox-sm"
+								aria-label="Select all transactions"
+								checked={allSelected}
+								ref={(el) => {
+									if (el) {
+										el.indeterminate = someSelected;
+									}
+								}}
+								onChange={handleSelectAllChange}
+								disabled={requestSuccess || !editableTransactions.length}
+							/>
+						</th>
 						<th className="w-32">Transaction Date</th>
 						<th className="min-w-[280px]">Description</th>
 						<th className="w-16 text-center">Currency</th>
