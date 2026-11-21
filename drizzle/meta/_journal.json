@@ -22,6 +22,13 @@
       "when": 1784205189835,
       "tag": "0002_slow_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795236263583,
+      "tag": "0003_wealthy_human_fly",
+      "breakpoints": true
     }
   ]
 }

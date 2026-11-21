@@ -10,6 +10,12 @@ import { and, eq, inArray, like, or } from "drizzle-orm";
 import { user } from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
 import {
+	accounts,
+	companies,
+	holdings,
+	securities,
+	securityToStatementMappers,
+	statementOwnerships,
 	statements,
 	type TransactionsUpdateSchema,
 	tags,
@@ -258,7 +264,7 @@ describe("/api/transaction", () => {
 				method: "POST",
 				body: JSON.stringify({
 					...testTransactions,
-					transactions: [txnNotAdded, ...testTransactions.transactions],
+					transactions: [txnNotAdded, ...(testTransactions.transactions ?? [])],
 					accountInfo: { accountId: 1, accountName: "test-account" },
 				}),
 				...jsonHeader,
@@ -917,6 +923,393 @@ describe("/api/transaction", () => {
 					.all();
 				expect(sampleTxns?.[0]?.userId).toBe(testUser.id);
 			});
+		});
+	});
+
+	describe("portfolio holdings", () => {
+		const fundName = "Test Global Short Duration Fund";
+		const reuseFundName = "Test Reuse Bond Fund";
+		const testAccountName = `portfolio-test-account-${Date.now()}`;
+		let chocolateCompanyId = 0;
+		let chocolateAccountId = 0;
+		let chocolateOwnershipId = 0;
+		const tempOwnershipIds: number[] = [];
+		const tempAccountIds: number[] = [];
+
+		const holdingPayload = (overrides: Record<string, unknown> = {}) => ({
+			instrumentName: fundName,
+			units: 100.5,
+			price: 1.25,
+			marketValue: 125.625,
+			currency: "SGD",
+			securityType: "managedFund" as const,
+			unrealisedGain: 5.5,
+			unrealisedGainPct: 4.5,
+			allocationPct: 10,
+			...overrides,
+		});
+
+		const postHoldings = async (payload: Record<string, unknown>) =>
+			app.request("/api/transaction", {
+				method: "POST",
+				body: JSON.stringify(payload),
+				...jsonHeader,
+			});
+
+		const createOwnership = async (accountId: number) => {
+			const [ownership] = await db
+				.insert(statementOwnerships)
+				.values({
+					identifier: `portfolio-test-${Date.now()}-${tempOwnershipIds.length}`,
+					accountId,
+				})
+				.returning();
+			if (!ownership) throw new Error("Could not create ownership");
+			tempOwnershipIds.push(ownership.id);
+			return ownership;
+		};
+
+		const createAccount = async () => {
+			const [account] = await db
+				.insert(accounts)
+				.values({
+					name: `${testAccountName}-${tempAccountIds.length}`,
+					companyId: chocolateCompanyId,
+				})
+				.returning();
+			if (!account) throw new Error("Could not create account");
+			tempAccountIds.push(account.id);
+			return account;
+		};
+
+		beforeAll(async () => {
+			const [company] = await db
+				.select()
+				.from(companies)
+				.where(eq(companies.name, "Chocolate Finance"));
+			if (!company) throw new Error("Chocolate Finance not seeded");
+			chocolateCompanyId = company.id;
+			const [account] = await db
+				.select()
+				.from(accounts)
+				.where(
+					and(
+						eq(accounts.companyId, company.id),
+						eq(accounts.name, "chocolate managed account"),
+					),
+				);
+			if (!account) throw new Error("Chocolate account not seeded");
+			chocolateAccountId = account.id;
+			const [ownership] = await db
+				.select()
+				.from(statementOwnerships)
+				.where(eq(statementOwnerships.accountId, account.id));
+			if (!ownership) throw new Error("Chocolate ownership not seeded");
+			chocolateOwnershipId = ownership.id;
+		});
+
+		afterAll(async () => {
+			await db.delete(holdings).where(eq(holdings.userId, testUser.id));
+			const ownershipIds = [chocolateOwnershipId, ...tempOwnershipIds];
+			const userStatements = await db
+				.select({ id: statements.id })
+				.from(statements)
+				.where(
+					and(
+						eq(statements.userId, testUser.id),
+						inArray(statements.statementOwnershipId, ownershipIds),
+					),
+				);
+			if (userStatements.length) {
+				await db.delete(statements).where(
+					inArray(
+						statements.id,
+						userStatements.map((s) => s.id),
+					),
+				);
+			}
+			await db
+				.delete(securityToStatementMappers)
+				.where(
+					and(
+						eq(securityToStatementMappers.companyId, chocolateCompanyId),
+						inArray(securityToStatementMappers.identifier, [
+							fundName,
+							reuseFundName,
+						]),
+					),
+				);
+			await db
+				.delete(securities)
+				.where(inArray(securities.name, [fundName, reuseFundName]));
+			if (tempOwnershipIds.length) {
+				await db
+					.delete(statementOwnerships)
+					.where(inArray(statementOwnerships.id, tempOwnershipIds));
+			}
+			if (tempAccountIds.length) {
+				await db
+					.delete(userAccounts)
+					.where(inArray(userAccounts.accountId, tempAccountIds));
+				await db.delete(accounts).where(inArray(accounts.id, tempAccountIds));
+			}
+		});
+
+		test("persists holdings without any transactions", async () => {
+			const statementDate = "2025-09-30T15:59:59.999Z";
+			const res = await postHoldings({
+				holdings: [holdingPayload()],
+				statementInfo: {
+					statementDate,
+					statementOwnershipId: chocolateOwnershipId,
+				},
+				accountInfo: {
+					accountId: chocolateAccountId,
+					accountName: "chocolate managed account",
+				},
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+			});
+			expect(res.status).toBe(201);
+
+			const [createdSecurity] = await db
+				.select()
+				.from(securities)
+				.where(eq(securities.name, fundName));
+			expect(createdSecurity).toMatchObject({
+				isin: null,
+				symbol: null,
+				securityType: "managedFund",
+				currency: "SGD",
+			});
+
+			const [mapper] = await db
+				.select()
+				.from(securityToStatementMappers)
+				.where(
+					and(
+						eq(securityToStatementMappers.companyId, chocolateCompanyId),
+						eq(securityToStatementMappers.identifier, fundName),
+					),
+				);
+			expect(mapper?.securityId).toBe(createdSecurity?.id);
+
+			const saved = await db
+				.select()
+				.from(holdings)
+				.where(
+					and(
+						eq(holdings.userId, testUser.id),
+						eq(holdings.accountId, chocolateAccountId),
+					),
+				);
+			expect(saved).toHaveLength(1);
+			expect(saved[0]).toMatchObject({
+				securityId: createdSecurity?.id,
+				units: 100.5,
+				price: 1.25,
+				marketValue: 125.625,
+				currency: "SGD",
+				asOfDate: statementDate,
+				unrealisedGain: 5.5,
+			});
+			expect(saved[0]?.statementId).toBeNumber();
+			expect(JSON.parse(saved[0]?.extra ?? "{}")).toEqual({
+				unrealisedGainPct: 4.5,
+				allocationPct: 10,
+			});
+		});
+
+		test("rejects holdings without a user id", async () => {
+			const res = await postHoldings({
+				holdings: [holdingPayload()],
+				statementInfo: {
+					statementDate: "2025-09-30T15:59:59.999Z",
+					statementOwnershipId: chocolateOwnershipId,
+				},
+				accountInfo: { accountId: chocolateAccountId, accountName: "acc" },
+				companyId: chocolateCompanyId,
+			});
+			expect(res.status).toBe(400);
+			expect(await res.text()).toInclude("User id is not provided");
+		});
+
+		test("rejects holdings without an account", async () => {
+			const res = await postHoldings({
+				holdings: [holdingPayload()],
+				statementInfo: {
+					statementDate: "2025-09-30T15:59:59.999Z",
+					statementOwnershipId: chocolateOwnershipId,
+				},
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+			});
+			expect(res.status).toBe(400);
+			expect(await res.text()).toInclude("against an account");
+		});
+
+		test("reuses the security and mapper across statements", async () => {
+			const account = await createAccount();
+			const firstOwnership = await createOwnership(account.id);
+			const secondOwnership = await createOwnership(account.id);
+			const payload = {
+				holdings: [holdingPayload({ instrumentName: reuseFundName })],
+				accountInfo: { accountId: account.id, accountName: account.name },
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+			};
+
+			const firstRes = await postHoldings({
+				...payload,
+				statementInfo: {
+					statementDate: "2025-09-30T15:59:59.999Z",
+					statementOwnershipId: firstOwnership.id,
+				},
+			});
+			expect(firstRes.status).toBe(201);
+			const secondRes = await postHoldings({
+				...payload,
+				holdings: [
+					holdingPayload({ instrumentName: reuseFundName, units: 200 }),
+				],
+				statementInfo: {
+					statementDate: "2025-10-31T15:59:59.999Z",
+					statementOwnershipId: secondOwnership.id,
+				},
+			});
+			expect(secondRes.status).toBe(201);
+
+			const createdSecurities = await db
+				.select()
+				.from(securities)
+				.where(eq(securities.name, reuseFundName));
+			expect(createdSecurities).toHaveLength(1);
+			const mappers = await db
+				.select()
+				.from(securityToStatementMappers)
+				.where(
+					and(
+						eq(securityToStatementMappers.companyId, chocolateCompanyId),
+						eq(securityToStatementMappers.identifier, reuseFundName),
+					),
+				);
+			expect(mappers).toHaveLength(1);
+
+			const snapshots = await db
+				.select()
+				.from(holdings)
+				.where(eq(holdings.accountId, account.id));
+			expect(snapshots).toHaveLength(2);
+			expect(
+				snapshots.every((s) => s.securityId === mappers[0]?.securityId),
+			).toBe(true);
+		});
+
+		test("rejects a second holding for the same instrument and date", async () => {
+			const account = await createAccount();
+			const firstOwnership = await createOwnership(account.id);
+			const secondOwnership = await createOwnership(account.id);
+			const statementDate = "2025-11-30T15:59:59.999Z";
+			const base = {
+				accountInfo: { accountId: account.id, accountName: account.name },
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+				holdings: [holdingPayload({ instrumentName: reuseFundName })],
+			};
+
+			const firstRes = await postHoldings({
+				...base,
+				statementInfo: {
+					statementDate,
+					statementOwnershipId: firstOwnership.id,
+				},
+			});
+			expect(firstRes.status).toBe(201);
+			const secondRes = await postHoldings({
+				...base,
+				holdings: [
+					holdingPayload({ instrumentName: reuseFundName, units: 999 }),
+				],
+				statementInfo: {
+					statementDate,
+					statementOwnershipId: secondOwnership.id,
+				},
+			});
+			expect(secondRes.status).toBe(400);
+			expect(await secondRes.text()).toInclude("already exists");
+
+			const snapshots = await db
+				.select()
+				.from(holdings)
+				.where(eq(holdings.accountId, account.id));
+			expect(snapshots).toHaveLength(1);
+			// The original snapshot is untouched by the rejected save.
+			expect(snapshots[0]?.units).toBe(100.5);
+			// The rejected save rolled back, statement included.
+			const secondStatement = await db
+				.select()
+				.from(statements)
+				.where(eq(statements.statementOwnershipId, secondOwnership.id));
+			expect(secondStatement).toHaveLength(0);
+		});
+
+		test("removes holdings when the account is removed", async () => {
+			const account = await createAccount();
+			const ownership = await createOwnership(account.id);
+			const res = await postHoldings({
+				holdings: [holdingPayload({ instrumentName: reuseFundName })],
+				statementInfo: {
+					statementDate: "2025-12-31T15:59:59.999Z",
+					statementOwnershipId: ownership.id,
+				},
+				accountInfo: { accountId: account.id, accountName: account.name },
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+			});
+			expect(res.status).toBe(201);
+
+			const delRes = await app.request(
+				`/api/account/${testUser.id}/${account.id}`,
+				{ method: "DELETE" },
+			);
+			expect(delRes.status).toBe(200);
+			const snapshots = await db
+				.select()
+				.from(holdings)
+				.where(eq(holdings.accountId, account.id));
+			expect(snapshots).toHaveLength(0);
+		});
+
+		test("removes holdings when the statement is deleted", async () => {
+			const account = await createAccount();
+			const ownership = await createOwnership(account.id);
+			const res = await postHoldings({
+				holdings: [holdingPayload({ instrumentName: reuseFundName })],
+				statementInfo: {
+					statementDate: "2026-01-31T15:59:59.999Z",
+					statementOwnershipId: ownership.id,
+				},
+				accountInfo: { accountId: account.id, accountName: account.name },
+				companyId: chocolateCompanyId,
+				userId: testUser.id,
+			});
+			expect(res.status).toBe(201);
+			const [statement] = await db
+				.select()
+				.from(statements)
+				.where(eq(statements.statementOwnershipId, ownership.id));
+			expect(statement).toBeDefined();
+
+			const delRes = await app.request(
+				`/api/admin/statement/${statement?.id}`,
+				{ method: "DELETE" },
+			);
+			expect(delRes.status).toBe(200);
+			const snapshots = await db
+				.select()
+				.from(holdings)
+				.where(eq(holdings.accountId, account.id));
+			expect(snapshots).toHaveLength(0);
 		});
 	});
 

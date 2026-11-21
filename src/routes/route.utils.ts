@@ -1,10 +1,10 @@
-import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
+import { and, eq, inArray, type SQL } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteSelect } from "drizzle-orm/sqlite-core";
 import { HTTPException } from "hono/http-exception";
 import { user } from "../db/auth-schema.ts";
 import { db } from "../db/db.ts";
 import {
-	statementOwnerships,
+	holdings,
 	statements,
 	transactionStatements,
 	transactions,
@@ -12,6 +12,7 @@ import {
 	userAccounts,
 	userCards,
 } from "../db/schema.ts";
+import { auth } from "../lib/auth.ts";
 
 export const findUserOrThrow = async (userId: string) => {
 	const targetUser = await db.select().from(user).where(eq(user.id, userId));
@@ -25,13 +26,24 @@ export const findUserOrThrow = async (userId: string) => {
 	return targetUser;
 };
 
-export const getStatementOwnerByIdentifier = async (target: string) => {
-	return await db
-		.select()
-		.from(statementOwnerships)
-		.where(
-			sql`lower(${statementOwnerships.identifier}) = ${target.toLowerCase()}`,
-		);
+/**
+ * Requires an authenticated session whose user matches the requested user.
+ * New endpoints should use this so one household member cannot read another
+ * member's data by changing the id in the URL.
+ */
+export const assertSelfAccess = async (headers: Headers, userId: string) => {
+	const session = await auth.api.getSession({ headers });
+	if (!session?.user) {
+		throw new HTTPException(401, {
+			message: "You must be signed in to access this resource",
+		});
+	}
+	if (session.user.id !== userId) {
+		throw new HTTPException(403, {
+			message: "You can only access your own data",
+		});
+	}
+	return session.user;
 };
 
 export const removeUserAssignments = ({
@@ -71,6 +83,14 @@ export const removeUserAssignments = ({
 			.all();
 
 		const transactionIds = existingTransactionsRes.map((t) => t.id);
+
+		if (type === "account") {
+			// Holdings are account scoped, so removing the account assignment
+			// removes the portfolio snapshots recorded for this user too.
+			tx.delete(holdings)
+				.where(and(eq(holdings.userId, userId), eq(holdings.accountId, id)))
+				.all();
+		}
 
 		deleteTransactions(transactionIds, userId);
 	});

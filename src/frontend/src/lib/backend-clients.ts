@@ -26,12 +26,18 @@ export type Tag = InferResponseType<
 export type PostTransactionsReq = InferRequestType<
 	typeof backendRouteClient.api.transaction.$post
 >["json"];
+export type PostTransactionItem = NonNullable<
+	PostTransactionsReq["transactions"]
+>[0];
 export type TransactionSplitUI = Exclude<
-	PostTransactionsReq["transactions"][0]["split"],
+	PostTransactionItem["split"],
 	undefined
 >;
 export type GetTransactionDataRes = InferResponseType<
 	(typeof backendRouteClient.api.transaction)[":userId"]["$get"]
+>;
+export type PortfolioRes = InferResponseType<
+	(typeof backendRouteClient.api.portfolio)[":userId"]["$get"]
 >;
 
 export type GetCompanyRes = InferResponseType<

@@ -11,6 +11,7 @@ import { appLogger } from "./lib/logger.ts";
 import { accountRoute } from "./routes/account.ts";
 import { cardRoute } from "./routes/card.ts";
 import { companyRoute } from "./routes/company";
+import { portfolioRoute } from "./routes/portfolio.ts";
 import { statementRoute } from "./routes/statement.ts";
 import { tagRoute } from "./routes/tag.ts";
 import { transactionRoute } from "./routes/transaction.ts";
@@ -33,7 +34,8 @@ const routes = app
 	.route("/api/transaction", transactionRoute)
 	.route("/api/tag", tagRoute)
 	.route("/api/account", accountRoute)
-	.route("/api/card", cardRoute);
+	.route("/api/card", cardRoute)
+	.route("/api/portfolio", portfolioRoute);
 
 // all ui focused endpoints
 app.route("/api/ui", uiRoute);

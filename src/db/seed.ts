@@ -1,4 +1,5 @@
 import { auth } from "../lib/auth.ts";
+import { brokerNames } from "../lib/pdf/pdf.type.ts";
 import { testUser } from "../lib/test.utils.ts";
 import * as authSchema from "./auth-schema";
 import { STARTING_COMPANIES } from "./company.seed";
@@ -248,7 +249,7 @@ const seedStatementOwnerships: schema.StatementOwnershipsInsertSchema[] = [
 	},
 	{
 		accountId: accountIdMap["chocolate managed account"],
-		identifier: "chocolateManagedAccount",
+		identifier: brokerNames.chocolate,
 	},
 ];
 await db

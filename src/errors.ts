@@ -14,4 +14,5 @@ export const ParsingErrors = {
 	transactionAmt: new Error("Format error: Unable to parse transaction amount"),
 	points: new Error("Format error: Unable to parse points"),
 	accountTransactions: new Error("Unable to parse account transactions"),
+	portfolio: new Error("Format error: Unable to parse portfolio items"),
 };

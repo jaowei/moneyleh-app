@@ -47,3 +47,21 @@ This roadmap tracks prioritized fixes and enhancements identified during the arc
   - Provide a download link in the statement admin viewer and allow re-parsing existing statements with updated bank format extractors.
 - [ ] **CSV / Spreadsheet Export**
   - Implement a direct CSV export endpoint (`GET /api/transaction/:userId/export`) and UI button to download filtered transactions for tax or spreadsheet budgeting.
+
+---
+
+## 📈 Phase 4: Portfolio & Broker Support
+
+Broker statement ingestion (Chocolate Finance), holdings persistence (`securities`, `security_to_statement_mappers`, `holdings`), the editable holdings review during upload, and the `/portfolio` overview page are implemented. The items below extend that foundation.
+
+- [ ] **Portfolio Value History**
+  - `GET /api/portfolio/:userId` returns only the latest snapshot per account. Add an endpoint returning every snapshot per `(accountId, securityId, asOfDate)` so the UI can chart value over time.
+  - Render a value-over-time chart on `/portfolio` with one point per statement date. Holdings are month-end snapshots only; a missing statement is a gap, and a sold position has no row rather than a zero row.
+  - Keep per-currency series separate. There is no FX conversion in the schema, so mixed currencies must not be summed into one line.
+- [ ] **Portfolio Drill-down in the Account View**
+  - Show a brokerage account's holdings inside `inventory.$type.$id`, and link each account group on `/portfolio` to it.
+  - Reuse the portfolio table in read-only mode; editing stays on the upload confirmation step, where the statement is the source of truth.
+- [ ] **Holding Identity Improvements** (lower priority)
+  - Expose `securityType` when adding or editing a holding during upload, instead of defaulting every manually added holding to `managedFund`.
+  - Add an optional ISIN field, or autocomplete against existing securities, so a missed holding does not create a duplicate security when the printed name differs slightly.
+

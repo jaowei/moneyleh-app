@@ -228,6 +228,7 @@ All backend endpoints are prefixed with `/api`.
 | `/api/ui/assignTo/:userId` | `POST` | Batch assign accounts/cards to a user |
 | `/api/ui/linkStatement` | `POST` | Link an unmapped statement string identifier to a card or account |
 | `/api/ui/availableInventory/:userId` | `GET` | Get user's cards, accounts, and total spending summaries |
+| `/api/portfolio/:userId` | `GET` | Latest holding snapshot per account with totals by currency, security type, and account (session-guarded) |
 | `/api/admin/statement` | `GET`, `DELETE` | Administrative list or deletion of raw statement records |
 
 ---

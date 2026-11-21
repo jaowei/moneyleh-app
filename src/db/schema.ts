@@ -91,15 +91,95 @@ const cardsSelectSchemaZ = createSelectSchema(cards);
 export type CardsInsertSchema = z.infer<typeof cardsInsertSchemaZ>;
 export type CardsSelectSchema = z.infer<typeof cardsSelectSchemaZ>;
 
+export const securityTypes = ["stock", "bond", "etf", "managedFund"] as const;
+export const securityTypeZ = z.enum(securityTypes);
+export type SecurityType = z.infer<typeof securityTypeZ>;
+
 export const securities = sqliteTable("securities", {
 	id: integer().primaryKey(),
 	name: text().notNull(),
-	ticker: text(),
-	securityType: text("security_type", {
-		enum: ["stock", "bond", "etf", "managedFund"],
-	}),
-	brokerId: integer("broker_id").references(() => companies.id),
+	// Nullable: not every broker prints an ISIN, and SQLite allows multiple
+	// NULL values in a unique column.
+	isin: text().unique(),
+	symbol: text(),
+	securityType: text("security_type", { enum: securityTypes }).notNull(),
+	currency: text(),
+	...timestamps,
 });
+export const securitiesInsertSchemaZ = createInsertSchema(securities);
+export const securitiesSelectSchemaZ = createSelectSchema(securities);
+export type SecuritiesInsertSchema = z.infer<typeof securitiesInsertSchemaZ>;
+export type SecuritiesSelectSchema = z.infer<typeof securitiesSelectSchemaZ>;
+
+// Maps the instrument identifier printed on a statement (an ISIN, a ticker or
+// a fund name) to a security. Scoped per company because two brokers may print
+// the same identifier for different instruments.
+export const securityToStatementMappers = sqliteTable(
+	"security_to_statement_mappers",
+	{
+		id: integer().primaryKey(),
+		companyId: integer("company_id")
+			.references(() => companies.id)
+			.notNull(),
+		identifier: text().notNull(),
+		securityId: integer("security_id")
+			.references(() => securities.id)
+			.notNull(),
+		...timestamps,
+	},
+	(table) => [unique().on(table.companyId, table.identifier)],
+);
+export const securityToStatementMappersInsertSchemaZ = createInsertSchema(
+	securityToStatementMappers,
+);
+export const securityToStatementMappersSelectSchemaZ = createSelectSchema(
+	securityToStatementMappers,
+);
+export type SecurityToStatementMappersInsertSchema = z.infer<
+	typeof securityToStatementMappersInsertSchemaZ
+>;
+export type SecurityToStatementMappersSelectSchema = z.infer<
+	typeof securityToStatementMappersSelectSchemaZ
+>;
+
+// A snapshot of an instrument held in an account on a statement date. Snapshots
+// keep history instead of overwriting a single quantity, and the unique key
+// stops the same statement date being recorded twice for an instrument.
+export const holdings = sqliteTable(
+	"holdings",
+	{
+		id: integer().primaryKey(),
+		userId: text("user_id")
+			.references(() => user.id)
+			.notNull(),
+		accountId: integer("account_id")
+			.references(() => accounts.id)
+			.notNull(),
+		securityId: integer("security_id")
+			.references(() => securities.id)
+			.notNull(),
+		statementId: integer("statement_id")
+			.references(() => statements.id)
+			.notNull(),
+		asOfDate: text("as_of_date").notNull(),
+		units: real().notNull(),
+		price: real().notNull(),
+		marketValue: real("market_value").notNull(),
+		currency: text().notNull(),
+		costBasis: real("cost_basis"),
+		unrealisedGain: real("unrealised_gain"),
+		// JSON blob for broker specific fields without a dedicated column.
+		extra: text(),
+		...timestamps,
+	},
+	(table) => [unique().on(table.accountId, table.securityId, table.asOfDate)],
+);
+export const holdingsInsertSchemaZ = createInsertSchema(holdings, {
+	asOfDate: z.iso.datetime(),
+});
+export const holdingsSelectSchemaZ = createSelectSchema(holdings);
+export type HoldingsInsertSchema = z.infer<typeof holdingsInsertSchemaZ>;
+export type HoldingsSelectSchema = z.infer<typeof holdingsSelectSchemaZ>;
 
 export const insurancePolicies = sqliteTable("insurance_policies", {
 	id: integer().primaryKey(),
@@ -303,14 +383,4 @@ export const userInsurancePolicies = sqliteTable(
 		...timestamps,
 	},
 	(table) => [primaryKey({ columns: [table.insurancePolicyId, table.userId] })],
-);
-
-export const userSecurities = sqliteTable(
-	"user_securities",
-	{
-		securityId: integer("security_id").references(() => securities.id),
-		userId: text("user_id").references(() => user.id),
-		...timestamps,
-	},
-	(table) => [primaryKey({ columns: [table.securityId, table.userId] })],
 );

@@ -1,7 +1,12 @@
 import type { Page, PDFPage } from "mupdf";
 import z from "zod";
 import type { Companies } from "../../db/company.seed.ts";
-import type { TransactionsInsertSchema } from "../../db/schema.ts";
+import type {
+	SecurityType,
+	TransactionsInsertSchema,
+} from "../../db/schema.ts";
+
+export type { SecurityType };
 
 // Based on https://mupdf.readthedocs.io/en/latest/reference/javascript/types/StructuredText.html
 
@@ -88,10 +93,46 @@ export interface CPFStatementData extends StatementDataBaseSchema {
 	};
 }
 
+export const brokerNames = {
+	chocolate: "chocolateManagedAccount",
+} as const;
+
+/**
+ * A single instrument held in a broker account as of the statement date.
+ * Brokers print different sets of fields, so anything beyond the core
+ * fields (name, units, price, value, currency) is optional.
+ */
+export interface BrokerHolding {
+	instrumentName: string;
+	instrumentIsin?: string;
+	instrumentSymbol?: string;
+	securityType?: SecurityType;
+	units: number;
+	price: number;
+	marketValue: number;
+	currency: string;
+	costBasis?: number;
+	unrealisedGain?: number;
+	unrealisedGainPct?: number;
+	allocationPct?: number;
+	/** Broker specific fields that have no dedicated column. */
+	extra?: Record<string, string | number>;
+}
+
+export interface BrokerStatementData extends StatementDataBaseSchema {
+	type: "broker";
+	name: (typeof brokerNames)[keyof typeof brokerNames];
+	transactions: TransactionsInsertSchema[];
+	portfolio: BrokerHolding[];
+	/** Total portfolio value printed on the statement, when available. */
+	portfolioValue?: number;
+}
+
 export type StatementData =
 	| CardStatementData
 	| AccountStatementData
-	| CPFStatementData;
+	| CPFStatementData
+	| BrokerStatementData;
 
 export type PdfFormatExtractor = (
 	dataToExtract: MuPdfStructuredTextPage[],

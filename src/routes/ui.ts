@@ -24,10 +24,13 @@ import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
 import { pdfParser } from "../lib/pdf/pdf.ts";
 import type { PdfParser } from "../lib/pdf/pdf.type.ts";
+import { findUserOrThrow } from "./route.utils.ts";
 import {
-	findUserOrThrow,
-	getStatementOwnerByIdentifier,
-} from "./route.utils.ts";
+	type AvailableEntity,
+	attachKnownSecurities,
+	getEntityFromParsedNames,
+	type PortfolioHolding,
+} from "./ui.utils.ts";
 
 const userAssignmentsZ = z.object({
 	accountData: z
@@ -233,6 +236,9 @@ export const uiRoute = new Hono()
 				}
 			>
 		> = [];
+		// One entry per tab, parallel to `taggedTransactions` / `cardInfo` /
+		// `accountInfo`. Non-broker statements get an empty entry for each tab.
+		const portfolio: PortfolioHolding[][] = [];
 		const cardInfo: { cardId: number | undefined; cardName: string }[] = [];
 		const accountInfo: {
 			accountId: number | undefined;
@@ -242,49 +248,42 @@ export const uiRoute = new Hono()
 			statementDate: statementData.data.statementDate,
 			statementOwnerIds: [],
 		};
-		const availableCards: Array<
-			{ id: number; name: string; companyName: string }[] | undefined
-		> = [];
-		const availableAccounts: Array<
-			{ id: number; name: string; companyName: string }[] | undefined
-		> = [];
+		const availableCards: Array<AvailableEntity[] | undefined> = [];
+		const availableAccounts: Array<AvailableEntity[] | undefined> = [];
+
+		const companyRes = await db
+			.select()
+			.from(companies)
+			.where(eq(companies.name, statementData.companyName));
+		if (!companyRes[0]) {
+			throw new HTTPException(500, {
+				message:
+					"Error parsing statement: Unable to detect company from statement",
+			});
+		}
+		const companyId = companyRes[0].id;
 
 		switch (statementData.data.type) {
 			case "card":
 				for (const [parsedCardName, data] of Object.entries(
 					statementData.data.cards,
 				)) {
-					const cardOwnerRes =
-						await getStatementOwnerByIdentifier(parsedCardName);
 					let cardName = parsedCardName;
 					let cardId: number | undefined;
-					const cardRes = await db
-						.select({
-							id: cards.id,
-							name: cards.name,
-							companyName: companies.name,
-						})
-						.from(cards)
-						.innerJoin(companies, eq(companies.id, cards.companyId))
-						.where(
-							and(
-								eq(companies.name, statementData.companyName),
-								cardOwnerRes[0]?.cardId
-									? eq(cards.id, cardOwnerRes[0].cardId)
-									: undefined,
-							),
-						);
-					if (cardOwnerRes[0] && cardRes[0]) {
-						cardName = cardRes[0].name;
-						cardId = cardRes[0].id;
-						availableCards.push(undefined);
-					} else if (cardRes.length < 1) {
-						cardId = cardRes?.[0]?.id;
-						availableCards.push(undefined);
+					const res = await getEntityFromParsedNames(
+						cardName,
+						statementData.companyName,
+						"card",
+					);
+					if (res.found === false) {
+						availableCards.push(res.availableEntities);
+						statementInfo.statementOwnerIds.push(undefined);
 					} else {
-						availableCards.push(cardRes);
+						availableCards.push(undefined);
+						statementInfo.statementOwnerIds.push(res.linkId);
+						cardName = res.name;
+						cardId = res.entityId;
 					}
-					statementInfo.statementOwnerIds.push(cardOwnerRes?.[0]?.id);
 					cardInfo.push({
 						cardId,
 						cardName,
@@ -297,6 +296,7 @@ export const uiRoute = new Hono()
 						cardId,
 					}));
 					taggedTransactions.push(txnWithCardName);
+					portfolio.push([]);
 				}
 				break;
 			case "cpf":
@@ -304,37 +304,22 @@ export const uiRoute = new Hono()
 				for (const [parsedAcctName, data] of Object.entries(
 					statementData.data.accounts,
 				)) {
-					const accountOwnerRes =
-						await getStatementOwnerByIdentifier(parsedAcctName);
 					let accountName = parsedAcctName;
 					let accountId: number | undefined;
-					const accountRes = await db
-						.select({
-							id: accounts.id,
-							name: accounts.name,
-							companyName: companies.name,
-						})
-						.from(accounts)
-						.innerJoin(companies, eq(companies.id, accounts.companyId))
-						.where(
-							and(
-								eq(companies.name, statementData.companyName),
-								accountOwnerRes[0]?.accountId
-									? eq(accounts.id, accountOwnerRes[0].accountId)
-									: undefined,
-							),
-						);
-					if (accountOwnerRes[0] && accountRes[0]) {
-						accountName = accountRes[0].name;
-						accountId = accountRes[0].id;
-						availableAccounts.push(undefined);
-					} else if (accountRes.length < 1) {
-						accountId = accountRes?.[0]?.id;
-						availableAccounts.push(undefined);
+					const res = await getEntityFromParsedNames(
+						accountName,
+						statementData.companyName,
+						"account",
+					);
+					if (res.found === false) {
+						availableAccounts.push(res.availableEntities);
+						statementInfo.statementOwnerIds.push(undefined);
 					} else {
-						availableAccounts.push(accountRes);
+						availableAccounts.push(undefined);
+						statementInfo.statementOwnerIds.push(res.linkId);
+						accountName = res.name;
+						accountId = res.entityId;
 					}
-					statementInfo.statementOwnerIds.push(accountOwnerRes?.[0]?.id);
 					accountInfo.push({
 						accountId,
 						accountName,
@@ -347,29 +332,57 @@ export const uiRoute = new Hono()
 						accountId,
 					}));
 					taggedTransactions.push(txnWithAccountName);
+					portfolio.push([]);
 				}
 				break;
+			case "broker": {
+				let accountName: string = statementData.data.name;
+				let accountId: number | undefined;
+				const res = await getEntityFromParsedNames(
+					accountName,
+					statementData.companyName,
+					"account",
+				);
+				if (res.found === false) {
+					availableAccounts.push(res.availableEntities);
+					statementInfo.statementOwnerIds.push(undefined);
+				} else {
+					availableAccounts.push(undefined);
+					statementInfo.statementOwnerIds.push(res.linkId);
+					accountName = res.name;
+					accountId = res.entityId;
+				}
+				accountInfo.push({
+					accountId,
+					accountName,
+				});
+				const taggedTxns = await tagTransactions(
+					statementData.data.transactions,
+				);
+				const txnWithAccountName = taggedTxns.map((t) => ({
+					...t,
+					accountName,
+					accountId,
+				}));
+				taggedTransactions.push(txnWithAccountName);
+				portfolio.push(
+					await attachKnownSecurities(companyId, statementData.data.portfolio),
+				);
+
+				break;
+			}
 			default:
 				throw new HTTPException(500, { message: "Statement NOT IMPLEMENTED" });
 		}
 
-		const companyRes = await db
-			.select()
-			.from(companies)
-			.where(eq(companies.name, statementData.companyName));
-		if (!companyRes[0]) {
-			throw new HTTPException(500, {
-				message:
-					"Error parsing statement: Unable to detect company from statement",
-			});
-		}
-
 		return c.json({
+			statementType: statementData.data.type,
 			taggedTransactions,
+			portfolio,
 			statementInfo,
 			cardInfo,
 			accountInfo,
-			companyId: companyRes[0].id,
+			companyId,
 			availableAccounts,
 			availableCards,
 		});

@@ -7,9 +7,12 @@ import {
 	jest,
 	test,
 } from "bun:test";
-import { eq, like } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 import { db } from "../db/db.ts";
 import {
+	companies,
+	securities,
+	securityToStatementMappers,
 	statementOwnerships,
 	statements,
 	type UserAccountsInsertSchema,
@@ -63,6 +66,10 @@ describe("/api/ui", () => {
 			expect(result.cardInfo.length).toBe(2);
 			expect(result.cardInfo[0].cardId).toBeNumber();
 			expect(result.cardInfo[0].cardName).toBeString();
+			// Portfolio stays parallel to the tabs, empty for card statements.
+			expect(result.portfolio).toBeArrayOfSize(2);
+			expect(result.portfolio[0]).toBeArrayOfSize(0);
+			expect(result.portfolio[1]).toBeArrayOfSize(0);
 		});
 		test("file upload: parse transactions account dbs", async () => {
 			const formData = getCompleteFormData(
@@ -73,10 +80,12 @@ describe("/api/ui", () => {
 				body: formData,
 			});
 			expect(res.status).toBe(200);
-			const result = (await res.json()) as { taggedTransactions: any[] };
+			const result = (await res.json()) as any;
 			expect(result.taggedTransactions).toBeArrayOfSize(2);
 			expect(result.taggedTransactions[0].length).toBe(33);
 			expect(result.taggedTransactions[1].length).toBe(0);
+			expect(result.portfolio).toBeArrayOfSize(2);
+			expect(result.portfolio[0]).toBeArrayOfSize(0);
 		});
 		test("file upload: parse transactions account cpf", async () => {
 			const formData = getCompleteFormData("./test-files/cpf.pdf");
@@ -90,6 +99,112 @@ describe("/api/ui", () => {
 			expect(result.taggedTransactions[0].length).toBe(2);
 			expect(result.taggedTransactions[1].length).toBe(1);
 			expect(result.taggedTransactions[2].length).toBe(3);
+		});
+		test("file upload: parse portfolio broker (chocolate)", async () => {
+			const fundNames = [
+				"Dimensional Global Short-Term Investment Grade Fixed Income Fund (DSF)",
+				"UOBAM United SGD Fund (USF)",
+				"Lion Global Short Duration Bond Fund (LGF)",
+				"Fullerton Short Term Interest Rate Fund (FST)",
+				"Nikko AM Shenton Short Term Bond Fund (NST)",
+			];
+			const securitiesBefore = await db
+				.select({ id: securities.id })
+				.from(securities)
+				.where(inArray(securities.name, fundNames));
+
+			const formData = getCompleteFormData("./test-files/chocolate.pdf");
+			const res = await app.request("/api/ui/fileUpload", {
+				method: "POST",
+				body: formData,
+			});
+			expect(res.status).toBe(200);
+			const result = (await res.json()) as any;
+			expect(result.statementType).toBe("broker");
+			expect(result.portfolio).toBeArrayOfSize(1);
+			expect(result.taggedTransactions).toBeArrayOfSize(1);
+			expect(result.portfolio[0]).toBeArrayOfSize(5);
+			expect(result.portfolio[0][0]).toMatchObject({
+				instrumentName:
+					"Dimensional Global Short-Term Investment Grade Fixed Income Fund (DSF)",
+				units: 196.811,
+				price: 22.17,
+				marketValue: 4363.3,
+				currency: "SGD",
+				securityType: "managedFund",
+			});
+
+			// Uploading only looks securities up; nothing is created until the
+			// user confirms the statement.
+			const securitiesAfter = await db
+				.select({ id: securities.id })
+				.from(securities)
+				.where(inArray(securities.name, fundNames));
+			expect(securitiesAfter.map((s) => s.id).sort()).toEqual(
+				securitiesBefore.map((s) => s.id).sort(),
+			);
+		});
+		test("file upload: attaches an already known security", async () => {
+			const [chocolateCompany] = await db
+				.select()
+				.from(companies)
+				.where(eq(companies.name, "Chocolate Finance"));
+			if (!chocolateCompany) throw new Error("Chocolate Finance not seeded");
+			const fundName = "UOBAM United SGD Fund (USF)";
+
+			// A mapper may already exist (e.g. from a confirmed statement), in
+			// which case this test reuses it instead of creating data.
+			const existingMapper = (
+				await db
+					.select()
+					.from(securityToStatementMappers)
+					.where(
+						and(
+							eq(securityToStatementMappers.companyId, chocolateCompany.id),
+							eq(securityToStatementMappers.identifier, fundName),
+						),
+					)
+			)[0];
+			let createdSecurityId: number | undefined;
+			let securityId = existingMapper?.securityId;
+			if (!securityId) {
+				const [security] = await db
+					.insert(securities)
+					.values({
+						name: fundName,
+						securityType: "managedFund",
+						currency: "SGD",
+					})
+					.returning();
+				if (!security) throw new Error("Could not insert test security");
+				securityId = security.id;
+				createdSecurityId = security.id;
+				await db.insert(securityToStatementMappers).values({
+					companyId: chocolateCompany.id,
+					identifier: fundName,
+					securityId,
+				});
+			}
+
+			const formData = getCompleteFormData("./test-files/chocolate.pdf");
+			const res = await app.request("/api/ui/fileUpload", {
+				method: "POST",
+				body: formData,
+			});
+			expect(res.status).toBe(200);
+			const result = (await res.json()) as any;
+			const usf = result.portfolio[0].find(
+				(holding: { instrumentName: string }) =>
+					holding.instrumentName === fundName,
+			);
+			expect(usf.securityId).toBe(securityId);
+
+			if (createdSecurityId) {
+				await db
+					.delete(securityToStatementMappers)
+					.where(eq(securityToStatementMappers.securityId, createdSecurityId));
+				await db.delete(securities).where(eq(securities.id, createdSecurityId));
+			}
 		});
 		test("file upload: no user id", async () => {
 			const formData = new FormData();

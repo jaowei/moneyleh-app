@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
@@ -6,6 +6,7 @@ import { db } from "../db/db.ts";
 import {
 	accounts,
 	cards,
+	securityTypeZ,
 	statementOwnerships,
 	statements,
 	type TagSelectSchema,
@@ -16,24 +17,26 @@ import {
 	transactionShares,
 	transactionSharesInsertSchemaZ,
 	type transactionSharesSelectSchema,
-	transactionStatements,
 	transactions as transactionsDb,
 	transactionsInsertSchemaZ,
 	transactionsUpdateSchemaZ,
 	transactionTags as transactionTagsDb,
 	userAccounts,
 	userCards,
-	userCompanies,
 } from "../db/schema.ts";
 import { csvParserDirectUpload } from "../lib/csv/directUpload.ts";
 import type { DocumentToAdd } from "../lib/descriptionTagger/base-classifier.ts";
 import { appLogger } from "../lib/logger.ts";
 import { zodValidator } from "../lib/middleware/zod-validator.ts";
+import { persistHoldings } from "./holdings.utils.ts";
 import { paginationZ, refineAccountOrCardId } from "./route.types.ts";
 import { deleteTransactions, findUserOrThrow } from "./route.utils.ts";
 import {
+	assignEntityToUser,
 	getSplitTransactions,
-	insertTransactionShares,
+	insertStatementRow,
+	insertStatementTransactions,
+	type PersistTransactionsResult,
 	runTrainer,
 	upsertTransactionShare,
 } from "./transaction.utils.ts";
@@ -41,7 +44,6 @@ import { statementInfoZ } from "./ui.ts";
 
 const allowOnlyAccountOrCardIdErrMsg =
 	"An account id or card id is required, both cannot be empty and filled in the same transaction";
-
 const uiTagZ = tagSelectSchemaZ.partial().extend({
 	id: z.number(),
 	description: z.string().min(1),
@@ -58,8 +60,8 @@ const transactionFromUIZ = transactionsInsertSchemaZ
 	.refine((data) => refineAccountOrCardId(data), {
 		error: allowOnlyAccountOrCardIdErrMsg,
 	});
-const transactionsFromUIZ = z.array(transactionFromUIZ).min(1);
-export type TransactionFromUI = z.infer<typeof transactionsFromUIZ>;
+export type TransactionFromUIItem = z.infer<typeof transactionFromUIZ>;
+const transactionsFromUIZ = z.array(transactionFromUIZ);
 
 const cardInfoPayloadZ = z
 	.object({
@@ -73,17 +75,47 @@ const accountInfoPayloadZ = z
 		accountName: z.string(),
 	})
 	.optional();
+const holdingPayloadZ = z.object({
+	instrumentName: z.string().min(1),
+	instrumentIsin: z.string().min(1).optional(),
+	instrumentSymbol: z.string().min(1).optional(),
+	securityType: securityTypeZ.optional(),
+	units: z.number(),
+	price: z.number(),
+	marketValue: z.number(),
+	currency: z.string().min(1),
+	costBasis: z.number().optional(),
+	unrealisedGain: z.number().optional(),
+	unrealisedGainPct: z.number().optional(),
+	allocationPct: z.number().optional(),
+	extra: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+	/** Set when the instrument was already mapped during upload. */
+	securityId: z.number().optional(),
+});
 const statementInfoPayloadZ = statementInfoZ
 	.omit({ statementOwnerIds: true })
 	.extend({ statementOwnershipId: z.number() });
 type StatementInfoPayload = z.infer<typeof statementInfoPayloadZ>;
-const PostTransactionPayloadZ = z.object({
-	transactions: transactionsFromUIZ,
-	statementInfo: statementInfoPayloadZ,
-	cardInfo: cardInfoPayloadZ,
-	accountInfo: accountInfoPayloadZ,
-	companyId: z.coerce.number(),
-});
+const PostTransactionPayloadZ = z
+	.object({
+		transactions: transactionsFromUIZ.optional(),
+		/** Portfolio snapshots, only produced by broker statements. */
+		holdings: z.array(holdingPayloadZ).optional(),
+		statementInfo: statementInfoPayloadZ,
+		cardInfo: cardInfoPayloadZ,
+		accountInfo: accountInfoPayloadZ,
+		companyId: z.coerce.number(),
+		/**
+		 * Required for holdings-only statements, which have no transaction to
+		 * read the user from.
+		 */
+		userId: z.string().optional(),
+	})
+	.refine(
+		(data) =>
+			(data.transactions?.length ?? 0) > 0 || (data.holdings?.length ?? 0) > 0,
+		{ message: "At least one transaction or holding is required" },
+	);
 export type PostTransactionPayload = z.infer<typeof PostTransactionPayloadZ>;
 
 const postTransactionCsvPayloadZ = z
@@ -126,215 +158,104 @@ const getUserTransactionsQueryZ = z.discriminatedUnion("type", [
 	}),
 ]);
 
+const assertStatementNotDuplicate = async (
+	statementInfo: StatementInfoPayload,
+	userId: string,
+	name?: string,
+) => {
+	const existing = await db
+		.select()
+		.from(statements)
+		.leftJoin(
+			statementOwnerships,
+			eq(statements.statementOwnershipId, statementOwnerships.id),
+		)
+		.where(
+			and(
+				eq(statements.userId, userId),
+				eq(statements.statementDate, statementInfo.statementDate),
+				eq(statements.statementOwnershipId, statementInfo.statementOwnershipId),
+			),
+		);
+	if (existing.length > 0) {
+		throw new HTTPException(400, {
+			message: `Statement for: ${name} | statement date: ${statementInfo.statementDate} already added`,
+		});
+	}
+};
+
 export const transactionRoute = new Hono()
 	.post("/", zodValidator("json", PostTransactionPayloadZ), async (c) => {
-		const { transactions, statementInfo, cardInfo, accountInfo, companyId } =
-			c.req.valid("json");
-
+		const {
+			transactions,
+			holdings,
+			statementInfo,
+			cardInfo,
+			accountInfo,
+			companyId,
+			userId: payloadUserId,
+		} = c.req.valid("json");
+		const transactionsToInsert = transactions ?? [];
+		const holdingsToInsert = holdings ?? [];
 		const accountCardName = cardInfo?.cardName || accountInfo?.accountName;
 
-		const addStatementOrThrow = async (
-			statementInfo: StatementInfoPayload,
-			userId: string,
-			name?: string,
-		) => {
-			const existingStatementQuery = await db
-				.select()
-				.from(statements)
-				.leftJoin(
-					statementOwnerships,
-					eq(statements.statementOwnershipId, statementOwnerships.id),
-				)
-				.where(
-					and(
-						eq(statements.userId, userId),
-						eq(statements.statementDate, statementInfo.statementDate),
-						eq(
-							statements.statementOwnershipId,
-							statementInfo.statementOwnershipId,
-						),
-					),
-				);
-
-			if (existingStatementQuery.length > 0) {
-				throw new HTTPException(400, {
-					message: `Statement for: ${name} | statement date: ${statementInfo.statementDate} already added`,
-				});
-			}
-		};
-
-		let shouldTrain = false;
-		const documentsToAdd: DocumentToAdd[] = [];
-		const insertedTransactionIds: number[] = [];
-		const userId = transactions[0]?.userId;
+		const userId = payloadUserId ?? transactionsToInsert[0]?.userId;
 		if (!userId) {
 			throw new HTTPException(400, {
 				message: "User id is not provided!",
 			});
 		}
-		await addStatementOrThrow(statementInfo, userId, accountCardName);
+		if (holdingsToInsert.length && !accountInfo?.accountId) {
+			throw new HTTPException(400, {
+				message: "Portfolio holdings can only be saved against an account",
+			});
+		}
+
+		await assertStatementNotDuplicate(statementInfo, userId, accountCardName);
+
+		let trainingResult: PersistTransactionsResult = {
+			shouldTrain: false,
+			documentsToAdd: [],
+			insertedTransactionIds: [],
+		};
 		try {
 			db.transaction((tx) => {
 				appLogger("Checking statement details...");
-				const insertedStatement = tx
-					.insert(statements)
-					.values({
-						statementDate: statementInfo.statementDate,
+				const statement = insertStatementRow(tx, {
+					statementInfo,
+					userId,
+					name: accountCardName,
+				});
+
+				assignEntityToUser(tx, {
+					userId,
+					companyId,
+					accountInfo,
+					cardInfo,
+				});
+
+				if (transactionsToInsert.length) {
+					appLogger("Processing transactions...");
+					trainingResult = insertStatementTransactions(tx, {
+						transactionsToInsert,
+						statementId: statement.id,
 						userId,
-						statementOwnershipId: statementInfo.statementOwnershipId,
-					})
-					.returning()
-					.all();
-				if (!insertedStatement[0]) {
-					tx.rollback();
-					throw new Error(
-						`Error persisting statement for user ${userId}, ${accountCardName}`,
+					});
+				}
+
+				if (holdingsToInsert.length && accountInfo?.accountId) {
+					appLogger(
+						`Processing ${holdingsToInsert.length} portfolio holdings...`,
 					);
-				}
-				appLogger(`Inserted statement for user ${userId}, ${accountCardName}`);
-
-				appLogger("Check assignment of card/account to user");
-				const insertCompanyQuery = tx
-					.insert(userCompanies)
-					.values({ userId, companyId });
-				if (accountInfo) {
-					const insertedRes = tx
-						.insert(userAccounts)
-						.values({ accountId: accountInfo.accountId, userId })
-						.returning()
-						.onConflictDoNothing()
-						.all();
-					if (insertedRes[0]) {
-						appLogger(`Inserted account ${insertedRes[0].accountId}`);
-						insertCompanyQuery.returning().onConflictDoNothing().all();
-					}
-				} else if (cardInfo) {
-					const insertedRes = tx
-						.insert(userCards)
-						.values({ cardId: cardInfo.cardId, userId })
-						.returning()
-						.onConflictDoNothing()
-						.all();
-					if (insertedRes[0]) {
-						appLogger(`Inserted card ${insertedRes[0].cardId}`);
-						insertCompanyQuery.returning().onConflictDoNothing().all();
-					}
-				}
-				appLogger("Assignment done");
-
-				appLogger("Processing transactions...");
-				for (const t of transactions) {
-					const { tags, split, ...rest } = t;
-
-					const findRes = tx
-						.select()
-						.from(transactionsDb)
-						.leftJoin(
-							transactionStatements,
-							eq(transactionStatements.transactionId, transactionsDb.id),
-						)
-						.where(
-							and(
-								eq(transactionsDb.description, t.description),
-								eq(transactionsDb.amount, t.amount),
-								eq(transactionsDb.transactionDate, t.transactionDate),
-								eq(transactionsDb.userId, t.userId),
-								ne(transactionStatements.statementId, insertedStatement[0].id),
-							),
-						)
-						.all();
-
-					if (findRes.length) {
-						appLogger(
-							`Found ${findRes.length} similar transaction/s, skipping insert`,
-						);
-						appLogger(`Similar transaction ids: ${JSON.stringify(findRes)}`);
-						throw new Error(`Found ${findRes.length} similar transaction`);
-					}
-
-					const txnId = tx
-						.insert(transactionsDb)
-						.values(rest)
-						.returning({ id: transactionsDb.id })
-						.all();
-					const insertedTxn = txnId[0];
-					if (!insertedTxn) {
-						appLogger(`WARN: Could not add transaction ${t.description}`);
-						throw new Error(`Could not add transaction ${t.description}`);
-					}
-
-					const insertedTxnStm = tx
-						.insert(transactionStatements)
-						.values({
-							transactionId: insertedTxn.id,
-							statementId: insertedStatement[0].id,
-						})
-						.returning()
-						.all();
-
-					if (!insertedTxnStm[0]) {
-						throw new Error(
-							`Could not add statement to transaction ${t.description}`,
-						);
-					}
-
-					insertedTransactionIds.push(...txnId.map((txn) => txn.id));
-					if (tags?.length) {
-						const tagIds = tags.map((tag) => tag.id);
-						const queryRes = tx
-							.select({
-								id: tagsDb.id,
-								description: tagsDb.description,
-							})
-							.from(tagsDb)
-							.where(inArray(tagsDb.id, tagIds))
-							.all();
-
-						if (queryRes.length !== tagIds.length) {
-							appLogger(
-								`WARN: Some tags do not exist! Inserted ${queryRes.length} out of ${tagIds.length} tags`,
-							);
-							appLogger(`  tagIds inserted: ${JSON.stringify(queryRes)}`);
-							appLogger(`  tagIds given: ${JSON.stringify(tagIds)}`);
-							throw new Error("Tag does not exist!");
-						} else {
-							const transactionTagsToInsert = queryRes.map((foundTag) => {
-								documentsToAdd.push({
-									description: t.description,
-									tag: foundTag.description,
-									transactionId: insertedTxn.id,
-								});
-								return {
-									transactionId: insertedTxn.id,
-									tagId: foundTag.id,
-								};
-							});
-							const ids = tx
-								.insert(transactionTagsDb)
-								.values(transactionTagsToInsert)
-								.returning({ id: transactionTagsDb.tagId })
-								.all();
-							if (ids.length !== queryRes.length) {
-								appLogger(`WARN: Not all tags inserted`);
-								tx.rollback();
-							} else {
-								appLogger(`Inserted ${ids.length} tags`);
-								shouldTrain = true;
-							}
-						}
-					}
-
-					if (split) {
-						insertTransactionShares(
-							[
-								{
-									transactionId: insertedTxn.id,
-									...split,
-								},
-							],
-							userId,
-						);
-					}
+					persistHoldings(tx, {
+						userId,
+						companyId,
+						accountId: accountInfo.accountId,
+						statementId: statement.id,
+						asOfDate: statementInfo.statementDate,
+						holdings: holdingsToInsert,
+					});
+					appLogger("Portfolio holdings persisted");
 				}
 			});
 		} catch (e) {
@@ -344,11 +265,15 @@ export const transactionRoute = new Hono()
 			});
 		}
 
-		if (shouldTrain && documentsToAdd.length) {
-			runTrainer(documentsToAdd, insertedTransactionIds, {
-				userId,
-				transactionsInserted: insertedTransactionIds.length,
-			});
+		if (trainingResult.shouldTrain && trainingResult.documentsToAdd.length) {
+			runTrainer(
+				trainingResult.documentsToAdd,
+				trainingResult.insertedTransactionIds,
+				{
+					userId,
+					transactionsInserted: trainingResult.insertedTransactionIds.length,
+				},
+			);
 		}
 
 		return c.text("All inserted", 201);

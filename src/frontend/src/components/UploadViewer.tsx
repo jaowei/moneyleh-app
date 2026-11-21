@@ -30,9 +30,15 @@ import {
 	editableFieldTypes,
 	updateEditableField,
 } from "../lib/editable-fields.ts";
+import {
+	hasIncompleteHolding,
+	toEditableHoldingRows,
+	toHoldingPayload,
+} from "../lib/editable-holdings.ts";
 import { getBackendErrorResponse } from "../lib/error.ts";
 import { AccountCardDialog } from "./AccountCardDialog.tsx";
 import { EditableCell } from "./EditableCell.tsx";
+import { PortfolioTable } from "./PortfolioTable.tsx";
 import { TagPicker, TagPickerModal, type UiTag } from "./TagPicker.tsx";
 import { TagTableViewer } from "./TagTableViewer.tsx";
 import {
@@ -55,6 +61,7 @@ interface TransactionViewerTabContentProps extends TransactionViewerProps {
 
 interface TransactionsTableProps {
 	transactions: FileUploadRes["taggedTransactions"][0];
+	holdings: FileUploadRes["portfolio"][0];
 	statementInfo: Omit<FileUploadRes["statementInfo"], "statementOwnerIds"> & {
 		statementOwnershipId: number | null | undefined;
 	};
@@ -174,6 +181,7 @@ const TransactionViewerRow = ({
 
 const TransactionViewerTable = ({
 	transactions,
+	holdings,
 	statementInfo,
 	accountInfo,
 	cardInfo,
@@ -219,6 +227,14 @@ const TransactionViewerTable = ({
 	const allSelected =
 		selectState.length > 0 && selectState.every((val) => val === true);
 	const someSelected = hasMultiSelect && !allSelected;
+	const hasAnythingToSave =
+		editableTransactions.length > 0 || holdings.length > 0;
+	const holdingsIncomplete = hasIncompleteHolding(holdings);
+	const saveLabel = holdings.length
+		? editableTransactions.length > 0
+			? `Save holdings and transactions for ${name}`
+			: `Save holdings for ${name}`
+		: `Save transactions for ${name}`;
 
 	const handleSaveTransactionsClick = async () => {
 		if (!statementInfo.statementOwnershipId) throw new Error();
@@ -227,6 +243,9 @@ const TransactionViewerTable = ({
 			const res = await backendRouteClient.api.transaction.$post({
 				json: {
 					transactions: editableTransactions,
+					// Broker statements persist the parsed portfolio alongside
+					// any money movements. Empty for card and account statements.
+					holdings,
 					statementInfo: {
 						...statementInfo,
 						statementOwnershipId: statementInfo.statementOwnershipId,
@@ -234,6 +253,7 @@ const TransactionViewerTable = ({
 					cardInfo,
 					accountInfo,
 					companyId,
+					userId,
 				},
 			});
 			if (!res.ok) {
@@ -344,12 +364,20 @@ const TransactionViewerTable = ({
 					type="button"
 					className="btn btn-primary btn-sm xl:btn-md "
 					disabled={
-						saveDisabled || requestSuccess || !editableTransactions.length
+						saveDisabled ||
+						requestSuccess ||
+						!hasAnythingToSave ||
+						holdingsIncomplete
 					}
 					onClick={handleSaveTransactionsClick}
 				>
-					Save transactions for {name}
+					{saveLabel}
 				</button>
+				{holdingsIncomplete && (
+					<div role="alert" className="alert alert-warning py-2">
+						<span>Give every holding an instrument name before saving.</span>
+					</div>
+				)}
 				{error && (
 					<div role="alert" className="alert alert-error">
 						<span>{error}</span>
@@ -461,6 +489,10 @@ const TabContent = ({
 	const statementIsNotLinked = !statementInfo.statementOwnerIds[idx];
 	const [isUnlinked, setIsUnlinked] = useState(statementIsNotLinked);
 	const [newStatementOwnerId, setNewStatementOwnerId] = useState<number>();
+	const [saved, setSaved] = useState(false);
+	const [holdingRows, setHoldingRows] = useState(() =>
+		toEditableHoldingRows(fileUploadRes.portfolio[idx] ?? []),
+	);
 	const [entitiesToLink, setEntitiesToLink] = useState(
 		availableAccounts[idx] || availableCards[idx] || [],
 	);
@@ -539,8 +571,16 @@ const TabContent = ({
 						</button>
 					</div>
 				)}
+				{fileUploadRes.statementType === "broker" && (
+					<PortfolioTable
+						rows={holdingRows}
+						setRows={setHoldingRows}
+						canEdit={!saved && !isUnlinked}
+					/>
+				)}
 				<TransactionViewerTable
 					transactions={transactions}
+					holdings={toHoldingPayload(holdingRows)}
 					statementInfo={{
 						statementDate: statementInfo.statementDate,
 						statementOwnershipId:
@@ -552,6 +592,7 @@ const TabContent = ({
 					saveDisabled={isUnlinked}
 					companyId={companyId}
 					usersRes={users}
+					onSaveSuccess={() => setSaved(true)}
 				/>
 				<AccountCardDialog
 					ref={dialogRef}

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedInventoryRouteRouteImport } from './routes/_authenticated/inventory.route'
+import { Route as AuthenticatedPortfolioRouteImport } from './routes/_authenticated/portfolio'
 import { Route as AuthenticatedInventoryIndexRouteImport } from './routes/_authenticated/inventory.index'
 import { Route as AuthenticatedInventoryUploadRouteImport } from './routes/_authenticated/inventory.upload'
 import { Route as AuthenticatedSplitIndexRouteImport } from './routes/_authenticated/split.index'
@@ -44,6 +45,11 @@ const AuthenticatedInventoryRouteRoute =
     path: '/inventory',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedPortfolioRoute = AuthenticatedPortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedInventoryIndexRoute =
   AuthenticatedInventoryIndexRouteImport.update({
     id: '/',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/inventory': typeof AuthenticatedInventoryRouteRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/portfolio': typeof AuthenticatedPortfolioRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/split/': typeof AuthenticatedSplitIndexRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/portfolio': typeof AuthenticatedPortfolioRoute
   '/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/inventory': typeof AuthenticatedInventoryIndexRoute
   '/split': typeof AuthenticatedSplitIndexRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRouteRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/portfolio': typeof AuthenticatedPortfolioRoute
   '/_authenticated/inventory/upload': typeof AuthenticatedInventoryUploadRoute
   '/_authenticated/inventory/': typeof AuthenticatedInventoryIndexRoute
   '/_authenticated/split/': typeof AuthenticatedSplitIndexRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/inventory'
     | '/dashboard'
+    | '/portfolio'
     | '/inventory/upload'
     | '/inventory/'
     | '/split/'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/dashboard'
+    | '/portfolio'
     | '/inventory/upload'
     | '/inventory'
     | '/split'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/inventory'
     | '/_authenticated/dashboard'
+    | '/_authenticated/portfolio'
     | '/_authenticated/inventory/upload'
     | '/_authenticated/inventory/'
     | '/_authenticated/split/'
@@ -173,6 +185,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/inventory'
       preLoaderRoute: typeof AuthenticatedInventoryRouteRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/portfolio': {
+      id: '/_authenticated/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof AuthenticatedPortfolioRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inventory/': {
@@ -227,6 +246,7 @@ const AuthenticatedInventoryRouteRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedInventoryRouteRoute: typeof AuthenticatedInventoryRouteRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedPortfolioRoute: typeof AuthenticatedPortfolioRoute
   AuthenticatedSplitIndexRoute: typeof AuthenticatedSplitIndexRoute
 }
 
@@ -234,6 +254,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInventoryRouteRoute:
     AuthenticatedInventoryRouteRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedPortfolioRoute: AuthenticatedPortfolioRoute,
   AuthenticatedSplitIndexRoute: AuthenticatedSplitIndexRoute,
 }
 

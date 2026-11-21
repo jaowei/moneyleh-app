@@ -30,6 +30,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 							</Link>
 						</li>
 						<li>
+							<Link to="/portfolio" activeProps={{ className: "font-bold" }}>
+								Portfolio
+							</Link>
+						</li>
+						<li>
 							<Link
 								to="/split"
 								activeProps={{ className: "font-bold" }}
